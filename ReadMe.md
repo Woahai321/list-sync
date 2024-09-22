@@ -154,13 +154,12 @@ Buckle up for some fun insights and interesting facts! Your IMDB to Overseerr Sy
 
 ## 🤓 Fun Facts
 
-- **Movie Buff Trivia**: Did you know the "Harry Potter" series used over 600 liters of fake blood? 🧛‍♂️ [Source](https://www.mentalfloss.com/article/55952/12-magical-facts-about-harry-potter-movies)
-- **Cinema History**: The first drive-in theater opened in 1933 in New Jersey. 🚗🎥 [Source](https://www.history.com/news/a-brief-history-of-the-drive-in-movie-theater)
-- **Legendary Cameo**: Alfred Hitchcock made cameo appearances in 39 of his 52 surviving major films! 🎭 [Source](https://www.telegraph.co.uk/films/2016/03/26/alfred-hitchcocks-greatest-cameos---from-the-lodger-to-family-pl/)
-- **Oscar Records**: Walt Disney holds the record for the most Oscars with 22 wins and 59 nominations. 🏆 [Source](https://www.oscars.org/about/memorable-moments)
-- **Expensive Set**: "Pirates of the Caribbean: On Stranger Tides" is one of the most expensive movies ever made, with a budget of $379 million. 🏴‍☠️ [Source](https://www.the-numbers.com/movie/Pirates-of-the-Caribbean-On-Stranger-Tides)
-- **Film Length**: The longest movie ever made is the experimental film "Modern Times Forever," which runs for 240 hours (10 days). 🎬 [Source](https://www.guinnessworldrecords.com/world-records/longest-film)
-- **Box Office King**: "Avengers: Endgame" surpassed "Avatar" to become the highest-grossing film of all time. 💰 [Source](https://www.theguardian.com/film/2019/jul/21/avengers-endgame-highest-grossing-film-avatar-box-office)
+- **Cinema History**: The first drive-in theater opened in 1933 in New Jersey. 🚗🎥 [Source](https://en.m.wikipedia.org/wiki/File:First_drive-in_theater_Camden_NJ_1933.jpg#:~:text=in%20Pennsauken%2C%20near%20Camden%2C%20New,Adolphe%20Menjou%27s%20Wife%20Beware.)
+- **Legendary Cameo**: Alfred Hitchcock made cameo appearances in 39 of his 52 surviving major films! 🎭 [Source](https://hitchcock.fandom.com/wiki/Alfred_Hitchcock_cameo_appearances#:~:text=English%20film%20director%20Alfred%20Hitchcock,trying%20to%20spot%20his%20cameos.)
+- **Oscar Records**: Walt Disney holds the record for the most Oscars with 22 wins and 59 nominations. 🏆 [Source](https://www.emmys.com/bios/walt-disney#:~:text=As%20a%20film%20producer%2C%20Disney,Emmy%20Award%2C%20among%20other%20honors.)
+- **Expensive Set**: "Pirates of the Caribbean: On Stranger Tides" is one of the most expensive movies ever made, with a budget of $379 million. 🏴‍☠️ [Source](https://en.wikipedia.org/wiki/Pirates_of_the_Caribbean:_On_Stranger_Tides#:~:text=Filming%20employed%203D%20cameras%20similar,the%20time%20of%20its%20release.)
+- **Film Length**: The longest movie ever made is the experimental film "Modern Times Forever," which runs for 240 hours (10 days). 🎬 [Source](https://www.forbesindia.com/article/explainers/longest-films-by-running-time/93944/1#:~:text=Directed%20by%20the%20Finnish%20art,the%20building%27s%20transformation%20over%20time.)
+- **Box Office King**: "Avengers: Endgame" surpassed "Avatar" to become the highest-grossing film of all time. 💰 [Source](https://variety.com/2021/film/news/avatar-avengers-endgame-highest-grossing-movie-all-time-1234929216/#:~:text=“Avengers%3A%20Endgame”%20eclipsed%20that,to%20a%20historic%20%242.7926%20billion.)
 
 ## 🏆 Tool Achievements
 
