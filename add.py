@@ -159,7 +159,7 @@ def main():
         overseerr_url, api_key, imdb_list_id = get_user_input()
         save_config(overseerr_url, api_key)
     else:
-        imdb_list_id = input(f"{Fore.MAGENTA}Enter IMDB List ID: {Style.RESET_ALL}")
+        imdb_list_id = input(f"{Fore.MAGENTA}Enter IMDB List ID: (e.g. ls012345678) {Style.RESET_ALL}")
 
     try:
         test_overseerr_api(overseerr_url, api_key)
@@ -192,15 +192,15 @@ def main():
                 movie_id, media_type = search_result
                 request_status = request_movie_in_overseerr(overseerr_url, api_key, movie_id, media_type)
                 if request_status == "success":
-                    print(f"{Fore.BLUE}🎬 Movie requested successfully: {movie_title}{Style.RESET_ALL}")
+                    print(f"{Fore.GREEN}✅ Movie requested successfully: {movie_title}{Style.RESET_ALL}")
                     logging.info(f"Requested movie: {movie_title}")
                     requested_movies += 1
                 elif request_status == "already_exists":
-                    print(f"{Fore.YELLOW}⚠️ Movie already exists in Overseerr: {movie_title}{Style.RESET_ALL}")
+                    print(f"{Fore.YELLOW}☑️ Movie already exists in Overseerr: {movie_title}{Style.RESET_ALL}")
                     logging.info(f"Movie already exists in Overseerr: {movie_title}")
                     already_requested_movies += 1
             else:
-                print(f"{Fore.MAGENTA}🕵️‍♂️ Movie not found in Overseerr: {movie_title}{Style.RESET_ALL}")
+                print(f"{Fore.RED}🔔 Movie not found in Overseerr: {movie_title}{Style.RESET_ALL}")
                 logging.error(f"Movie not found in Overseerr: {movie_title}")
                 failed_movies += 1
         except Exception as e:
