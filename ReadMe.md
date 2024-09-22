@@ -30,6 +30,8 @@ Welcome to the **IMDB to Overseerr Sync Tool**! 🎉 This amazing tool automates
 
 ![Bot In Action](https://share.woahlab.com/-jkZgyUoDXH)
 
+---
+
 ## 🌟 Features
 
 - **Automatic IMDB Import**: Easily fetch and import movies from IMDB lists into Overseerr with a few clicks.
