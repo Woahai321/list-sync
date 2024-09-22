@@ -118,7 +118,7 @@ python add.py
 
 ## 📋 Notes
 
-- **Security Best Practices**: Read scripts you find online before running them.
+- **Security Best Practices**: Please read scripts you find online before running them.
 - **Security Best Practices Cont.**: Always keep your API credentials secure.
 - **Rate Limiting Awareness**: Be mindful of Overseerr's rate limiting policies during imports.
 - **Permission Compliance**: Only import and manage media you have the rights to handle.
