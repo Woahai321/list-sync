@@ -11,19 +11,24 @@ Welcome to the **IMDB to Overseerr Sync Tool**! 🎉 This amazing tool automates
 
 ## 📜 Table of Contents
 
-1. [Features](#-features)
-2. [How it Works](#-how-it-works)
-3. [Getting Started](#-getting-started)
+1. [Demo](#-demo)
+2. [Features](#-features)
+3. [How it Works](#-how-it-works)
+4. [Getting Started](#-getting-started)
     - [Prerequisites](#prerequisites)
     - [Installation Steps](#installation-steps)
     - [Configuration](#configuration)
-4. [Troubleshooting](#-troubleshooting)
-5. [Roadmap](#-roadmap)
-6. [Notes](#-notes)
-7. [Contact](#-contact)
-8. [Contributing](#-contributing)
-9. [License](#-license)
-10. [Fun Zone: Get to Know Your Tool!](#-fun-zone-get-to-know-your-tool)
+5. [Troubleshooting](#-troubleshooting)
+6. [Roadmap](#-roadmap)
+7. [Notes](#-notes)
+8. [Contact](#-contact)
+9. [Contributing](#-contributing)
+10. [License](#-license)
+11. [Fun Zone: Get to Know Your Tool!](#-fun-zone-get-to-know-your-tool)
+
+## 🎬 Demo
+
+![Bot In Action](https://share.woahlab.com/-jkZgyUoDXH)
 
 ## 🌟 Features
 
