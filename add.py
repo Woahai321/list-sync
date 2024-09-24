@@ -7,18 +7,19 @@
 #              /
 # © 2024 Soluify LLC
 # ------------------------------------------------------------------------------
-import requests
-import bs4
 import json
 import logging
-from colorama import Fore, Style, init
-import time
 import os
-from urllib.parse import quote
+import time
+import html
+import requests
+import bs4
 from halo import Halo
+from colorama import Fore, Style, init
 from cryptography.fernet import Fernet
 import getpass
 import base64
+from urllib.parse import quote
 
 # Initialize colorama for cross-platform colored terminal output
 init(autoreset=True)
@@ -41,7 +42,7 @@ def display_ascii_art():
   | || |\/| | |) | _ \ |___> > \__ \ _|| _||   /   /
  |___|_|  |_|___/|___/    /_/  |___/___|___|_|_\_|_\\
     """
-    art_lines = ascii_art.split("\n")
+    art_lines = ascii_art.split('\n')
     for line in art_lines:
         print(Fore.CYAN + line)
         time.sleep(0.1)
@@ -59,28 +60,28 @@ def decrypt_config(encrypted_data, password):
 
 def save_config(overseerr_url, api_key):
     config = {
-        "overseerr_url": overseerr_url,
-        "api_key": api_key
+        'overseerr_url': overseerr_url,
+        'api_key': api_key
     }
-    password = getpass.getpass("🔐 Enter a password to encrypt your config: ")
+    password = getpass.getpass('🔐 Enter a password to encrypt your config: ')
     encrypted_config = encrypt_config(config, password)
     with open('config.enc', 'wb') as f:
         f.write(encrypted_config)
-    print(f"{Fore.GREEN}✅ Config saved and encrypted. Remember your password!{Style.RESET_ALL}")
+    print(f'\n{Fore.GREEN}✅ Config saved and encrypted. Remember your password!{Style.RESET_ALL}\n')
 
 def load_config():
     if os.path.exists('config.enc'):
         with open('config.enc', 'rb') as f:
             encrypted_config = f.read()
-        password = getpass.getpass("🔑 Enter your config password: ")
+        password = getpass.getpass('🔑 Enter your config password: ')
         try:
             config = decrypt_config(encrypted_config, password)
             return config['overseerr_url'], config['api_key']
         except:
-            print(f"{Fore.RED}❌ Incorrect password. Unable to decrypt config.{Style.RESET_ALL}")
-            if input("🗑️ Delete this config and start over? (y/n): ").lower() == 'y':
+            print(f'\n{Fore.RED}❌ Incorrect password. Unable to decrypt config.{Style.RESET_ALL}')
+            if input('\n🗑️ Delete this config and start over? (y/n): ').lower() == 'y':
                 os.remove('config.enc')
-                print(f"{Fore.YELLOW}🔄 Config deleted. Rerun the script to set it up again.{Style.RESET_ALL}")
+                print(f'\n{Fore.YELLOW}🔄 Config deleted. Rerun the script to set it up again.{Style.RESET_ALL}\n')
             return None, None
     return None, None
 
@@ -95,11 +96,11 @@ def test_overseerr_api(overseerr_url, api_key):
     try:
         response = requests.get(test_url, headers=headers)
         response.raise_for_status()
-        spinner.succeed(f"{Fore.GREEN}🎉 Overseerr API connection successful!{Style.RESET_ALL}")
-        logging.info("Overseerr API connection successful!")
+        spinner.succeed(f'{Fore.GREEN}🎉 Overseerr API connection successful!{Style.RESET_ALL}')
+        logging.info('Overseerr API connection successful!')
     except Exception as e:
-        spinner.fail(f"{Fore.RED}❌ Overseerr API connection failed. Error: {str(e)}{Style.RESET_ALL}")
-        logging.error(f"Overseerr API connection failed. Error: {str(e)}")
+        spinner.fail(f'{Fore.RED}❌ Overseerr API connection failed. Error: {str(e)}{Style.RESET_ALL}')
+        logging.error(f'Overseerr API connection failed. Error: {str(e)}')
         raise
 
 def fetch_imdb_list(list_id):
@@ -110,92 +111,91 @@ def fetch_imdb_list(list_id):
         r.raise_for_status()
         soup = bs4.BeautifulSoup(r.text, 'html.parser')
         ld_json = json.loads(soup.find("script", {"type": "application/ld+json"}).text)
-        movies = [{"title": row["item"]["name"], "imdb_id": row["item"]["url"].split("/")[-2]} for row in ld_json["itemListElement"]]
+        movies = [{"title": html.unescape(row["item"]["name"]), "imdb_id": row["item"]["url"].split("/")[-2]} for row in ld_json["itemListElement"]]
         spinner.succeed(f'{Fore.GREEN}✨ Successfully fetched {len(movies)} movies from IMDB list!{Style.RESET_ALL}')
-        logging.info(f"IMDB list fetched successfully. Found {len(movies)} items.")
+        logging.info(f'IMDB list fetched successfully. Found {len(movies)} items.')
         return movies
     except Exception as e:
-        spinner.fail(f"{Fore.RED}💥 Failed to fetch IMDB list. Error: {str(e)}{Style.RESET_ALL}")
-        logging.error(f"Error fetching IMDB list: {str(e)}")
+        spinner.fail(f'{Fore.RED}💥 Failed to fetch IMDB list. Error: {str(e)}{Style.RESET_ALL}')
+        logging.error(f'Error fetching IMDB list: {str(e)}')
         raise
 
 def search_movie_in_overseerr(overseerr_url, api_key, movie_title):
     headers = {'X-Api-Key': api_key, 'Content-Type': 'application/json'}
-    search_url = f"{overseerr_url}/api/v1/search?query={quote(movie_title)}"
+    search_url = f'{overseerr_url}/api/v1/search?query={quote(movie_title)}'
     try:
         response = requests.get(search_url, headers=headers)
         response.raise_for_status()
         search_results = response.json()
-        logging.debug(f"Search response for '{movie_title}': {json.dumps(search_results)}")
+        logging.debug(f'Search response for "{movie_title}": {json.dumps(search_results)}')
+        
         for result in search_results.get('results', []):
             if result['mediaType'] == 'movie':
                 movie_id = result['id']
                 media_type = result['mediaType']
-                status = result.get('status')
                 
                 # Get detailed movie information
-                movie_url = f"{overseerr_url}/api/v1/movie/{movie_id}"
+                movie_url = f'{overseerr_url}/api/v1/movie/{movie_id}'
                 movie_response = requests.get(movie_url, headers=headers)
                 movie_response.raise_for_status()
                 movie_data = movie_response.json()
                 
                 media_info = movie_data.get('mediaInfo', {})
-                is_available = media_info.get('status') == 'available'
-                is_requested = media_info.get('requested') or False
-                request_status = media_info.get('requestStatus')
                 
+                is_available_to_watch = media_info.get('status') == 'available'
+                is_requested = any(
+                    request['status'] in ['pending', 'processing', 'approved'] 
+                    for request in movie_data.get('requests', [])
+                )
                 return {
                     'id': movie_id,
                     'mediaType': media_type,
-                    'status': status,
-                    'is_available': is_available,
-                    'is_requested': is_requested,
-                    'request_status': request_status
+                    'is_available_to_watch': is_available_to_watch,
+                    'is_requested': is_requested
                 }
         return None
     except Exception as e:
-        logging.error(f"Error searching for movie '{movie_title}': {str(e)}")
+        logging.error(f'Error searching for movie "{movie_title}": {str(e)}')
         raise
 
 def request_movie_in_overseerr(overseerr_url, api_key, movie_id, media_type):
     headers = {'X-Api-Key': api_key, 'Content-Type': 'application/json'}
-    request_url = f"{overseerr_url}/api/v1/request"
-    payload = {"mediaId": movie_id, "mediaType": media_type, "is4k": False}
+    request_url = f'{overseerr_url}/api/v1/request'
+    payload = {'mediaId': movie_id, 'mediaType': media_type, 'is4k': False}
     try:
         response = requests.post(request_url, headers=headers, json=payload)
-        if response.status_code == 409:
-            return "already_exists"
         response.raise_for_status()
-        logging.debug(f"Request response for movie ID {movie_id}: {json.dumps(response.json())}")
-        return "success"
+        logging.debug(f'Request response for movie ID {movie_id}: {json.dumps(response.json())}')
+        return 'success'
     except Exception as e:
-        logging.error(f"Error requesting movie ID {movie_id}: {str(e)}")
-        raise
+        logging.error(f'Error requesting movie ID {movie_id}: {str(e)}')
+        return 'error'
 
 def main():
     display_ascii_art()
-    print(f"{Fore.CYAN}👋 Welcome to the IMDB to Overseerr Sync Tool!{Style.RESET_ALL}")
+    
+    print(f'{Fore.CYAN}👋 Welcome to the IMDB to Overseerr Sync Tool!{Style.RESET_ALL}\n')
     
     overseerr_url, api_key = load_config()
     if not overseerr_url or not api_key:
-        overseerr_url = input(f"{Fore.MAGENTA}🌐 Enter your Overseerr URL: {Style.RESET_ALL}")
-        api_key = input(f"{Fore.MAGENTA}🔑 Enter your Overseerr API key: {Style.RESET_ALL}")
+        overseerr_url = input(f'\n{Fore.MAGENTA}🌐 Enter your Overseerr URL: {Style.RESET_ALL}')
+        api_key = input(f'\n{Fore.MAGENTA}🔑 Enter your Overseerr API key: {Style.RESET_ALL}')
         save_config(overseerr_url, api_key)
     
-    imdb_list_id = input(f"{Fore.MAGENTA}📋 Enter IMDB List ID (e.g., ls012345678): {Style.RESET_ALL}")
+    imdb_list_id = input(f'\n{Fore.MAGENTA}📋 Enter IMDB List ID (e.g., ls012345678): {Style.RESET_ALL}')
 
     try:
         test_overseerr_api(overseerr_url, api_key)
     except Exception as e:
-        print(f"{Fore.RED}❌ Error testing Overseerr API: {e}{Style.RESET_ALL}")
-        logging.error(f"Error testing Overseerr API: {e}")
+        print(f'\n{Fore.RED}❌ Error testing Overseerr API: {e}{Style.RESET_ALL}\n')
+        logging.error(f'Error testing Overseerr API: {e}')
         return
 
     try:
         movies = fetch_imdb_list(imdb_list_id)
     except Exception as e:
-        print(f"{Fore.RED}❌ Error fetching IMDB list: {e}{Style.RESET_ALL}")
-        logging.error(f"Error fetching IMDB list: {e}")
+        print(f'\n{Fore.RED}❌ Error fetching IMDB list: {e}{Style.RESET_ALL}\n')
+        logging.error(f'Error fetching IMDB list: {e}')
         return
 
     total_movies = len(movies)
@@ -203,50 +203,52 @@ def main():
     already_requested_movies = 0
     already_available_movies = 0
     failed_movies = 0
+    not_found_movies = 0
 
-    print(f"\n{Fore.CYAN}🎬 Processing movies...{Style.RESET_ALL}")
+    print(f'\n{Fore.CYAN}🎬 Processing movies...{Style.RESET_ALL}\n')
     for idx, movie in enumerate(movies, 1):
-        print(f"{Fore.YELLOW}📽 {idx}/{total_movies} - {movie['title']}{Style.RESET_ALL}")
-        logging.info(f"Processing movie {idx}/{total_movies}: {movie['title']}")
+        print(f'{Fore.YELLOW}📽 {idx}/{total_movies} - {movie["title"]}{Style.RESET_ALL}\n')
+        logging.info(f'Processing movie {idx}/{total_movies}: {movie["title"]}')
         try:
             search_result = search_movie_in_overseerr(overseerr_url, api_key, movie['title'])
             if search_result:
-                if search_result['is_available']:
-                    print(f"{Fore.CYAN}✅ Already available: {movie['title']}{Style.RESET_ALL}")
-                    logging.info(f"Movie already available: {movie['title']}")
+                if search_result['is_available_to_watch']:  # Available to watch
+                    print(f'{Fore.CYAN}✅ Already available: {movie["title"]}{Style.RESET_ALL}\n')
+                    logging.info(f'Movie already available: {movie["title"]}')
                     already_available_movies += 1
-                elif search_result['is_requested']:
-                    print(f"{Fore.YELLOW}📌 Already requested: {movie['title']}{Style.RESET_ALL}")
-                    logging.info(f"Movie already requested: {movie['title']}")
+                elif search_result['is_requested']:  # Already requested, not yet available
+                    print(f'{Fore.YELLOW}📌 Already requested: {movie["title"]}{Style.RESET_ALL}\n')
+                    logging.info(f'Movie already requested: {movie["title"]}')
                     already_requested_movies += 1
-                else:
+                else:  # Available to request
                     request_status = request_movie_in_overseerr(overseerr_url, api_key, search_result['id'], search_result['mediaType'])
-                    if request_status == "success":
-                        print(f"{Fore.GREEN}🎉 Requested: {movie['title']}{Style.RESET_ALL}")
-                        logging.info(f"Requested movie: {movie['title']}")
-                        added_logger.info(f"Requested: {movie['title']} (IMDB ID: {movie['imdb_id']})")
+                    if request_status == 'success':
+                        print(f'{Fore.GREEN}🎉 Requested: {movie["title"]}{Style.RESET_ALL}\n')
+                        logging.info(f'Requested movie: {movie["title"]}')
+                        added_logger.info(f'Requested: {movie["title"]} (IMDB ID: {movie["imdb_id"]})')
                         requested_movies += 1
-                    elif request_status == "already_exists":
-                        print(f"{Fore.YELLOW}📌 Already requested: {movie['title']}{Style.RESET_ALL}")
-                        logging.info(f"Movie already requested: {movie['title']}")
-                        already_requested_movies += 1
+                    else:
+                        print(f'{Fore.RED}❌ Failed to request: {movie["title"]}{Style.RESET_ALL}\n')
+                        logging.error(f'Failed to request movie: {movie["title"]}')
+                        failed_movies += 1
             else:
-                print(f"{Fore.RED}❓ Not found: {movie['title']}{Style.RESET_ALL}")
-                logging.error(f"Movie not found in Overseerr: {movie['title']}")
-                failed_movies += 1
+                print(f'{Fore.RED}❓ Not found: {movie["title"]}{Style.RESET_ALL}\n')
+                logging.error(f'Movie not found in Overseerr: {movie["title"]}')
+                not_found_movies += 1
         except Exception as e:
-            print(f"{Fore.RED}❌ Error processing: {movie['title']}{Style.RESET_ALL}")
-            logging.error(f"Error processing movie {movie['title']}: {e}")
+            print(f'{Fore.RED}❌ Error processing: {movie["title"]}{Style.RESET_ALL}\n')
+            logging.error(f'Error processing movie {movie["title"]}: {e}')
             failed_movies += 1
         time.sleep(1)  # Rate limiting
 
-    print(f"\n{Fore.CYAN}📊 Summary{Style.RESET_ALL}")
-    print(f"{Fore.BLUE}🎥 Total movies in list: {total_movies}{Style.RESET_ALL}")
-    print(f"{Fore.GREEN}✅ Successfully requested: {requested_movies}{Style.RESET_ALL}")
-    print(f"{Fore.YELLOW}📌 Already requested: {already_requested_movies}{Style.RESET_ALL}")
-    print(f"{Fore.CYAN}🍿 Already available: {already_available_movies}{Style.RESET_ALL}")
-    print(f"{Fore.RED}❌ Failed to process: {failed_movies}{Style.RESET_ALL}")
-    logging.info(f"Summary: Total: {total_movies}, Requested: {requested_movies}, Already Requested: {already_requested_movies}, Already Available: {already_available_movies}, Failed: {failed_movies}")
+    print(f'\n{Fore.CYAN}📊 Summary{Style.RESET_ALL}\n')
+    print(f'{Fore.BLUE}🎥 Total movies in list: {total_movies}{Style.RESET_ALL}\n')
+    print(f'{Fore.GREEN}✅ Successfully requested: {requested_movies}{Style.RESET_ALL}\n')
+    print(f'{Fore.YELLOW}📌 Already requested: {already_requested_movies}{Style.RESET_ALL}\n')
+    print(f'{Fore.CYAN}🍿 Already available: {already_available_movies}{Style.RESET_ALL}\n')
+    print(f'{Fore.RED}❓ Not found: {not_found_movies}{Style.RESET_ALL}\n')
+    print(f'{Fore.RED}❌ Failed to process: {failed_movies}{Style.RESET_ALL}\n')
+    logging.info(f'Summary: Total: {total_movies}, Requested: {requested_movies}, Already Requested: {already_requested_movies}, Already Available: {already_available_movies}, Not Found: {not_found_movies}, Failed: {failed_movies}')
 
 if __name__ == "__main__":
     main()
