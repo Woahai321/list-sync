@@ -1,5 +1,5 @@
 requests==2.26.0
 beautifulsoup4==4.10.0
-colorama==0.4.4
 halo==0.0.31
-cryptography==3.4.7
+colorama==0.4.4
+cryptography==35.0.0
