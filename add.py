@@ -86,7 +86,7 @@ def display_summary(total_movies, requested_movies, already_requested_movies, al
 
     📌 Movies already requested: {already_requested_movies}
 
-    ☑️ Movies already available: {already_available_movies} 
+    ☑️  Movies already available: {already_available_movies} 
 
     ❓ Movies not found: {not_found_movies}
 
