@@ -28,7 +28,7 @@ Welcome to the **IMDB to Overseerr Sync Tool**! 🎉 This amazing tool automates
 
 ## 🎬 Demo
 
-![Bot In Action](https://share.woahlab.com/-J7uDtsPvq3)
+![Bot In Action](https://share.woahlab.com/-cwx8pZdAhL)
 
 ---
 
