@@ -40,6 +40,8 @@ Welcome to the **IMDB to Overseerr Sync Tool**! 🎉 This amazing tool automates
 - **Advanced Error Handling**: Comprehensive logging and error messages to help you troubleshoot anything.
 - **One-time Configuration**: Save and reuse configuration profiles, simplifying future imports.
 - **Seamless Exit**: Gracefully stop the import process without losing your place.
+- **Encryption for Configuration**: Securely store your Overseerr URL and API key with encryption.
+- **Detailed Logging**: Separate logs for main processes and successfully added items.
 
 ---
 
@@ -51,6 +53,8 @@ The IMDB to Overseerr Sync Tool utilizes a mix of Python and powerful libraries 
 2. **IMDB List Fetching**: Fetch and parse movies from your specified IMDB list ID.
 3. **Configuration Management**: Tailor the tool to your preferences, and save these settings for future use.
 4. **Processing**: The tool processes each movie, importing it into Overseerr, while handling any errors that come up.
+5. **Status Updates**: Receive real-time updates on the status of each movie (e.g., already available, requested, not found).
+6. **Encryption**: Securely encrypt your configuration data to ensure your credentials are protected.
 
 ---
 
@@ -85,6 +89,10 @@ python add.py
     - **API Key**: The API key from your Overseerr account.
     - **IMDB List ID**: The ID of the IMDB list you want to import.
 
+2. **Saving Configuration**: 
+    - The script will prompt you to enter a password to encrypt your configuration.
+    - This encrypted configuration will be saved and reused for future imports.
+
 ---
 
 ## 🛠 Troubleshooting
@@ -95,24 +103,35 @@ python add.py
    - **Solution:** Ensure your API key is correctly entered and matches Overseerr's credentials.
 
 2. **Unexpected Script Behavior**
-   - **Solution:** Check the `add.log` file for detailed error messages and resolve the issue based on these logs.
+   - **Solution:** Check the `overseerr_sync.log` file for detailed error messages and resolve the issue based on these logs.
+
+3. **Failed to Fetch IMDB List**
+   - **Solution:** Ensure the IMDB list ID is correct and the list is publicly accessible.
+
+4. **Decryption Error**
+   - **Solution:** Ensure you enter the correct password for decrypting the configuration. If the password is lost, delete the `config.enc` file and reconfigure.
 
 ---
 
 ## 🛤️ Roadmap
 
-### Next Steps
+### Completed Actions
 1. [x] **Enhanced Error Messages**: Improve error descriptions for easier troubleshooting.
-2. [x] **User Profiles**: Ability to save and load Overseerr details from a configuration file.
-3. [ ] **Support for TV Shows**: Extend functionality to import TV shows from IMDB lists.
+2. [x] **Secure User Profiles**: Ability to save and load Overseerr details from an encrypted configuration file.
+3. [x] **Color Gradient UI**: Added color gradients to various UI components for better readability and aesthetics.
+4. [x] **Dynamic Status Updates**: Combined processing message and status update in one line with dynamic color changes.
+5. [x] **Emoji Updates**: Updated emojis to better reflect the status (e.g., ✅ for success, ❌ for errors, ☑️ for already available).
+
+### Next Steps
+6. [ ] **Support for TV Shows**: Extend functionality to import TV shows from IMDB lists.
 
 ### Future Enhancements
-4. [ ] **Web Dashboard**: Create a web-based interface for more user-friendly interaction.
-5. [ ] **Batch Processing**: Enable batch processing for multiple IMDB lists simultaneously.
+7. [ ] **Web Dashboard**: Create a web-based interface for more user-friendly interaction.
+8. [ ] **Batch Processing**: Enable batch processing for multiple IMDB lists simultaneously.
 
 ### Long-term Goals
-6. [ ] **Automated Syncing**: Schedule automatic syncing between IMDB and Overseerr.
-7. [ ] **Customization Options**: Allow users to fully customize the UI and behavior of the tool.
+9. [ ] **Automated Syncing**: Schedule automatic syncing between IMDB and Overseerr.
+10. [ ] **Customization Options**: Allow users to fully customize the UI and behavior of the tool.
 
 ---
 
@@ -160,14 +179,6 @@ Buckle up for some fun insights and interesting facts! Your IMDB to Overseerr Sy
 - **Expensive Set**: "Pirates of the Caribbean: On Stranger Tides" is one of the most expensive movies ever made, with a budget of $379 million. 🏴‍☠️ [Source](https://en.wikipedia.org/wiki/Pirates_of_the_Caribbean:_On_Stranger_Tides#:~:text=Filming%20employed%203D%20cameras%20similar,the%20time%20of%20its%20release.)
 - **Film Length**: The longest movie ever made is the experimental film "Modern Times Forever," which runs for 240 hours (10 days). 🎬 [Source](https://www.forbesindia.com/article/explainers/longest-films-by-running-time/93944/1#:~:text=Directed%20by%20the%20Finnish%20art,the%20building%27s%20transformation%20over%20time.)
 - **Box Office King**: "Avengers: Endgame" surpassed "Avatar" to become the highest-grossing film of all time. 💰 [Source](https://variety.com/2021/film/news/avatar-avengers-endgame-highest-grossing-movie-all-time-1234929216/#:~:text=“Avengers%3A%20Endgame”%20eclipsed%20that,to%20a%20historic%20%242.7926%20billion.)
-
-## 🏆 Tool Achievements
-
-Our tool isn’t just functional; it’s a superstar! Here are some of the milestones it has achieved:
-
-- **Bulk Import Champ**: Imported over 1,000  movies from one list  without a hitch.
-- **Rapid Processor**: Handles large IMDB lists with speed and accuracy.
-- **User-Friendly Interface**: Boasts an interface that users love for its simplicity and intuitiveness.
 
 ---
 
