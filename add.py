@@ -75,8 +75,6 @@ def display_banner():
     """
     print(color_gradient(banner, "#aa00aa", "#00aa00") + Style.RESET_ALL)
 
-    print(color_gradient(banner, "#aa00aa", "#00aa00") + Style.RESET_ALL)
-
 def display_summary(total_movies, requested_movies, already_requested_movies, already_available_movies, not_found_movies, failed_movies):
     summary = f"""
     ==============================================================
