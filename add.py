@@ -1,5 +1,5 @@
 # ==============================================================================
-# Soluify  |  Your #1 IT Problem Solver  |  {servarr-tools_imdb-overseer_v0.2}
+# Soluify  |  Your #1 IT Problem Solver  |  {servarr-tools_imdb-overseer_v0.3}
 # ==============================================================================
 #  __         _   
 # (_  _ |   .(_   
@@ -19,7 +19,7 @@ from colorama import Fore, Style, init
 from cryptography.fernet import Fernet
 import getpass
 import base64
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 # Initialize colorama for cross-platform colored terminal output
 init(autoreset=True)
@@ -70,29 +70,29 @@ def display_ascii_art():
 def display_banner():
     banner = """
     ==============================================================
-             Soluify - {servarr-tools_imdb-overseer_v0.2}         
+             Soluify - {servarr-tools_imdb-overseer_v0.3}         
     ==============================================================
     """
     print(color_gradient(banner, "#aa00aa", "#00aa00") + Style.RESET_ALL)
 
 def display_summary(total_movies, requested_movies, already_requested_movies, already_available_movies, not_found_movies, failed_movies):
     summary = f"""
-    ==============================================================
+==============================================================
                     All done! Here's the summary!                
-    ==============================================================
-    🔁 Total movies processed: {total_movies}
+==============================================================
+🔁 Total movies processed: {total_movies}
 
-    ✅ Movies successfully requested: {requested_movies}
+✅ Movies successfully requested: {requested_movies}
 
-    📌 Movies already requested: {already_requested_movies}
+📌 Movies already requested: {already_requested_movies}
 
-    ☑️  Movies already available: {already_available_movies} 
+☑️  Movies already available: {already_available_movies} 
 
-    ❓ Movies not found: {not_found_movies}
+❓ Movies not found: {not_found_movies}
 
-    ❌ Movies failed to process: {failed_movies}
-    ==============================================================
-    """
+❌ Movies failed to process: {failed_movies}
+==============================================================
+"""
     print(color_gradient(summary, "#00aaff", "#00ffaa") + Style.RESET_ALL)
 
 def encrypt_config(data, password):
@@ -120,7 +120,7 @@ def load_config():
     if os.path.exists('config.enc'):
         with open('config.enc', 'rb') as f:
             encrypted_config = f.read()
-        password = getpass.getpass('🔑  Enter your config password: ')
+        password = getpass.getpass(color_gradient('🔑  Enter your config password: ', "#ff0000", "#aa0000"))
         try:
             config = decrypt_config(encrypted_config, password)
             return config['overseerr_url'], config['api_key']
@@ -235,7 +235,14 @@ def main():
         api_key = input(color_gradient("\n🔑  Enter your Overseerr API key: ", "#ffaa00", "#ff5500"))
         save_config(overseerr_url, api_key)
     
-    imdb_list_id = input(color_gradient("\n📋  Enter IMDB List ID (e.g., ls012345678): ", "#ffaa00", "#ff5500"))
+    imdb_list_id = input(color_gradient("\n📋  Enter IMDB List ID (e.g., ls012345678) or full URL: ", "#ffaa00", "#ff5500"))
+    imdb_list_ids = []
+    for item in imdb_list_id.split(','):
+        item = item.strip()
+        if 'imdb.com/list/' in item:
+            imdb_list_ids.append(urlparse(item).path.split('/')[2])
+        else:
+            imdb_list_ids.append(item)
 
     try:
         test_overseerr_api(overseerr_url, api_key)
@@ -244,12 +251,14 @@ def main():
         logging.error(f'Error testing Overseerr API: {e}')
         return
 
-    try:
-        movies = fetch_imdb_list(imdb_list_id)
-    except Exception as e:
-        print(color_gradient(f"\n❌  Error fetching IMDB list: {e}", "#ff0000", "#aa0000") + "\n")
-        logging.error(f'Error fetching IMDB list: {e}')
-        return
+    movies = []
+    for list_id in imdb_list_ids:
+        try:
+            movies.extend(fetch_imdb_list(list_id))
+        except Exception as e:
+            print(color_gradient(f"\n❌  Error fetching IMDB list: {e}", "#ff0000", "#aa0000") + "\n")
+            logging.error(f'Error fetching IMDB list: {e}')
+            return
 
     total_movies = len(movies)
     requested_movies = 0
@@ -269,35 +278,35 @@ def main():
                 # Confirm movie status before requesting
                 is_available_to_watch, is_requested = confirm_movie_status(overseerr_url, api_key, search_result['id'])
                 if is_available_to_watch:
-                    movie_status = f"{idx}/{total_movies} {movie['title']}: ☑️  Already available"
+                    movie_status = f"{idx}/{total_movies} {movie['title']}: Already available ☑️"
                     print(color_gradient(movie_status, "#aaaaaa", "#00ff00"))
                     logging.info(f'Movie already available: {movie["title"]}')
                     already_available_movies += 1
                 elif is_requested:
-                    movie_status = f"{idx}/{total_movies} {movie['title']}: 📌  Already requested"
+                    movie_status = f"{idx}/{total_movies} {movie['title']}: Already requested 📌"
                     print(color_gradient(movie_status, "#aaaaaa", "#ffff00"))
                     logging.info(f'Movie already requested: {movie["title"]}')
                     already_requested_movies += 1
                 else:
                     request_status = request_movie_in_overseerr(overseerr_url, api_key, search_result['id'], search_result['mediaType'])
                     if request_status == 'success':
-                        movie_status = f"{idx}/{total_movies} {movie['title']}: ✅  Requested"
+                        movie_status = f"{idx}/{total_movies} {movie['title']}: Requested ✅"
                         print(color_gradient(movie_status, "#00ff00", "#00aa00"))
                         logging.info(f'Requested movie: {movie["title"]}')
                         added_logger.info(f'Requested: {movie["title"]} (IMDB ID: {movie["imdb_id"]})')
                         requested_movies += 1
                     else:
-                        movie_status = f"{idx}/{total_movies} {movie['title']}: ❌  Failed to request"
+                        movie_status = f"{idx}/{total_movies} {movie['title']}: Failed to request ❌"
                         print(color_gradient(movie_status, "#ff0000", "#aa0000"))
                         logging.error(f'Failed to request movie: {movie["title"]}')
                         failed_movies += 1
             else:
-                movie_status = f"{idx}/{total_movies} {movie['title']}: ❓  Not found"
+                movie_status = f"{idx}/{total_movies} {movie['title']}: Not found ❓"
                 print(color_gradient(movie_status, "#ff0000", "#aa0000"))
                 logging.error(f'Movie not found in Overseerr: {movie["title"]}')
                 not_found_movies += 1
         except Exception as e:
-            movie_status = f"{idx}/{total_movies} {movie['title']}: ❌  Error processing"
+            movie_status = f"{idx}/{total_movies} {movie['title']}: Error processing ❌"
             print(color_gradient(movie_status, "#ff0000", "#aa0000"))
             logging.error(f'Error processing movie {movie["title"]}: {e}')
             failed_movies += 1
