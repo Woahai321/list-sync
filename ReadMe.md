@@ -87,7 +87,7 @@ To ensure the tool runs consistently across different environments, use Docker.
 2. **Clone the Repository and Navigate to the Directory**:
 
     ```sh
-    sudo git clone https://github.com/woahai321/imdb-to-overseerr.git
+    git clone https://github.com/woahai321/imdb-to-overseerr.git
     cd imdb-to-overseerr
     ```
 
@@ -106,7 +106,7 @@ If you prefer running the tool in a standard Python environment, follow these st
 1. **Clone the Repository and Navigate to the Directory**:
 
     ```sh
-    sudo git clone https://github.com/woahai321/imdb-to-overseerr.git
+    git clone https://github.com/woahai321/imdb-to-overseerr.git
     cd imdb-to-overseerr
     ```
 
@@ -115,13 +115,13 @@ If you prefer running the tool in a standard Python environment, follow these st
     Make sure you have Python 3.7 or higher installed, then install the required dependencies:
 
     ```sh
-    sudo pip install -r requirements.txt
+    pip install -r requirements.txt
     ```
 
 3. **Run the Script**:
 
     ```sh
-    sudo python add.py
+    python add.py
     ```
 
 ### Configuration
