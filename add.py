@@ -110,7 +110,9 @@ def save_config(overseerr_url, api_key):
         'overseerr_url': overseerr_url,
         'api_key': api_key
     }
-    password = getpass.getpass('🔐  Enter a password to encrypt your config: ')
+    # Print the prompt in red
+    print(color_gradient('🔐  Enter a password to encrypt your config: ', "#ff0000", "#aa0000"), end='')
+    password = getpass.getpass('')
     encrypted_config = encrypt_config(config, password)
     with open(CONFIG_FILE, 'wb') as f:
         f.write(encrypted_config)
