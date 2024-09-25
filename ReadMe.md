@@ -80,8 +80,6 @@ Here’s a brief breakdown:
 To ensure the tool runs consistently across different environments, use Docker.
 
 1. **Install Docker**: 
-
-    ![Get Docker](https://img.shields.io/badge/Get%20Docker-Download-blue?logo=docker&link=https://docs.docker.com/get-docker/)
     
     Ensure Docker is installed on your system. If it's not, follow the [installation guide](https://docs.docker.com/get-docker/) for your operating system.
     
