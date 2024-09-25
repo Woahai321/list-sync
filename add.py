@@ -1,3 +1,12 @@
+# ==============================================================================
+# Soluify  |  Your #1 IT Problem Solver  |  {imdb-to-overseerr v0.3.1}
+# ==============================================================================
+#  __         _   
+# (_  _ |   .(_   
+# __)(_)||_||| \/ 
+#              /
+# © 2024 Soluify LLC
+# ------------------------------------------------------------------------------
 import json
 import logging
 import os
@@ -70,7 +79,7 @@ def display_ascii_art():
 def display_banner():
     banner = """
     ==============================================================
-             Soluify - {servarr-tools_imdb-overseer_v0.3}         
+             Soluify - {servarr-tools_imdb-overseer_v0.3.1}         
     ==============================================================
     """
     print(color_gradient(banner, "#aa00aa", "#00aa00") + Style.RESET_ALL)
