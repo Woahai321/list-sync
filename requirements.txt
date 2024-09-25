@@ -1,5 +1,5 @@
-requests==2.26.0
-beautifulsoup4==4.10.0
-halo==0.0.31
-colorama==0.4.4
-cryptography==35.0.0
+requests
+bs4
+halo
+colorama
+cryptography

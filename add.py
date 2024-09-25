@@ -1,12 +1,3 @@
-# ==============================================================================
-# Soluify  |  Your #1 IT Problem Solver  |  {servarr-tools_imdb-overseer_v0.3}
-# ==============================================================================
-#  __         _   
-# (_  _ |   .(_   
-# __)(_)||_||| \/ 
-#              /
-# © 2024 Soluify LLC
-# ------------------------------------------------------------------------------
 import json
 import logging
 import os
@@ -24,14 +15,23 @@ from urllib.parse import quote, urlparse
 # Initialize colorama for cross-platform colored terminal output
 init(autoreset=True)
 
+# Define paths for config, list ids, and sync interval files
+DATA_DIR = './data'
+CONFIG_FILE = os.path.join(DATA_DIR, 'config.enc')
+LIST_IDS_FILE = os.path.join(DATA_DIR, 'list_ids.txt')
+SYNC_INTERVAL_FILE = os.path.join(DATA_DIR, 'sync_interval.txt')
+
+# Ensure the data directory exists
+os.makedirs(DATA_DIR, exist_ok=True)
+
 # Set up detailed logging for the main process
-logging.basicConfig(filename='overseerr_sync.log', level=logging.DEBUG, 
+logging.basicConfig(filename=os.path.join(DATA_DIR, 'overseerr_sync.log'), level=logging.DEBUG, 
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Create a separate logger for successfully added items
 added_logger = logging.getLogger('added_items')
 added_logger.setLevel(logging.INFO)
-added_handler = logging.FileHandler('added.log')
+added_handler = logging.FileHandler(os.path.join(DATA_DIR, 'added.log'))
 added_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
 added_logger.addHandler(added_handler)
 
@@ -86,7 +86,7 @@ def display_summary(total_movies, requested_movies, already_requested_movies, al
 
 📌 Movies already requested: {already_requested_movies}
 
-☑️  Movies already available: {already_available_movies} 
+☑️ Movies already available: {already_available_movies} 
 
 ❓ Movies not found: {not_found_movies}
 
@@ -112,13 +112,13 @@ def save_config(overseerr_url, api_key):
     }
     password = getpass.getpass('🔐  Enter a password to encrypt your config: ')
     encrypted_config = encrypt_config(config, password)
-    with open('config.enc', 'wb') as f:
+    with open(CONFIG_FILE, 'wb') as f:
         f.write(encrypted_config)
     print(f'\n{color_gradient("✅  Config saved and encrypted. Remember your password!", "#00ff00", "#00aa00")}\n')
 
 def load_config():
-    if os.path.exists('config.enc'):
-        with open('config.enc', 'rb') as f:
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, 'rb') as f:
             encrypted_config = f.read()
         password = getpass.getpass(color_gradient('🔑  Enter your config password: ', "#ff0000", "#aa0000"))
         try:
@@ -127,7 +127,7 @@ def load_config():
         except:
             print(f'\n{color_gradient("❌  Incorrect password. Unable to decrypt config.", "#ff0000", "#aa0000")}')
             if input('\n🗑️  Delete this config and start over? (y/n): ').lower() == 'y':
-                os.remove('config.enc')
+                os.remove(CONFIG_FILE)
                 print(f'\n{color_gradient("🔄  Config deleted. Rerun the script to set it up again.", "#ffaa00", "#ff5500")}\n')
             return None, None
     return None, None
@@ -223,6 +223,32 @@ def request_movie_in_overseerr(overseerr_url, api_key, movie_id, media_type):
         logging.error(f'Error requesting movie ID {movie_id}: {str(e)}')
         return 'error'
 
+def save_list_id(list_id):
+    if not os.path.exists(LIST_IDS_FILE):
+        with open(LIST_IDS_FILE, 'w') as f:
+            f.write(list_id + '\n')
+    else:
+        with open(LIST_IDS_FILE, 'a') as f:
+            f.write(list_id + '\n')
+
+def load_list_ids():
+    if os.path.exists(LIST_IDS_FILE):
+        with open(LIST_IDS_FILE, 'r') as f:
+            return [line.strip() for line in f.readlines()]
+    return []
+
+def configure_sync_interval():
+    interval = input(color_gradient("\n🕒  How often do you want to sync (in hours)? ", "#ffaa00", "#ff5500"))
+    with open(SYNC_INTERVAL_FILE, 'w') as f:
+        f.write(interval)
+    print(f'\n{color_gradient("✅  Sync interval configured.", "#00ff00", "#00aa00")}\n')
+
+def load_sync_interval():
+    if os.path.exists(SYNC_INTERVAL_FILE):
+        with open(SYNC_INTERVAL_FILE, 'r') as f:
+            return int(f.read().strip())
+    return None
+
 def main():
     display_banner()
     display_ascii_art()
@@ -235,6 +261,15 @@ def main():
         api_key = input(color_gradient("\n🔑  Enter your Overseerr API key: ", "#ffaa00", "#ff5500"))
         save_config(overseerr_url, api_key)
     
+    if load_sync_interval() is None:
+        configure_sync = input(color_gradient("\n🔄  Do you want to configure the sync collection functionality? (y/n): ", "#ffaa00", "#ff5500")).lower()
+        if configure_sync == 'y':
+            configure_sync_interval()
+    
+    sync_interval = load_sync_interval()
+    if sync_interval:
+        print(f'\n{color_gradient(f"🔄  Syncing every {sync_interval} hours.", "#00aaff", "#00ffaa")}\n')
+    
     imdb_list_id = input(color_gradient("\n📋  Enter IMDB List ID (e.g., ls012345678) or full URL: ", "#ffaa00", "#ff5500"))
     imdb_list_ids = []
     for item in imdb_list_id.split(','):
@@ -243,76 +278,100 @@ def main():
             imdb_list_ids.append(urlparse(item).path.split('/')[2])
         else:
             imdb_list_ids.append(item)
-
-    try:
-        test_overseerr_api(overseerr_url, api_key)
-    except Exception as e:
-        print(color_gradient(f"\n❌  Error testing Overseerr API: {e}", "#ff0000", "#aa0000") + "\n")
-        logging.error(f'Error testing Overseerr API: {e}')
-        return
-
-    movies = []
+    
     for list_id in imdb_list_ids:
+        add_to_sync = input(color_gradient(f"\n🔄  Do you want to add {list_id} to your syncing collection? (y/n): ", "#ffaa00", "#ff5500")).lower()
+        if add_to_sync == 'y':
+            save_list_id(list_id)
+    
+    while True:
         try:
-            movies.extend(fetch_imdb_list(list_id))
+            test_overseerr_api(overseerr_url, api_key)
         except Exception as e:
-            print(color_gradient(f"\n❌  Error fetching IMDB list: {e}", "#ff0000", "#aa0000") + "\n")
-            logging.error(f'Error fetching IMDB list: {e}')
-            return
+            print(color_gradient(f"\n❌  Error testing Overseerr API: {e}", "#ff0000", "#aa0000") + "\n")
+            logging.error(f'Error testing Overseerr API: {e}')
+            break
 
-    total_movies = len(movies)
-    requested_movies = 0
-    already_requested_movies = 0
-    already_available_movies = 0
-    failed_movies = 0
-    not_found_movies = 0
+        movies = []
+        for list_id in load_list_ids():
+            try:
+                movies.extend(fetch_imdb_list(list_id))
+            except Exception as e:
+                print(color_gradient(f"\n❌  Error fetching IMDB list: {e}", "#ff0000", "#aa0000") + "\n")
+                logging.error(f'Error fetching IMDB list: {e}')
+                break
 
-    print(color_gradient("\n🎬  Processing movies...", "#00aaff", "#00ffaa") + "\n")
-    for idx, movie in enumerate(movies, 1):
-        movie_status = f"{idx}/{total_movies} {movie['title']}: Processing..."
-        print(color_gradient(movie_status, "#ffaa00", "#ff5500"), end='\r')
-        logging.info(f'Processing movie {idx}/{total_movies}: {movie["title"]}')
-        try:
-            search_result = search_movie_in_overseerr(overseerr_url, api_key, movie['title'])
-            if search_result:
-                # Confirm movie status before requesting
-                is_available_to_watch, is_requested = confirm_movie_status(overseerr_url, api_key, search_result['id'])
-                if is_available_to_watch:
-                    movie_status = f"{idx}/{total_movies} {movie['title']}: Already available ☑️"
-                    print(color_gradient(movie_status, "#aaaaaa", "#00ff00"))
-                    logging.info(f'Movie already available: {movie["title"]}')
-                    already_available_movies += 1
-                elif is_requested:
-                    movie_status = f"{idx}/{total_movies} {movie['title']}: Already requested 📌"
-                    print(color_gradient(movie_status, "#aaaaaa", "#ffff00"))
-                    logging.info(f'Movie already requested: {movie["title"]}')
-                    already_requested_movies += 1
-                else:
-                    request_status = request_movie_in_overseerr(overseerr_url, api_key, search_result['id'], search_result['mediaType'])
-                    if request_status == 'success':
-                        movie_status = f"{idx}/{total_movies} {movie['title']}: Requested ✅"
-                        print(color_gradient(movie_status, "#00ff00", "#00aa00"))
-                        logging.info(f'Requested movie: {movie["title"]}')
-                        added_logger.info(f'Requested: {movie["title"]} (IMDB ID: {movie["imdb_id"]})')
-                        requested_movies += 1
+        total_movies = len(movies)
+        requested_movies = 0
+        already_requested_movies = 0
+        already_available_movies = 0
+        failed_movies = 0
+        not_found_movies = 0
+
+        print(color_gradient("\n🎬  Processing movies...", "#00aaff", "#00ffaa") + "\n")
+        for idx, movie in enumerate(movies, 1):
+            movie_status = f"{idx}/{total_movies} {movie['title']}: Processing..."
+            print(color_gradient(movie_status, "#ffaa00", "#ff5500"), end='\r')
+            logging.info(f'Processing movie {idx}/{total_movies}: {movie["title"]}')
+            try:
+                search_result = search_movie_in_overseerr(overseerr_url, api_key, movie['title'])
+                if search_result:
+                    # Confirm movie status before requesting
+                    is_available_to_watch, is_requested = confirm_movie_status(overseerr_url, api_key, search_result['id'])
+                    if is_available_to_watch:
+                        movie_status = f"{idx}/{total_movies} {movie['title']}: Already available ☑️"
+                        print(color_gradient(movie_status, "#aaaaaa", "#00ff00"))
+                        logging.info(f'Movie already available: {movie["title"]}')
+                        already_available_movies += 1
+                    elif is_requested:
+                        movie_status = f"{idx}/{total_movies} {movie['title']}: Already requested 📌"
+                        print(color_gradient(movie_status, "#aaaaaa", "#ffff00"))
+                        logging.info(f'Movie already requested: {movie["title"]}')
+                        already_requested_movies += 1
                     else:
-                        movie_status = f"{idx}/{total_movies} {movie['title']}: Failed to request ❌"
-                        print(color_gradient(movie_status, "#ff0000", "#aa0000"))
-                        logging.error(f'Failed to request movie: {movie["title"]}')
-                        failed_movies += 1
-            else:
-                movie_status = f"{idx}/{total_movies} {movie['title']}: Not found ❓"
+                        request_status = request_movie_in_overseerr(overseerr_url, api_key, search_result['id'], search_result['mediaType'])
+                        if request_status == 'success':
+                            movie_status = f"{idx}/{total_movies} {movie['title']}: Requested ✅"
+                            print(color_gradient(movie_status, "#00ff00", "#00aa00"))
+                            logging.info(f'Requested movie: {movie["title"]}')
+                            added_logger.info(f'Requested: {movie["title"]} (IMDB ID: {movie["imdb_id"]})')
+                            requested_movies += 1
+                        else:
+                            movie_status = f"{idx}/{total_movies} {movie['title']}: Failed to request ❌"
+                            print(color_gradient(movie_status, "#ff0000", "#aa0000"))
+                            logging.error(f'Failed to request movie: {movie["title"]}')
+                            failed_movies += 1
+                else:
+                    movie_status = f"{idx}/{total_movies} {movie['title']}: Not found ❓"
+                    print(color_gradient(movie_status, "#ff0000", "#aa0000"))
+                    logging.error(f'Movie not found in Overseerr: {movie["title"]}')
+                    not_found_movies += 1
+            except Exception as e:
+                movie_status = f"{idx}/{total_movies} {movie['title']}: Error processing ❌"
                 print(color_gradient(movie_status, "#ff0000", "#aa0000"))
-                logging.error(f'Movie not found in Overseerr: {movie["title"]}')
-                not_found_movies += 1
-        except Exception as e:
-            movie_status = f"{idx}/{total_movies} {movie['title']}: Error processing ❌"
-            print(color_gradient(movie_status, "#ff0000", "#aa0000"))
-            logging.error(f'Error processing movie {movie["title"]}: {e}')
-            failed_movies += 1
-        time.sleep(1)  # Rate limiting
+                logging.error(f'Error processing movie {movie["title"]}: {e}')
+                failed_movies += 1
+            time.sleep(1)  # Rate limiting
 
-    display_summary(total_movies, requested_movies, already_requested_movies, already_available_movies, not_found_movies, failed_movies)
+        display_summary(total_movies, requested_movies, already_requested_movies, already_available_movies, not_found_movies, failed_movies)
+
+        if sync_interval:
+            print(f'\n{color_gradient(f"💤  Sleeping for {sync_interval} hours before next sync. Press Ctrl + C to interrupt and perform actions.", "#00aaff", "#00ffaa")}')
+            try:
+                for _ in range(sync_interval * 3600):
+                    time.sleep(1)
+                    if os.path.exists(f'{DATA_DIR}/interrupt.txt'):
+                        raise KeyboardInterrupt()
+            except KeyboardInterrupt:
+                action = input(color_gradient(f"Enter 's' for an on-demand sync or 'e' to exit the application: ", "#ffaa00", "#ff5500")).lower()
+                if action == 's':
+                    continue  # On-demand scan
+                elif action == 'e':
+                    print(color_gradient("Goodbye!", "#ff0000", "#ff5500"))
+                    break
+        else:
+            print(f'\n{color_gradient("❌  Sync interval not configured. Exiting.", "#ff0000", "#aa0000")}\n')
+            break
 
 if __name__ == "__main__":
     main()
