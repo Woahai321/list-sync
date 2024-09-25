@@ -3,10 +3,10 @@
 ![IMDB to Overseerr Logo](https://share.woahlab.com/-G7FV7AkDqV)
 [![Website](https://img.shields.io/website?label=soluify.com&style=plastic&url=https%3A%2F%2Fsoluify.com)](https://soluify.com/)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-blue?style=plastic&logo=linkedin)](https://www.linkedin.com/company/soluify)
+![Docker](https://img.shields.io/badge/docker-ready-blue)
 ![Python](https://img.shields.io/badge/python-3.7%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Dependencies](https://img.shields.io/badge/dependencies-up%20to%20date-brightgreen)
-![Docker](https://img.shields.io/badge/docker-ready-blue)
 
 Welcome to the **IMDB to Overseerr Sync Tool**! 🎉
 
@@ -99,7 +99,7 @@ To ensure the tool runs consistently across different environments, use Docker.
     sudo docker build -t imdb-sync . && sudo docker run -it --rm -v "$(pwd)/data:/usr/src/app/data" -e TERM=xterm-256color imdb-sync
     ```
 
-### Standard Python Environment (Not Recommended)
+### Standard Python Environment
 
 If you prefer running the tool in a standard Python environment, follow these steps:
 
