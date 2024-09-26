@@ -92,14 +92,46 @@ To ensure the tool runs consistently across different environments, use Docker.
     sudo docker pull ghcr.io/woahai321/imdb-to-overseerr:main && sudo docker run -it --rm -v "$(pwd)/data:/usr/src/app/data" -e TERM=xterm-256color ghcr.io/woahai321/imdb-to-overseerr:main
     ```
 
+2. **Use this command for subsequent runs**:
+
+    Use the following one-liner to run the Docker image:
+
+    ```sh
+    sudo docker run -it --rm -v "$(pwd)/data:/usr/src/app/data" -e TERM=xterm-256color ghcr.io/woahai321/imdb-to-overseerr:main
+    ```
+
+OR
+
+1. **Use [devcontainer](.devcontainer/devcontainer.json) to bootstrap pre-built dev environment**
+[DevContainer documentation](https://containers.dev/)
+
 ### Standard Python Environment
 
 If you prefer running the tool in a standard Python environment, follow these steps:
 
-0. **Use [devcontainer]((.devcontainer/devcontainer.json) to bootstrap pre-built dev environment**
-[DevContainer documentation](https://containers.dev/)
+1. **Clone the Repository and Navigate to the Directory**:
+
+    ```sh
+    git clone https://github.com/woahai321/imdb-to-overseerr.git
+    cd imdb-to-overseerr
+    ```
+
+2. **Install Dependencies**:
+
+    Make sure you have Python 3.9 or higher installed, then install the required dependencies:
+
+    ```sh
+    pip install -r requirements.txt
+    ```
+
+3. **Run the Script**:
+
+    ```sh
+    python add.py
+    ```
 
 OR
+
 
 1. **Clone the Repository and Navigate to the Directory**:
 
