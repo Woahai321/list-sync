@@ -83,8 +83,12 @@ To ensure the tool runs consistently across different environments, use Docker.
 
     Ensure Docker is installed on your system. If it's not, follow the [installation guide](https://docs.docker.com/get-docker/) for your operating system.
 
+2. **Create a working directory**:
 
-2. **Pull and Run the Docker Image**:
+    Make a folder to house the application's log files (e.g. imdb-to-overseerr)
+
+
+3. **Pull and Run the Docker Image**:
 
     Use the following one-liner to pull and run the Docker image:
 
@@ -92,7 +96,7 @@ To ensure the tool runs consistently across different environments, use Docker.
     sudo docker pull ghcr.io/woahai321/imdb-to-overseerr:main && sudo docker run -it --rm -v "$(pwd)/data:/usr/src/app/data" -e TERM=xterm-256color ghcr.io/woahai321/imdb-to-overseerr:main
     ```
 
-2. **Use this command for subsequent runs**:
+4. **Use this command for subsequent runs**:
 
     Use the following one-liner to run the Docker image:
 
