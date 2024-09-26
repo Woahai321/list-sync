@@ -1,5 +1,5 @@
 ARG PYTHON_VERSION=3.9
-# Use official Python image from the Docker Hub
+# Use official Python image from the Docker Hub 
 FROM python:${PYTHON_VERSION}-slim AS builder
 
 WORKDIR /usr/src/app
