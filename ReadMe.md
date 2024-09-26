@@ -33,7 +33,7 @@ This amazing tool automates importing your carefully curated IMDB lists into Ove
 
 ## 🎬 Demo
 
-![Bot In Action](https://share.woahlab.com/-rDsbYPmbm8)
+![Bot In Action](https://share.woahlab.com/-gT8E2afLbJ)
 
 ---
 
