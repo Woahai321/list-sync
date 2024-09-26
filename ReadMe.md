@@ -79,10 +79,10 @@ Here’s a brief breakdown:
 
 To ensure the tool runs consistently across different environments, use Docker.
 
-1. **Install Docker**: 
-    
+1. **Install Docker**:
+
     Ensure Docker is installed on your system. If it's not, follow the [installation guide](https://docs.docker.com/get-docker/) for your operating system.
-    
+
 
 2. **Pull and Run the Docker Image**:
 
@@ -96,6 +96,11 @@ To ensure the tool runs consistently across different environments, use Docker.
 
 If you prefer running the tool in a standard Python environment, follow these steps:
 
+0. **Use [devcontainer]((.devcontainer/devcontainer.json) to bootstrap pre-built dev environment**
+[DevContainer documentation](https://containers.dev/)
+
+OR
+
 1. **Clone the Repository and Navigate to the Directory**:
 
     ```sh
@@ -105,16 +110,17 @@ If you prefer running the tool in a standard Python environment, follow these st
 
 2. **Install Dependencies**:
 
-    Make sure you have Python 3.7 or higher installed, then install the required dependencies:
+    Make sure you have Python 3.9 or higher installed, then install the required dependencies:
 
     ```sh
-    pip install -r requirements.txt
+    pip install poetry==1.8.3
+    poetry install
     ```
 
 3. **Run the Script**:
 
     ```sh
-    python add.py
+    poetry run python add.py
     ```
 
 

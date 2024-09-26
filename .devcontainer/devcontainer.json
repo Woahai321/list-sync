@@ -1,0 +1,73 @@
+{
+  "$schema": "https://raw.githubusercontent.com/devcontainers/spec/main/schemas/devContainer.base.schema.json",
+  "name": "imdb-to-overseerr devContainer",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers-contrib/features/zsh-plugins:0": {
+      "plugins": "git poetry poetry-env zsh-autosuggestions zsh-syntax-highlighting",
+      "omzPlugins": "https://github.com/zsh-users/zsh-syntax-highlighting https://github.com/zsh-users/zsh-autosuggestions"
+    },
+    "ghcr.io/stuartleeks/dev-container-features/shell-history:0": {}
+  },
+  "containerEnv": {
+    "POETRY_VIRTUALENVS_IN_PROJECT": "1",
+    "POETRY_VIRTUALENVS_CREATE": "true"
+  },
+  "mounts": [],
+  "postCreateCommand": "zsh .devcontainer/postCreateCommand.sh",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "editor.formatOnSave": false,
+        "editor.tabSize": 2,
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "terminal.integrated.profiles.linux": {
+          "zsh": {
+            "path": "/bin/zsh"
+          }
+        },
+        "files": {
+          "eol": "\n",
+          "trimTrailingWhitespace": true,
+          "trimTrailingWhitespaceInRegexAndStrings": true,
+          "insertFinalNewline": true
+        },
+        "[python]": {
+          "editor.formatOnSave": false,
+          "editor.tabSize": 4,
+          "editor.codeActionsOnSave": {
+            "source.fixAll": "explicit",
+            "source.organizeImports": "explicit"
+          },
+          "editor.defaultFormatter": "charliermarsh.ruff"
+        },
+        "python": {
+          "terminal": {
+            "activateEnvironment": false
+          },
+          "analysis": {
+            "autoFormatStrings": true,
+            "defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
+            "extraPaths": []
+          }
+        }
+      },
+      "extensions": [
+        "charliermarsh.ruff",
+        "KevinRose.vsc-python-indent",
+        "ms-python.debugpy",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "mutantdino.resourcemonitor",
+        "njpwerner.autodocstring",
+        "njqdev.vscode-python-typehint",
+        "oderwat.indent-rainbow",
+        "redhat.vscode-yaml",
+        "VisualStudioExptTeam.vscodeintellicode"
+      ]
+    }
+  }
+}
