@@ -1,5 +1,7 @@
 #!/bin/zsh
 
+git config --global --add safe.directory "*"
+
 poetry install --no-interaction --no-ansi --quiet
 
 # activate venv

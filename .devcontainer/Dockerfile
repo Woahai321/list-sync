@@ -18,6 +18,6 @@ RUN apt-get -y -qq install \
 
 RUN pip install pipx
 RUN pipx --global ensurepath
-RUN pipx --global install poetry==1.8.3 ruff
+RUN pipx --global install poetry==1.8.3 ruff pre-commit
 
 USER vscode
