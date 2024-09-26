@@ -84,19 +84,20 @@ To ensure the tool runs consistently across different environments, use Docker.
     Ensure Docker is installed on your system. If it's not, follow the [installation guide](https://docs.docker.com/get-docker/) for your operating system.
     
 
-2. **Clone the Repository and Navigate to the Directory**:
+2. **Pull the Docker Image**:
+
+    Pull the Docker image from the GitHub Container Registry:
 
     ```sh
-    git clone https://github.com/woahai321/imdb-to-overseerr.git
-    cd imdb-to-overseerr
+    docker pull ghcr.io/woahai321/imdb-to-overseerr:main
     ```
 
-3. **Build and Run the Docker Container**:
+3. **Run the Docker Container**:
 
-    Use the following one-liner to build and run the container:
+    Use the following command to run the container:
 
     ```sh
-    sudo docker build -t imdb-sync . && sudo docker run -it --rm -v "$(pwd)/data:/usr/src/app/data" -e TERM=xterm-256color imdb-sync
+    docker run -it --rm -v "$(pwd)/data:/usr/src/app/data" -e TERM=xterm-256color ghcr.io/woahai321/imdb-to-overseerr:main
     ```
 
 ### Standard Python Environment
