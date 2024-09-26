@@ -21,7 +21,7 @@
   "customizations": {
     "vscode": {
       "settings": {
-        "editor.formatOnSave": true,
+        "editor.formatOnSave": false,
         "editor.tabSize": 2,
         "terminal.integrated.defaultProfile.linux": "zsh",
         "terminal.integrated.profiles.linux": {
@@ -31,21 +31,12 @@
         },
         "files": {
           "eol": "\n",
-          "trimFinalNewlines": true,
           "trimTrailingWhitespace": true,
           "trimTrailingWhitespaceInRegexAndStrings": true,
-          "insertFinalNewline": true,
-          "associations": {
-            "**/templates/*.yaml": "jinja-yaml",
-            "*.tpl": "jinja-yaml"
-          }
-        },
-        "git": {
-          "enableCommitSigning": true,
-          "autofetch": true
+          "insertFinalNewline": true
         },
         "[python]": {
-          "editor.formatOnSave": true,
+          "editor.formatOnSave": false,
           "editor.tabSize": 4,
           "editor.codeActionsOnSave": {
             "source.fixAll": "explicit",
