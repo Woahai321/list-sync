@@ -251,7 +251,7 @@ Buckle up for some fun insights and interesting facts! Your IMDB to Overseerr Sy
 
 ## 🛡️ Legal Disclaimer
 
-Using the **IMDB to Overseerr Sync Tool** responsibly and in accordance with Overseerr's and IMDB's Terms of Service (ToS) and policies is crucial. Here are some key points:
+Using the **IMDB to Overseerr Sync Tool** responsibly and in accordance with Overseerr's and IMDB's Terms of Service (ToS) and policies is crucial! Here are some key points:
 
 1. **Compliance with Overseerr and IMDB:**
     - Users must adhere to the ToS of both Overseerr and IMDB. Review IMDB's [Terms of Service](https://www.imdb.com/conditions) to ensure compliance.
