@@ -1,5 +1,5 @@
 # ==============================================================================
-# Soluify  |  Your #1 IT Problem Solver  |  {imdb-to-overseerr v0.3.1}
+# Soluify  |  Your #1 IT Problem Solver  |  {imdb-to-overseerr v0.3.2}
 # ==============================================================================
 #  __         _
 # (_  _ |   .(_
@@ -86,7 +86,7 @@ def display_ascii_art():
 def display_banner():
     banner = """
     ==============================================================
-             Soluify - {servarr-tools_imdb-overseer_v0.3.1}
+             Soluify - {servarr-tools_imdb-overseer_v0.3.2}
     ==============================================================
     """
     print(color_gradient(banner, "#aa00aa", "#00aa00") + Style.RESET_ALL)
@@ -549,5 +549,5 @@ if __name__ == "__main__":
     main()
 
 # =======================================================================================================
-# Soluify  |  You actually read it? Nice work, stay safe out there people!  |  {imdb-to-overseerr v0.3.1}
+# Soluify  |  You actually read it? Nice work, stay safe out there people!  |  {imdb-to-overseerr v0.3.2}
 # =======================================================================================================
