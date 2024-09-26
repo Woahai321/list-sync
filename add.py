@@ -1,5 +1,5 @@
 # ==============================================================================
-# Soluify  |  Your #1 IT Problem Solver  |  {imdb-to-overseerr v0.3.2}
+# Soluify  |  Your #1 IT Problem Solver  |  {imdb-to-overseerr v0.3.4}
 # ==============================================================================
 #  __         _
 # (_  _ |   .(_
@@ -86,7 +86,7 @@ def display_ascii_art():
 def display_banner():
     banner = """
     ==============================================================
-             Soluify - {servarr-tools_imdb-overseer_v0.3.2}
+             Soluify - {servarr-tools_imdb-overseer_v0.3.4}
     ==============================================================
     """
     print(color_gradient(banner, "#aa00aa", "#00aa00") + Style.RESET_ALL)
@@ -110,7 +110,7 @@ def display_summary(
 
 📌 Movies already requested: {already_requested_movies}
 
-☑️ Movies already available: {already_available_movies}
+☑️  Movies already available: {already_available_movies}
 
 ❓ Movies not found: {not_found_movies}
 
@@ -478,7 +478,7 @@ def main():
                         )
                         if request_status == "success":
                             movie_status = (
-                                f"{idx}/{total_movies} {movie['title']}: Requested ✅"
+                                f"{idx}/{total_movies} {movie['title']}: Successfully requested ✅"
                             )
                             print(color_gradient(movie_status, "#00ff00", "#00aa00"))
                             logging.info(f'Requested movie: {movie["title"]}')
@@ -528,13 +528,41 @@ def main():
             except KeyboardInterrupt:
                 action = input(
                     color_gradient(
-                        "Enter 's' for an on-demand sync or 'e' to exit the application: ",
+                        "Enter 's' for an on-demand sync, 'n' to add a new list, or 'e' to exit the application: ",
                         "#ffaa00",
                         "#ff5500",
                     )
                 ).lower()
                 if action == "s":
                     continue  # On-demand scan
+                elif action == "n":
+                    # Add a new list
+                    new_list_id = input(
+                        color_gradient(
+                            "\n📋  Enter IMDB List ID (e.g., ls012345678) or full URL: ",
+                            "#ffaa00",
+                            "#ff5500",
+                        )
+                    )
+                    new_list_ids = []
+                    for item in new_list_id.split(","):
+                        item = item.strip()
+                        if "imdb.com/list/" in item:
+                            new_list_ids.append(urlparse(item).path.split("/")[2])
+                        else:
+                            new_list_ids.append(item)
+
+                    for list_id in new_list_ids:
+                        add_to_sync = input(
+                            color_gradient(
+                                f"\n🔄  Do you want to add {list_id} to your syncing collection? (y/n): ",
+                                "#ffaa00",
+                                "#ff5500",
+                            )
+                        ).lower()
+                        if add_to_sync == "y":
+                            save_list_id(list_id)
+                    continue  # Continue with the next sync
                 elif action == "e":
                     print(color_gradient("Goodbye!", "#ff0000", "#ff5500"))
                     break
@@ -544,10 +572,9 @@ def main():
             )
             break
 
-
 if __name__ == "__main__":
     main()
 
 # =======================================================================================================
-# Soluify  |  You actually read it? Nice work, stay safe out there people!  |  {imdb-to-overseerr v0.3.2}
+# Soluify  |  You actually read it? Nice work, stay safe out there people!  |  {imdb-to-overseerr v0.3.4}
 # =======================================================================================================
