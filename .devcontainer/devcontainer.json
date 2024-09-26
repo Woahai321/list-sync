@@ -53,9 +53,6 @@
             "defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
             "extraPaths": []
           }
-        },
-        "[markdown]": {
-          "editor.defaultFormatter": "yzhang.markdown-all-in-one"
         }
       },
       "extensions": [
@@ -69,8 +66,7 @@
         "njqdev.vscode-python-typehint",
         "oderwat.indent-rainbow",
         "redhat.vscode-yaml",
-        "VisualStudioExptTeam.vscodeintellicode",
-        "yzhang.markdown-all-in-one"
+        "VisualStudioExptTeam.vscodeintellicode"
       ]
     }
   }
