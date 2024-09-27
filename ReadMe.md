@@ -53,6 +53,27 @@ This amazing tool automates importing your carefully curated IMDB lists into Ove
 
 ---
 
+## 📊 Compatibility
+
+This tool is compatible with the following:
+
+| Application     | Status        | Notes                                     |
+|-----------------|---------------|-------------------------------------------|
+| ![Overseerr](https://img.shields.io/badge/-Overseerr-blue) | ✅ Supported  | Full functionality with Overseerr         |
+| ![Jellyseerr](https://img.shields.io/badge/-Jellyseerr-purple) | ✅ Supported  | Compatible with Jellyseerr               |
+| ![Radarr](https://img.shields.io/badge/-Radarr-orange)  | ✅ Supported  | Currently supports Radarr                 |
+| ![Sonarr](https://img.shields.io/badge/-Sonarr-gray)    | ✅ Supported  | Now supports TV series                    |
+
+### Future List Services
+
+| Service         | Status        | Notes                                     |
+|-----------------|---------------|-------------------------------------------|
+| ![IMDB](https://img.shields.io/badge/-IMDB-green)       | ✅ Supported  | Currently supported                       |
+| ![Letterboxd](https://img.shields.io/badge/-Letterboxd-yellow) | ❌ Not Yet    | Future support planned                    |
+| ![Trakt](https://img.shields.io/badge/-Trakt-red)    | ❌ Not Yet    | Future support planned                    |
+
+---
+
 ## 🔎 How it Works
 
 The IMDB to Overseerr Sync Tool utilizes a mix of Python and powerful libraries like `requests`, `BeautifulSoup`, and the [Overseer API](https://api-docs.overseerr.dev/#/) to find and request missing movies and TV shows.
@@ -198,28 +219,6 @@ OR
 
 4. **Decryption Error**
    - **Solution:** Ensure you enter the correct password for decrypting the configuration. If the password is lost, delete the `config.enc` file and reconfigure.
-
----
-
-## 📊 Compatibility
-
-This tool is compatible with the following:
-
-| Application     | Status        | Notes                                     |
-|-----------------|---------------|-------------------------------------------|
-| ![Overseerr](https://img.shields.io/badge/-Overseerr-blue) | ✅ Supported  | Full functionality with Overseerr         |
-| ![Jellyseerr](https://img.shields.io/badge/-Jellyseerr-purple) | ✅ Supported  | Compatible with Jellyseerr               |
-| ![Radarr](https://img.shields.io/badge/-Radarr-orange)  | ✅ Supported  | Currently supports Radarr                 |
-| ![Sonarr](https://img.shields.io/badge/-Sonarr-gray)    | ✅ Supported  | Now supports TV series                    |
-
-### Future List Services
-
-| Service         | Status        | Notes                                     |
-|-----------------|---------------|-------------------------------------------|
-| ![IMDB](https://img.shields.io/badge/-IMDB-green)       | ✅ Supported  | Currently supported                       |
-| ![Letterboxd](https://img.shields.io/badge/-Letterboxd-yellow) | ❌ Not Yet    | Future support planned                    |
-| ![Trakt](https://img.shields.io/badge/-Trakt-red)    | ❌ Not Yet    | Future support planned                    |
-
 
 ---
 
