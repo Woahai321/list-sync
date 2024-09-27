@@ -10,7 +10,7 @@
 
 Welcome to the **IMDB to Overseerr Sync Tool**! 🎉
 
-This amazing tool automates importing your carefully curated IMDB lists into Overseerr, transforming movie management into a breeze. Whether you're a movie buff, a librarian for multiple collections, or someone enchanted by the magic of automation, this tool is here to simplify your experience.
+This amazing tool automates importing your carefully curated IMDB lists into Overseerr, transforming movie and TV show management into a breeze. Whether you're a movie buff, a librarian for multiple collections, or someone enchanted by the magic of automation, this tool is here to simplify your experience.
 
 ## 📜 Table of Contents
 
@@ -41,41 +41,35 @@ This amazing tool automates importing your carefully curated IMDB lists into Ove
 
 | Feature                                     | Status  |
 |---------------------------------------------|---------|
-| Fetch and Import Movie Requests             | ✅       |
-| Identify Movies Already Requested           | ✅       |
-| Identify Movies Already Available           | ✅       |
+| Fetch and Import Movies & TV Shows             | ✅       |
+| Identify Movies & TV Shows Already Requested           | ✅       |
+| Identify Movies & TV Shows Already Available           | ✅       |
 | Real-time Detailed Logging                  | ✅       |
 | Encrypted Configuration Storage             | ✅       |
 | Configurable Sync Interval                  | ✅       |
 | On-demand Sync During Sleep                 | ✅       |
 | Graceful Exit During Sleep                  | ✅       |
 
-
 ---
 
 ## 🔎 How it Works
 
-The IMDB to Overseerr Sync Tool utilizes a mix of Python and powerful libraries like `requests`, `BeautifulSoup`, and the [Overseer API](https://api-docs.overseerr.dev/#/) to find and request missing movies.
+The IMDB to Overseerr Sync Tool utilizes a mix of Python and powerful libraries like `requests`, `BeautifulSoup`, and the [Overseer API](https://api-docs.overseerr.dev/#/) to find and request missing movies and TV shows.
 
 Here’s a brief breakdown:
 
-1. **Authentication:** Input your Overseerr URL and API key to securely access your movie library.
-2. **IMDB List Fetching:** Fetch and parse movies from your specified IMDB list ID.
+1. **Authentication:** Input your Overseerr URL and API key to securely access your movie and TV show library.
+2. **IMDB List Fetching:** Fetch and parse movies and TV shows from your specified IMDB list ID.
 3. **Configuration Management:** Tailor the tool to your preferences, and save these settings for future use.
-4. **Processing:** The tool processes each movie, importing it into Overseerr, while handling any errors that come up.
-5. **Status Updates:** Receive real-time updates on the status of each movie (e.g., already available, requested, not found).
+4. **Processing:** The tool processes each movie and TV show, importing it into Overseerr, while handling any errors that come up.
+5. **Status Updates:** Receive real-time updates on the status of each movie and TV show (e.g., already available, requested, not found).
 6. **Encryption:** Securely encrypt your configuration data to ensure your credentials are protected.
 
 ---
 
 ## 🚀 Getting Started
 
-### Prerequisites
-
-- **Basic command line knowledge**
-- **Compatible with most operating systems (Windows, macOS, Linux)**
-
-### Installation: Docker (Recommended)
+## Installation: Docker (Recommended)
 
 To ensure the tool runs consistently across different environments, use Docker.
 
@@ -87,7 +81,6 @@ To ensure the tool runs consistently across different environments, use Docker.
 
     Make a folder to house the application's log files (e.g. imdb-to-overseerr)
 
-
 3. **Pull and Run the Docker Image**:
 
     Use the following one-liner to pull and run the Docker image:
@@ -98,7 +91,7 @@ To ensure the tool runs consistently across different environments, use Docker.
 
 4. **Use this command for subsequent runs**:
 
-    Use the following one-liner to run the Docker image:
+    Use the following command to run the Docker image:
 
     ```sh
     sudo docker run -it --rm -v "$(pwd)/data:/usr/src/app/data" -e TERM=xterm-256color ghcr.io/woahai321/imdb-to-overseerr:main
@@ -106,10 +99,7 @@ To ensure the tool runs consistently across different environments, use Docker.
 
 OR
 
-1. **Use [devcontainer](.devcontainer/devcontainer.json) to bootstrap pre-built dev environment**
-[DevContainer documentation](https://containers.dev/)
-
-### Standard Python Environment
+## Standard Python Environment
 
 If you prefer running the tool in a standard Python environment, follow these steps:
 
@@ -136,28 +126,47 @@ If you prefer running the tool in a standard Python environment, follow these st
 
 OR
 
+## Poetry
 
-1. **Clone the Repository and Navigate to the Directory**:
+Poetry offers several advantages over traditional Python dependency management methods:
+
+- **Ease of Use:** Simplifies the installation process with a single command and manages virtual environments automatically.
+- **Version Control:** Tracks exact package versions, making it easier to reproduce environments and avoid version drift.
+- **Security:** Integrates with security tools to scan for vulnerabilities in dependencies.
+- **Cross-Platform Compatibility:** Ensures consistent behavior across different operating systems.
+
+### Installation and Usage with Poetry
+
+1. **Install Poetry**:
+
+    ```sh
+    curl -sSL https://install.python-poetry.org | python3 -
+    ```
+
+2. **Clone the Repository and Navigate to the Directory**:
 
     ```sh
     git clone https://github.com/woahai321/imdb-to-overseerr.git
     cd imdb-to-overseerr
     ```
 
-2. **Install Dependencies**:
+3. **Install Dependencies**:
 
     Make sure you have Python 3.9 or higher installed, then install the required dependencies:
 
     ```sh
-    pip install poetry==1.8.3
     poetry install
     ```
 
-3. **Run the Script**:
+4. **Run the Script**:
 
     ```sh
     poetry run python add.py
     ```
+
+OR
+
+1. Use [devcontainer](.devcontainer/devcontainer.json) to bootstrap pre-built dev environment: [DevContainer documentation](https://containers.dev/)
 
 
 ### Configuration
@@ -193,14 +202,23 @@ OR
 
 ## 📊 Compatibility
 
-This tool is compatible with the following, only movies for now:
+This tool is compatible with the following:
 
 | Application     | Status        | Notes                                     |
 |-----------------|---------------|-------------------------------------------|
 | ![Overseerr](https://img.shields.io/badge/-Overseerr-blue) | ✅ Supported  | Full functionality with Overseerr         |
-| ![Jellyseerr](https://img.shields.io/badge/-Jellyseerr-blue) | ✅ Supported  | Compatible with Jellyseerr               |
+| ![Jellyseerr](https://img.shields.io/badge/-Jellyseerr-purple) | ✅ Supported  | Compatible with Jellyseerr               |
 | ![Radarr](https://img.shields.io/badge/-Radarr-orange)  | ✅ Supported  | Currently supports Radarr                 |
-| ![Sonarr](https://img.shields.io/badge/-Sonarr-gray)    | ❌ Not Yet    | Future support planned                    |
+| ![Sonarr](https://img.shields.io/badge/-Sonarr-gray)    | ✅ Supported  | Now supports TV series                    |
+
+### Future List Services
+
+| Service         | Status        | Notes                                     |
+|-----------------|---------------|-------------------------------------------|
+| ![IMDB](https://img.shields.io/badge/-IMDB-green)       | ✅ Supported  | Currently supported                       |
+| ![Letterboxd](https://img.shields.io/badge/-Letterboxd-yellow) | ❌ Not Yet    | Future support planned                    |
+| ![Trakt](https://img.shields.io/badge/-Trakt-red)    | ❌ Not Yet    | Future support planned                    |
+
 
 ---
 
@@ -208,33 +226,30 @@ This tool is compatible with the following, only movies for now:
 
 ### Small Tasks
 - [x] **Enhanced Error Messages:** Improve error descriptions for easier troubleshooting.
-- [x] **Secure User Profiles:** Ability to save and load Overseerr details from an encrypted configuration file.
-- [x] **Dynamic Color Gradient UI:** Introduced dynamic color gradients to improve terminal readability.
-- [x] **Emoji Updates:** Updated emojis to better reflect the status of an item.
 - [x] **Advanced Error Handling:** Improved error messages for clearer troubleshooting.
-- [x] **Real-time Progress Updates:** Real-time progress updates for importing movies from IMDB.
+- [x] **Secure User Profiles:** Ability to save and load Overseerr details from an encrypted configuration file.
+- [x] **Real-time Progress Updates:** Real-time progress updates for importing movies and TV shows from IMDB.
 - [ ] **Integration with Other Services:** Add support for third-party services: Trakt, Letterboxd, etc.
 
 ### Medium Tasks
-- [x] **Detailed Logging:** Established detailed logging for import processes and error handling.
 - [x] **Sync Interval Configuration:** Allow users to set synchronization intervals.
 - [x] **Interruptible Sleep Mode:** Functionality for interrupting sleep mode for on-demand sync or clean exit.
-- [x] **Authentication Management:** Securely manage Overseerr URL and API key.
 - [x] **Configuration Management:** Save and reuse configuration setups.
 - [x] **Batch Processing:** Enable batch processing for multiple IMDB lists simultaneously.
-- [ ] **Support for TV Shows:** Extend functionality to import TV shows from IMDB lists.
+- [x] **Support for TV Shows:** Extend functionality to import TV shows from IMDB lists.
 - [ ] **Customization Options:** Allow users to fully customize the UI and behavior of the tool.
 - [ ] **Database Integration:** Implement a real database to track sync history and metrics, not just a file.
 
 ### Big Tasks
 - [x] **Automated Syncing:** Schedule automatic syncing between IMDB and Overseerr.
 - [x] **Movie Status Identification:** Identify movies already available, already requested, or to be requested.
+- [x] **TV Series Status Identification:** Identify TV series already available, already requested, or to be requested.
 - [x] **Dynamic Status Updates:** Combined processing message and status update in one line with dynamic color changes.
 - [x] **Encrypted Configuration Storage:** Implemented encrypted storage for Overseerr API credentials.
 - [ ] **External Notifications:** Add webhook notifications for sync status and errors.
 - [ ] **Web Dashboard:** Create a web-based interface for more user-friendly interaction.
 - [ ] **Advanced Analytics Dashboard:** Provide detailed analytics and insights into the sync operations.
-- [ ] **Machine Learning Suggestions:** Use ML to suggest movies based on user preferences and history.
+- [ ] **Machine Learning Suggestions:** Use ML to suggest movies and TV shows based on user preferences and history.
 
 ---
 
@@ -272,7 +287,7 @@ This project is licensed under the [MIT License](https://opensource.org/license/
 
 # 🎉 Fun Zone: Get to Know Your Tool!
 
-Buckle up for some fun insights and interesting facts! Your IMDB to Overseerr Sync Tool is more than just software; it’s your new best friend in movie management.
+Buckle up for some fun insights and interesting facts! Your IMDB to Overseerr Sync Tool is more than just software; it’s your new best friend in movie and TV show management.
 
 ## 🤓 Fun Facts
 
