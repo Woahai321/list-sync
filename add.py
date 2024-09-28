@@ -1,5 +1,5 @@
 # ==============================================================================
-# Soluify  |  Your #1 IT Problem Solver  |  {imdb-to-overseerr v0.4.1}
+# Soluify  |  Your #1 IT Problem Solver  |  {list-sync v0.4.1}
 # ==============================================================================
 #  __         _
 # (_  _ |   .(_
@@ -603,5 +603,5 @@ if __name__ == "__main__":
     main()
 
 # =======================================================================================================
-# Soluify  |  You actually read it? Nice work, stay safe out there people!  |  {imdb-to-overseerr v0.4.1}
+# Soluify  |  You actually read it? Nice work, stay safe out there people!  |  {list-sync v0.4.1}
 # =======================================================================================================

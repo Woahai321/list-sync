@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/devcontainers/spec/main/schemas/devContainer.base.schema.json",
-  "name": "imdb-to-overseerr devContainer",
+  "name": "list-sync devContainer",
   "build": {
     "dockerfile": "Dockerfile"
   },

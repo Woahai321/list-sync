@@ -19,10 +19,10 @@ This amazing tool automates importing your carefully curated IMDB lists into Ove
 3. [Compatibility](#-compatibility)
 4. [How it Works](#-how-it-works)
 5. [Getting Started](#-getting-started)
-    - [Installation: Docker (Recommended)](#installation-docker-recommended)
-    - [Standard Python Environment](#standard-python-environment)
-    - [Poetry](#poetry)
-    - [Configuration](#configuration)
+   - [Installation: Docker (Recommended)](#installation-docker-recommended)
+   - [Standard Python Environment](#standard-python-environment)
+   - [Poetry](#poetry)
+   - [Configuration](#configuration)
 6. [Troubleshooting](#-troubleshooting)
 7. [Roadmap](#-roadmap)
 8. [Notes](#-notes)
@@ -40,16 +40,16 @@ This amazing tool automates importing your carefully curated IMDB lists into Ove
 
 ## 🔑 Key Features
 
-| Feature                                     | Status  |
-|---------------------------------------------|---------|
-| Fetch and Import Movies & TV Shows             | ✅       |
-| Identify Movies & TV Shows Already Requested           | ✅       |
-| Identify Movies & TV Shows Already Available           | ✅       |
-| Real-time Detailed Logging                  | ✅       |
-| Encrypted Configuration Storage             | ✅       |
-| Configurable Sync Interval                  | ✅       |
-| On-demand Sync During Sleep                 | ✅       |
-| Graceful Exit During Sleep                  | ✅       |
+| Feature                                      | Status |
+| -------------------------------------------- | ------ |
+| Fetch and Import Movies & TV Shows           | ✅     |
+| Identify Movies & TV Shows Already Requested | ✅     |
+| Identify Movies & TV Shows Already Available | ✅     |
+| Real-time Detailed Logging                   | ✅     |
+| Encrypted Configuration Storage              | ✅     |
+| Configurable Sync Interval                   | ✅     |
+| On-demand Sync During Sleep                  | ✅     |
+| Graceful Exit During Sleep                   | ✅     |
 
 ---
 
@@ -57,21 +57,20 @@ This amazing tool automates importing your carefully curated IMDB lists into Ove
 
 This tool is compatible with the following:
 
-| Application     | Status        | Notes                                     |
-|-----------------|---------------|-------------------------------------------|
-| ![Overseerr](https://img.shields.io/badge/-Overseerr-blue) | ✅ Supported  | Full functionality with Overseerr         |
-| ![Jellyseerr](https://img.shields.io/badge/-Jellyseerr-purple) | ✅ Supported  | Compatible with Jellyseerr               |
-| ![Radarr](https://img.shields.io/badge/-Radarr-orange)  | ✅ Supported  | Currently supports Radarr                 |
-| ![Sonarr](https://img.shields.io/badge/-Sonarr-gray)    | ✅ Supported  | Now supports TV series                    |
+| Application                                                    | Status       | Notes                             |
+| -------------------------------------------------------------- | ------------ | --------------------------------- |
+| ![Overseerr](https://img.shields.io/badge/-Overseerr-blue)     | ✅ Supported | Full functionality with Overseerr |
+| ![Jellyseerr](https://img.shields.io/badge/-Jellyseerr-purple) | ✅ Supported | Compatible with Jellyseerr        |
+| ![Radarr](https://img.shields.io/badge/-Radarr-orange)         | ✅ Supported | Currently supports Radarr         |
+| ![Sonarr](https://img.shields.io/badge/-Sonarr-gray)           | ✅ Supported | Now supports TV series            |
 
 ### Future List Services
 
-| Service         | Status        | Notes                                     |
-|-----------------|---------------|-------------------------------------------|
-| ![IMDB](https://img.shields.io/badge/-IMDB-green)       | ✅ Supported  | Currently supported                       |
-| ![Trakt](https://img.shields.io/badge/-Trakt-green)    | ✅ Supported    | Currently supported                    |
-| ![Letterboxd](https://img.shields.io/badge/-Letterboxd-red) | ❌ Not Yet    | Future support planned                    |
-
+| Service                                                     | Status       | Notes                  |
+| ----------------------------------------------------------- | ------------ | ---------------------- |
+| ![IMDB](https://img.shields.io/badge/-IMDB-green)           | ✅ Supported | Currently supported    |
+| ![Trakt](https://img.shields.io/badge/-Trakt-green)         | ✅ Supported | Currently supported    |
+| ![Letterboxd](https://img.shields.io/badge/-Letterboxd-red) | ❌ Not Yet   | Future support planned |
 
 ---
 
@@ -98,27 +97,27 @@ To ensure the tool runs consistently across different environments, use Docker.
 
 1. **Install Docker**:
 
-    Ensure Docker is installed on your system. If it's not, follow the [installation guide](https://docs.docker.com/get-docker/) for your operating system.
+   Ensure Docker is installed on your system. If it's not, follow the [installation guide](https://docs.docker.com/get-docker/) for your operating system.
 
 2. **Create a working directory**:
 
-    Make a folder to house the application's log files (e.g. imdb-to-overseerr)
+   Make a folder to house the application's log files (e.g. list-sync)
 
 3. **Pull and Run the Docker Image**:
 
-    Use the following one-liner to pull and run the Docker image:
+   Use the following one-liner to pull and run the Docker image:
 
-    ```sh
-    sudo docker pull ghcr.io/woahai321/imdb-to-overseerr:main && sudo docker run -it --rm -v "$(pwd)/data:/usr/src/app/data" -e TERM=xterm-256color ghcr.io/woahai321/imdb-to-overseerr:main
-    ```
+   ```sh
+   sudo docker pull ghcr.io/woahai321/list-sync:main && sudo docker run -it --rm -v "$(pwd)/data:/usr/src/app/data" -e TERM=xterm-256color ghcr.io/woahai321/list-sync:main
+   ```
 
 4. **Use this command for subsequent runs**:
 
-    Use the following command to run the Docker image:
+   Use the following command to run the Docker image:
 
-    ```sh
-    sudo docker run -it --rm -v "$(pwd)/data:/usr/src/app/data" -e TERM=xterm-256color ghcr.io/woahai321/imdb-to-overseerr:main
-    ```
+   ```sh
+   sudo docker run -it --rm -v "$(pwd)/data:/usr/src/app/data" -e TERM=xterm-256color ghcr.io/woahai321/list-sync:main
+   ```
 
 OR
 
@@ -128,24 +127,24 @@ If you prefer running the tool in a standard Python environment, follow these st
 
 1. **Clone the Repository and Navigate to the Directory**:
 
-    ```sh
-    git clone https://github.com/woahai321/imdb-to-overseerr.git
-    cd imdb-to-overseerr
-    ```
+   ```sh
+   git clone https://github.com/woahai321/list-sync.git
+   cd list-sync
+   ```
 
 2. **Install Dependencies**:
 
-    Make sure you have Python 3.9 or higher installed, then install the required dependencies:
+   Make sure you have Python 3.9 or higher installed, then install the required dependencies:
 
-    ```sh
-    pip install -r requirements.txt
-    ```
+   ```sh
+   pip install -r requirements.txt
+   ```
 
 3. **Run the Script**:
 
-    ```sh
-    python add.py
-    ```
+   ```sh
+   python add.py
+   ```
 
 OR
 
@@ -162,46 +161,46 @@ Poetry offers several advantages over traditional Python dependency management m
 
 1. **Install Poetry**:
 
-    ```sh
-    curl -sSL https://install.python-poetry.org | python3 -
-    ```
+   ```sh
+   curl -sSL https://install.python-poetry.org | python3 -
+   ```
 
 2. **Clone the Repository and Navigate to the Directory**:
 
-    ```sh
-    git clone https://github.com/woahai321/imdb-to-overseerr.git
-    cd imdb-to-overseerr
-    ```
+   ```sh
+   git clone https://github.com/woahai321/list-sync.git
+   cd list-sync
+   ```
 
 3. **Install Dependencies**:
 
-    Make sure you have Python 3.9 or higher installed, then install the required dependencies:
+   Make sure you have Python 3.9 or higher installed, then install the required dependencies:
 
-    ```sh
-    poetry install
-    ```
+   ```sh
+   poetry install
+   ```
 
 4. **Run the Script**:
 
-    ```sh
-    poetry run python add.py
-    ```
+   ```sh
+   poetry run python add.py
+   ```
 
 OR
 
 1. Use [devcontainer](.devcontainer/devcontainer.json) to bootstrap pre-built dev environment: [DevContainer documentation](https://containers.dev/)
 
-
 ### Configuration
 
 1. **Run the Script and Fill in the Required Details When Prompted**:
-    - **Overseerr URL**: Your Overseerr instance's base URL.
-    - **API Key**: The API key from your Overseerr account.
-    - **IMDB List ID**: The ID of the IMDB list you want to import.
+
+   - **Overseerr URL**: Your Overseerr instance's base URL.
+   - **API Key**: The API key from your Overseerr account.
+   - **IMDB List ID**: The ID of the IMDB list you want to import.
 
 2. **Saving Configuration**:
-    - The script will prompt you to enter a password to encrypt your configuration.
-    - This encrypted configuration will be saved and reused for future imports.
+   - The script will prompt you to enter a password to encrypt your configuration.
+   - This encrypted configuration will be saved and reused for future imports.
 
 ---
 
@@ -210,12 +209,15 @@ OR
 ### Common Issues
 
 1. **Invalid API Credentials**
+
    - **Solution:** Ensure your API key is correctly entered and matches Overseerr's credentials.
 
 2. **Unexpected Script Behavior**
+
    - **Solution:** Check the `overseerr_sync.log` file for detailed error messages and resolve the issue based on these logs.
 
 3. **Failed to Fetch IMDB List**
+
    - **Solution:** Ensure the IMDB list ID is correct and the list is publicly accessible.
 
 4. **Decryption Error**
@@ -226,6 +228,7 @@ OR
 ## 🛤️ Roadmap
 
 ### Small Tasks
+
 - [x] **Enhanced Error Messages:** Improve error descriptions for easier troubleshooting.
 - [x] **Advanced Error Handling:** Improved error messages for clearer troubleshooting.
 - [x] **Secure User Profiles:** Ability to save and load Overseerr details from an encrypted configuration file.
@@ -233,6 +236,7 @@ OR
 - [ ] **Integration with Other Services:** Add support for third-party services: Trakt, Letterboxd, etc.
 
 ### Medium Tasks
+
 - [x] **Sync Interval Configuration:** Allow users to set synchronization intervals.
 - [x] **Interruptible Sleep Mode:** Functionality for interrupting sleep mode for on-demand sync or clean exit.
 - [x] **Configuration Management:** Save and reuse configuration setups.
@@ -242,6 +246,7 @@ OR
 - [ ] **Database Integration:** Implement a real database to track sync history and metrics, not just a file.
 
 ### Big Tasks
+
 - [x] **Automated Syncing:** Schedule automatic syncing between IMDB and Overseerr.
 - [x] **Movie Status Identification:** Identify movies already available, already requested, or to be requested.
 - [x] **TV Series Status Identification:** Identify TV series already available, already requested, or to be requested.
@@ -306,19 +311,24 @@ Buckle up for some fun insights and interesting facts! Your IMDB to Overseerr Sy
 Using the **IMDB to Overseerr Sync Tool** responsibly and in accordance with Overseerr's and IMDB's Terms of Service (ToS) and policies is crucial! Here are some key points:
 
 1. **Compliance with Overseerr and IMDB:**
-    - Users must adhere to the ToS of both Overseerr and IMDB. Review IMDB's [Terms of Service](https://www.imdb.com/conditions) to ensure compliance.
+
+   - Users must adhere to the ToS of both Overseerr and IMDB. Review IMDB's [Terms of Service](https://www.imdb.com/conditions) to ensure compliance.
 
 2. **No Spamming or Abuse:**
-    - This tool should not be used for spam or unauthorized import activities. Respect the guidelines and policies of the platforms.
+
+   - This tool should not be used for spam or unauthorized import activities. Respect the guidelines and policies of the platforms.
 
 3. **Managing Rate Limits:**
-    - Use the tool thoughtfully to avoid hitting rate limits set by Overseerr. Excessive usage can lead to rate limiting or bans.
+
+   - Use the tool thoughtfully to avoid hitting rate limits set by Overseerr. Excessive usage can lead to rate limiting or bans.
 
 4. **User Consent:**
-    - Ensure you have the necessary permissions to import and manage media from IMDB lists.
+
+   - Ensure you have the necessary permissions to import and manage media from IMDB lists.
 
 5. **Security:**
-    - Protect your API credentials and never share them publicly.
+
+   - Protect your API credentials and never share them publicly.
 
 6. **Responsibility:**
-    - Users are responsible for their actions while using this tool. The creators of the **IMDB to Overseerr Sync Tool** are not liable for any misuse or legal consequences arising from its use.
+   - Users are responsible for their actions while using this tool. The creators of the **IMDB to Overseerr Sync Tool** are not liable for any misuse or legal consequences arising from its use.
