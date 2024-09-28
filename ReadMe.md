@@ -35,7 +35,7 @@ This powerful tool automates the import of your carefully curated IMDB and Trakt
 
 ## 🎬 Demo
 
-![Bot In Action](https://share.woahlab.com/-ofxGvTz7Wb)
+![Bot In Action](https://share.woahlab.com/-Skh7Ne3vXg)
 
 ---
 
