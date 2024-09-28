@@ -1,6 +1,6 @@
 # 🎬 ListSync
 
-![ListSync Logo](https://share.woahlab.com/-G7FV7AkDqV)
+![ListSync Logo](https://share.woahlab.com/-Tdgu2viusH)
 [![Website](https://img.shields.io/website?label=soluify.com&style=plastic&url=https%3A%2F%2Fsoluify.com)](https://soluify.com/)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-blue?style=plastic&logo=linkedin)](https://www.linkedin.com/company/soluify)
 ![Docker](https://img.shields.io/badge/docker-ready-blue)
