@@ -16,14 +16,14 @@ This amazing tool automates importing your carefully curated IMDB lists into Ove
 
 1. [Demo](#-demo)
 2. [Key Features](#-key-features)
-3. [How it Works](#-how-it-works)
-4. [Getting Started](#-getting-started)
+3. [Compatibility](#-compatibility)
+4. [How it Works](#-how-it-works)
+5. [Getting Started](#-getting-started)
     - [Installation: Docker (Recommended)](#installation-docker-recommended)
     - [Standard Python Environment](#standard-python-environment)
     - [Poetry](#poetry)
     - [Configuration](#configuration)
-5. [Troubleshooting](#-troubleshooting)
-6. [Compatibility](#-compatibility)
+6. [Troubleshooting](#-troubleshooting)
 7. [Roadmap](#-roadmap)
 8. [Notes](#-notes)
 9. [Contact](#-contact)
@@ -69,8 +69,9 @@ This tool is compatible with the following:
 | Service         | Status        | Notes                                     |
 |-----------------|---------------|-------------------------------------------|
 | ![IMDB](https://img.shields.io/badge/-IMDB-green)       | ✅ Supported  | Currently supported                       |
-| ![Letterboxd](https://img.shields.io/badge/-Letterboxd-yellow) | ❌ Not Yet    | Future support planned                    |
-| ![Trakt](https://img.shields.io/badge/-Trakt-red)    | ❌ Not Yet    | Future support planned                    |
+| ![Trakt](https://img.shields.io/badge/-Trakt-green)    | ✅ Supported    | Currently supported                    |
+| ![Letterboxd](https://img.shields.io/badge/-Letterboxd-red) | ❌ Not Yet    | Future support planned                    |
+
 
 ---
 
