@@ -82,7 +82,7 @@ def display_ascii_art():
 def display_banner():
     banner = """
     ==============================================================
-             Soluify - {servarr-tools_imdb-overseer_v0.4.1}
+             Soluify - {servarr-tools_list-sync_v0.4.1}
     ==============================================================
     """
     print(color_gradient(banner, "#aa00aa", "#00aa00") + Style.RESET_ALL)
