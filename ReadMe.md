@@ -1,6 +1,6 @@
-# 🎬 IMDB to Overseerr Sync Tool
+# 🎬 ListSync
 
-![IMDB to Overseerr Logo](https://share.woahlab.com/-G7FV7AkDqV)
+![ListSync Logo](https://share.woahlab.com/-G7FV7AkDqV)
 [![Website](https://img.shields.io/website?label=soluify.com&style=plastic&url=https%3A%2F%2Fsoluify.com)](https://soluify.com/)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-blue?style=plastic&logo=linkedin)](https://www.linkedin.com/company/soluify)
 ![Docker](https://img.shields.io/badge/docker-ready-blue)
@@ -8,7 +8,7 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Dependencies](https://img.shields.io/badge/dependencies-up%20to%20date-brightgreen)
 
-Welcome to the **IMDB to Overseerr Sync Tool**! 🎉
+Welcome to the **ListSync Tool**! 🎉
 
 This amazing tool automates importing your carefully curated IMDB lists into Overseerr, transforming movie and TV show management into a breeze. Whether you're a movie buff, a librarian for multiple collections, or someone enchanted by the magic of automation, this tool is here to simplify your experience.
 
@@ -76,7 +76,7 @@ This tool is compatible with the following:
 
 ## 🔎 How it Works
 
-The IMDB to Overseerr Sync Tool utilizes a mix of Python and powerful libraries like `requests`, `BeautifulSoup`, and the [Overseer API](https://api-docs.overseerr.dev/#/) to find and request missing movies and TV shows.
+The ListSync Tool utilizes a mix of Python and powerful libraries like `requests`, `BeautifulSoup`, and the [Overseer API](https://api-docs.overseerr.dev/#/) to find and request missing movies and TV shows.
 
 Here’s a brief breakdown:
 
@@ -233,11 +233,11 @@ OR
 - [x] **Advanced Error Handling:** Improved error messages for clearer troubleshooting.
 - [x] **Secure User Profiles:** Ability to save and load Overseerr details from an encrypted configuration file.
 - [x] **Real-time Progress Updates:** Real-time progress updates for importing movies and TV shows from IMDB.
-- [ ] **Integration with Other Services:** Add support for third-party services: Trakt, Letterboxd, etc.
+- [x] **Integration with Other Services:** Trakt
+- [ ] **Integration with Other Services:** Letterboxd, etc.
 
 ### Medium Tasks
 
-- [x] **Sync Interval Configuration:** Allow users to set synchronization intervals.
 - [x] **Interruptible Sleep Mode:** Functionality for interrupting sleep mode for on-demand sync or clean exit.
 - [x] **Configuration Management:** Save and reuse configuration setups.
 - [x] **Batch Processing:** Enable batch processing for multiple IMDB lists simultaneously.
@@ -293,7 +293,7 @@ This project is licensed under the [MIT License](https://opensource.org/license/
 
 # 🎉 Fun Zone: Get to Know Your Tool!
 
-Buckle up for some fun insights and interesting facts! Your IMDB to Overseerr Sync Tool is more than just software; it’s your new best friend in movie and TV show management.
+Buckle up for some fun insights and interesting facts! Your ListSync Tool is more than just software; it’s your new best friend in movie and TV show management.
 
 ## 🤓 Fun Facts
 
@@ -308,7 +308,7 @@ Buckle up for some fun insights and interesting facts! Your IMDB to Overseerr Sy
 
 ## 🛡️ Legal Disclaimer
 
-Using the **IMDB to Overseerr Sync Tool** responsibly and in accordance with Overseerr's and IMDB's Terms of Service (ToS) and policies is crucial! Here are some key points:
+Using the **ListSync Tool** responsibly and in accordance with Overseerr's and IMDB's Terms of Service (ToS) and policies is crucial! Here are some key points:
 
 1. **Compliance with Overseerr and IMDB:**
 
@@ -331,4 +331,4 @@ Using the **IMDB to Overseerr Sync Tool** responsibly and in accordance with Ove
    - Protect your API credentials and never share them publicly.
 
 6. **Responsibility:**
-   - Users are responsible for their actions while using this tool. The creators of the **IMDB to Overseerr Sync Tool** are not liable for any misuse or legal consequences arising from its use.
+   - Users are responsible for their actions while using this tool. The creators of the **ListSync Tool** are not liable for any misuse or legal consequences arising from its use.
