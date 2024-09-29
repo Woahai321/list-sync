@@ -88,8 +88,8 @@ This powerful tool automates the import of your carefully curated IMDB and Trakt
 
 | Installation Method | Command | Notes |
 |:-------------------:|:-------:|:------|
-| ![Python](https://img.shields.io/badge/Python-3.7%2B-blue?style=for-the-badge&logo=python) | `pip install -r requirements.txt && python add.py` | Requires Python 3.7+ |
 | ![Docker](https://img.shields.io/badge/Docker-ready-blue?style=for-the-badge&logo=docker) | `sudo docker pull ghcr.io/woahai321/list-sync:main && sudo docker run -it --rm -v "$(pwd)/data:/usr/src/app/data" -e TERM=xterm-256color ghcr.io/woahai321/list-sync:main` | Easy containerized deployment |
+| ![Python](https://img.shields.io/badge/Python-3.7%2B-blue?style=for-the-badge&logo=python) | `pip install -r requirements.txt && python add.py` | Requires Python 3.7+ |
 | ![Poetry](https://img.shields.io/badge/Poetry-ready-blue?style=for-the-badge&logo=poetry) | `poetry install && poetry run python add.py` | Simplifies dependency management |
 
 
@@ -282,7 +282,7 @@ The ListSync Tool is a Python-based application that leverages several libraries
 ### Common Issues and Solutions
 
 1. **Invalid API Credentials**
-   - **Symptom:** Error messages related to API authentication or 401 Unauthorized responses.
+   - **Symptom:** Error messages related to API authentication or 401 Unauthorised responses.
    - **Solution:** 
      - Double-check your Overseerr URL and API key in the Overseerr settings.
      - Ensure there are no trailing spaces in the URL or API key.
@@ -322,7 +322,7 @@ The ListSync Tool is a Python-based application that leverages several libraries
    - **Solution:** 
      - Verify that Overseerr is properly connected to your media sources (Radarr/Sonarr).
      - Check if the titles in your lists match exactly with how they appear in Overseerr's search.
-     - For TV shows, try using the original title rather than localized versions.
+     - For TV shows, try using the original title rather than localised versions.
 
 7. **Sync Interval Not Working**
    - **Symptom:** Script doesn't automatically run at the specified interval.
@@ -426,7 +426,7 @@ Using the **ListSync Tool** responsibly and in accordance with Overseerr's, IMDB
 
 2. **No Spamming or Abuse:**
 
-   - This tool should not be used for spam or unauthorized import activities. Respect the guidelines and policies of the platforms.
+   - This tool should not be used for spam or unauthorised import activities. Respect the guidelines and policies of the platforms.
 
 3. **Managing Rate Limits:**
 
