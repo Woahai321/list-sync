@@ -552,7 +552,7 @@ def process_media(movies, tv_series, overseerr_url, api_key, added_logger):
 def display_menu():
     menu = """
 ==============================================================
-                    🛠️ Soluify - List Sync Tool 🛠️
+                    🛠️  Soluify - List Sync Tool 🛠️
 ==============================================================
 1. 🔄 Start Sync with Saved Lists 🔄
 2. ➕ Add New Lists ➕
