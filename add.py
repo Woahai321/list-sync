@@ -1,5 +1,5 @@
 # =============================================================================
-# Soluify  |  Your #1 IT Problem Solver  |  {list-sync v0.4.1}
+# Soluify  |  Your #1 IT Problem Solver  |  {list-sync v0.4.2}
 # =============================================================================
 #  __         _
 # (_  _ |   .(_
@@ -83,7 +83,7 @@ def display_ascii_art():
 def display_banner():
     banner = """
     ==============================================================
-             Soluify - {servarr-tools_list-sync_v0.4.1}
+             Soluify - {servarr-tools_list-sync_v0.4.2}
     ==============================================================
     """
     print(color_gradient(banner, "#aa00aa", "#00aa00") + Style.RESET_ALL)
@@ -91,7 +91,8 @@ def display_banner():
 def display_summary(
     total_movies, requested_movies, already_requested_movies, already_available_movies,
     not_found_movies, failed_movies, total_tv_series, requested_tv_series,
-    already_requested_tv_series, already_available_tv_series, not_found_tv_series, failed_tv_series
+    already_requested_tv_series, already_available_tv_series, not_found_tv_series, failed_tv_series,
+    already_checked_movies, already_checked_tv_series
 ):
     summary = f"""
 ==============================================================
@@ -108,6 +109,9 @@ def display_summary(
 
 📌 Movies Already Requested: {already_requested_movies}
 📌 Shows Already Requested: {already_requested_tv_series}
+
+✔️ Movies Already Checked: {already_checked_movies}
+✔️ Shows Already Checked: {already_checked_tv_series}
 
 ❓ Movies Not Found: {not_found_movies}
 ❓ Shows Not Found: {not_found_tv_series}
@@ -168,12 +172,18 @@ def test_overseerr_api(overseerr_url, api_key):
         logging.error(f"Overseerr API connection failed. Error: {str(e)}")
         raise
 
-# This is the old working fetch_imdb_list function
 def fetch_imdb_list(list_id):
     spinner = Halo(text=color_gradient("📚  Fetching IMDB list...", "#ffaa00", "#ff5500"), spinner="dots")
     spinner.start()
     try:
-        url = f"https://www.imdb.com/list/{list_id}"
+        # Determine if the list_id is a list or a watchlist
+        if list_id.startswith("ls"):
+            url = f"https://www.imdb.com/list/{list_id}"
+        elif list_id.startswith("ur"):
+            url = f"https://www.imdb.com/user/{list_id}/watchlist"
+        else:
+            raise ValueError("Invalid IMDb list ID format. It should start with 'ls' for lists or 'ur' for watchlists.")
+        
         headers = {"Accept-Language": "en-US", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
         
         response = requests.get(url, headers=headers)
@@ -184,29 +194,54 @@ def fetch_imdb_list(list_id):
         # Debug: Log the entire HTML content
         logging.debug(f"IMDb list HTML content: {response.text}")
         
+        # Check for the ld+json script tag first
         script_tag = soup.find("script", {"type": "application/ld+json"})
         
-        if not script_tag:
-            raise ValueError("Could not find ld+json script tag in the IMDb page")
-        
-        ld_json = json.loads(script_tag.string)
+        if script_tag:
+            ld_json = json.loads(script_tag.string)
+        else:
+            # If ld+json script tag is not found, look for the __NEXT_DATA__ script tag
+            script_tag = soup.find("script", {"id": "__NEXT_DATA__"})
+            if not script_tag:
+                raise ValueError("Could not find ld+json or __NEXT_DATA__ script tag in the IMDb page")
+            next_data = json.loads(script_tag.string)
+            ld_json = next_data["props"]["pageProps"]["mainColumnData"]["predefinedList"]["titleListItemSearch"]
         
         movies = []
         tv_series = []
-        for row in ld_json["itemListElement"]:
-            item = row["item"]
-            if item["@type"] == "TVSeries":
-                tv_series.append({
-                    "title": html.unescape(item["name"]),
-                    "imdb_id": item["url"].split("/")[-2],
-                    "media_type": "tv"
-                })
-            elif item["@type"] == "Movie":
-                movies.append({
-                    "title": html.unescape(item["name"]),
-                    "imdb_id": item["url"].split("/")[-2],
-                    "media_type": "movie"
-                })
+        
+        if "itemListElement" in ld_json:
+            # Handle lists (lsXXXXXXX)
+            for row in ld_json["itemListElement"]:
+                item = row["item"]
+                if item["@type"] == "TVSeries":
+                    tv_series.append({
+                        "title": html.unescape(item["name"]),
+                        "imdb_id": item["url"].split("/")[-2],
+                        "media_type": "tv"
+                    })
+                elif item["@type"] == "Movie":
+                    movies.append({
+                        "title": html.unescape(item["name"]),
+                        "imdb_id": item["url"].split("/")[-2],
+                        "media_type": "movie"
+                    })
+        elif "edges" in ld_json:
+            # Handle watchlists (urXXXXXXX)
+            for row in ld_json["edges"]:
+                item = row["listItem"]
+                if item["titleType"]["id"] == "movie":
+                    movies.append({
+                        "title": html.unescape(item["titleText"]["text"]),
+                        "imdb_id": item["id"],
+                        "media_type": "movie"
+                    })
+                elif item["titleType"]["id"] == "tvSeries":
+                    tv_series.append({
+                        "title": html.unescape(item["titleText"]["text"]),
+                        "imdb_id": item["id"],
+                        "media_type": "tv"
+                    })
         
         spinner.succeed(color_gradient(f"✨  Found {len(movies)} Movies and {len(tv_series)} Shows from IMDB list {list_id}!", "#00ff00", "#00aa00"))
         logging.info(f"IMDB list {list_id} fetched successfully. Found {len(movies)} movies and {len(tv_series)} TV series.")
@@ -372,6 +407,231 @@ def load_sync_interval():
             return int(f.read().strip())
     return None
 
+def process_media(movies, tv_series, overseerr_url, api_key, added_logger):
+    total_movies = len(movies)
+    requested_movies = 0
+    already_requested_movies = 0
+    already_available_movies = 0
+    failed_movies = 0
+    not_found_movies = 0
+    already_checked_movies = 0
+
+    total_tv_series = len(tv_series)
+    requested_tv_series = 0
+    already_requested_tv_series = 0
+    already_available_tv_series = 0
+    failed_tv_series = 0
+    not_found_tv_series = 0
+    already_checked_tv_series = 0
+
+    processed_items = set()
+
+    print(color_gradient(f"\n🎬  Processing {total_movies} movies...", "#00aaff", "#00ffaa") + "\n")
+    for idx, movie in enumerate(movies, 1):
+        if movie["imdb_id"] in processed_items:
+            movie_status = f"{idx}/{total_movies} {movie['title']}: Already checked ✔️"
+            print(color_gradient(movie_status, "#aaaaaa", "#00ff00"))
+            logging.info(f'Movie already checked: {movie["title"]}')
+            already_checked_movies += 1
+            continue
+        processed_items.add(movie["imdb_id"])
+
+        movie_status = f"{idx}/{total_movies} {movie['title']}: Processing..."
+        print(color_gradient(movie_status, "#ffaa00", "#ff5500"), end="\r")
+        logging.info(f'Processing movie {idx}/{total_movies}: {movie["title"]}')
+        try:
+            search_result = search_media_in_overseerr(overseerr_url, api_key, movie["title"], "movie")
+            if search_result:
+                is_available_to_watch, is_requested, _ = confirm_media_status(overseerr_url, api_key, search_result["id"], "movie")
+                if is_available_to_watch:
+                    movie_status = f"{idx}/{total_movies} {movie['title']}: Already available ☑️"
+                    print(color_gradient(movie_status, "#aaaaaa", "#00ff00"))
+                    logging.info(f'Movie already available: {movie["title"]}')
+                    already_available_movies += 1
+                elif is_requested:
+                    movie_status = f"{idx}/{total_movies} {movie['title']}: Already requested 📌"
+                    print(color_gradient(movie_status, "#aaaaaa", "#ffff00"))
+                    logging.info(f'Movie already requested: {movie["title"]}')
+                    already_requested_movies += 1
+                else:
+                    request_status = request_media_in_overseerr(overseerr_url, api_key, search_result["id"], "movie")
+                    if request_status == "success":
+                        movie_status = f"{idx}/{total_movies} {movie['title']}: Successfully requested ✅"
+                        print(color_gradient(movie_status, "#00ff00", "#00aa00"))
+                        logging.info(f'Requested movie: {movie["title"]}')
+                        added_logger.info(f'Requested: {movie["title"]} (IMDB ID: {movie.get("imdb_id", "N/A")})')
+                        requested_movies += 1
+                    else:
+                        movie_status = f"{idx}/{total_movies} {movie['title']}: Failed to request ❌"
+                        print(color_gradient(movie_status, "#ff0000", "#aa0000"))
+                        logging.error(f'Failed to request movie: {movie["title"]}')
+                        failed_movies += 1
+            else:
+                movie_status = f"{idx}/{total_movies} {movie['title']}: Not found ❓"
+                print(color_gradient(movie_status, "#ff0000", "#aa0000"))
+                logging.error(f'Movie not found in Overseerr: {movie["title"]}')
+                not_found_movies += 1
+        except Exception as e:
+            movie_status = f"{idx}/{total_movies} {movie['title']}: Error processing ❌"
+            print(color_gradient(movie_status, "#ff0000", "#aa0000"))
+            logging.error(f'Error processing movie {movie["title"]}: {e}')
+            failed_movies += 1
+        time.sleep(0.1)  # Rate limiting
+
+    print(color_gradient(f"\n📺  Processing {total_tv_series} TV shows...", "#00aaff", "#00ffaa") + "\n")
+    for idx, series in enumerate(tv_series, 1):
+        if series["imdb_id"] in processed_items:
+            series_status = f"{idx}/{total_tv_series} {series['title']}: Already checked ✔️"
+            print(color_gradient(series_status, "#aaaaaa", "#00ff00"))
+            logging.info(f'TV series already checked: {series["title"]}')
+            already_checked_tv_series += 1
+            continue
+        processed_items.add(series["imdb_id"])
+
+        series_status = f"{idx}/{total_tv_series} {series['title']}: Processing..."
+        print(color_gradient(series_status, "#ffaa00", "#ff5500"), end="\r")
+        logging.info(f'Processing TV series {idx}/{total_tv_series}: {series["title"]}')
+        try:
+            search_result = search_media_in_overseerr(overseerr_url, api_key, series["title"], "tv")
+            if search_result:
+                is_available_to_watch, is_requested, number_of_seasons = confirm_media_status(overseerr_url, api_key, search_result["id"], "tv")
+                logging.debug(f"Processing {series['title']} - Available: {is_available_to_watch}, Requested: {is_requested}, Seasons: {number_of_seasons}")
+                if is_available_to_watch:
+                    series_status = f"{idx}/{total_tv_series} {series['title']}: Already available ☑️"
+                    print(color_gradient(series_status, "#aaaaaa", "#00ff00"))
+                    logging.info(f'TV series already available: {series["title"]}')
+                    already_available_tv_series += 1
+                elif is_requested:
+                    series_status = f"{idx}/{total_tv_series} {series['title']}: Already requested 📌"
+                    print(color_gradient(series_status, "#aaaaaa", "#ffff00"))
+                    logging.info(f'TV series already requested: {series["title"]}')
+                    already_requested_tv_series += 1
+                else:
+                    logging.debug(f"Number of seasons identified for {series['title']}: {number_of_seasons}")
+                    request_status = request_tv_series_in_overseerr(overseerr_url, api_key, search_result["id"], number_of_seasons)
+                    if request_status == "success":
+                        series_status = f"{idx}/{total_tv_series} {series['title']}: Successfully requested ✅"
+                        print(color_gradient(series_status, "#00ff00", "#00aa00"))
+                        logging.info(f'Requested TV series: {series["title"]}')
+                        added_logger.info(f'Requested: {series["title"]} (IMDB ID: {series.get("imdb_id", "N/A")})')
+                        requested_tv_series += 1
+                    else:
+                        series_status = f"{idx}/{total_tv_series} {series['title']}: Failed to request ❌"
+                        print(color_gradient(series_status, "#ff0000", "#aa0000"))
+                        logging.error(f'Failed to request TV series: {series["title"]}')
+                        failed_tv_series += 1
+            else:
+                series_status = f"{idx}/{total_tv_series} {series['title']}: Not found ❓"
+                print(color_gradient(series_status, "#ff0000", "#aa0000"))
+                logging.error(f'TV series not found in Overseerr: {series["title"]}')
+                not_found_tv_series += 1
+        except Exception as e:
+            series_status = f"{idx}/{total_tv_series} {series['title']}: Error processing ❌"
+            print(color_gradient(series_status, "#ff0000", "#aa0000"))
+            logging.error(f'Error processing TV series {series["title"]}: {e}')
+            failed_tv_series += 1
+        time.sleep(0.1)  # Rate limiting
+
+    display_summary(
+        total_movies,
+        requested_movies,
+        already_requested_movies,
+        already_available_movies,
+        not_found_movies,
+        failed_movies,
+        total_tv_series,
+        requested_tv_series,
+        already_requested_tv_series,
+        already_available_tv_series,
+        not_found_tv_series,
+        failed_tv_series,
+        already_checked_movies,
+        already_checked_tv_series
+    )
+
+def display_menu():
+    menu = """
+==============================================================
+                    🛠️ Soluify - List Sync Tool 🛠️
+==============================================================
+1. 🔄 Start Sync with Saved Lists 🔄
+2. ➕ Add New Lists ➕
+3. ⏰ Configure Sync Interval ⏰
+4. ❌ Exit ❌
+==============================================================
+"""
+    print(color_gradient(menu, "#00aaff", "#00ffaa") + Style.RESET_ALL)
+
+def start_sync(overseerr_url, api_key, added_logger):
+    try:
+        test_overseerr_api(overseerr_url, api_key)
+    except Exception as e:
+        print(color_gradient(f"\n❌  Error testing Overseerr API: {e}", "#ff0000", "#aa0000") + "\n")
+        logging.error(f"Error testing Overseerr API: {e}")
+        return
+
+    movies = []
+    tv_series = []
+    for list_type, list_id in load_list_ids():
+        try:
+            if list_type == "imdb":
+                fetched_movies, fetched_tv_series = fetch_imdb_list(list_id)
+                movies.extend(fetched_movies)
+                tv_series.extend(fetched_tv_series)
+            elif list_type == "trakt":
+                media_items = fetch_trakt_list(list_id)
+                movies.extend([item for item in media_items if item["media_type"] == "movie"])
+                tv_series.extend([item for item in media_items if item["media_type"] == "show"])
+        except Exception as e:
+            print(color_gradient(f"\n❌  Error fetching list: {e}", "#ff0000", "#aa0000") + "\n")
+            logging.error(f"Error fetching list: {e}")
+            continue
+
+    process_media(movies, tv_series, overseerr_url, api_key, added_logger)
+
+def add_new_lists():
+    add_new_list = True
+    while add_new_list:
+        source = input(color_gradient("\n🍿  Are you importing from 'i'mbd or 't'rakt? (i/t): ", "#ffaa00", "#ff5500")).lower()
+
+        if source == "i":
+            imdb_list_id = input(color_gradient("\n🎬  Enter IMDB List ID (e.g., ls012345678): ", "#ffaa00", "#ff5500"))
+            imdb_list_ids = []
+            for item in imdb_list_id.split(","):
+                item = item.strip()
+                if "imdb.com/list/" in item:
+                    imdb_list_ids.append(urlparse(item).path.split("/")[2])
+                else:
+                    imdb_list_ids.append(item)
+
+            for list_id in imdb_list_ids:
+                add_to_sync = input(color_gradient(f"\n🚨  Are you sure {list_id} is correct? (y/n): ", "#ffaa00", "#ff5500")).lower()
+                if add_to_sync == "y":
+                    save_list_id(list_id, "imdb")
+
+        elif source == "t":
+            trakt_list_id = input(color_gradient("\n🎬  Enter Trakt List ID (e.g., 20492796): ", "#ffaa00", "#ff5500"))
+            trakt_list_ids = []
+            for item in trakt_list_id.split(","):
+                item = item.strip()
+                if "trakt.tv/lists/" in item:
+                    trakt_list_ids.append(urlparse(item).path.split("/")[2])
+                else:
+                    trakt_list_ids.append(item)
+
+            for list_id in trakt_list_ids:
+                add_to_sync = input(color_gradient(f"\n🚨  Are you sure {list_id} is correct? (y/n): ", "#ffaa00", "#ff5500")).lower()
+                if add_to_sync == "y":
+                    save_list_id(list_id, "trakt")
+
+        else:
+            print(color_gradient("\n❌  Invalid choice. Please enter 'i' for IMDb or 't' for Trakt.", "#ff0000", "#aa0000"))
+            continue
+
+        more_lists = input(color_gradient("\n🏁  Do you want to import any other lists? (y/n): ", "#ffaa00", "#ff5500")).lower()
+        if more_lists != "y":
+            add_new_list = False
+
 def main():
     ensure_data_directory_exists()
     added_logger = setup_logging()
@@ -387,222 +647,51 @@ def main():
         api_key = input(color_gradient("\n🔑  Enter your Overseerr API key: ", "#ffaa00", "#ff5500"))
         save_config(overseerr_url, api_key)
 
-    if load_sync_interval() is None:
-        configure_sync = input(color_gradient("\n🔄  Do you want to configure the sync collection functionality? (y/n): ", "#ffaa00", "#ff5500")).lower()
-        if configure_sync == "y":
-            configure_sync_interval()
-
     sync_interval = load_sync_interval()
     if sync_interval:
         print(f'\n{color_gradient(f"🔄  Syncing every {sync_interval} hours.", "#00aaff", "#00ffaa")}')
 
     while True:
-        add_new_list = True
-        while add_new_list:
-            source = input(color_gradient("\n🍿  Are you importing from 'i'mbd or 't'rakt? (i/t): ", "#ffaa00", "#ff5500")).lower()
+        display_menu()
+        choice = input(color_gradient("Please select an option: ", "#ffaa00", "#ff5500"))
 
-            if source == "i":
-                imdb_list_id = input(color_gradient("\n🎬  Enter IMDB List ID (e.g., ls012345678): ", "#ffaa00", "#ff5500"))
-                imdb_list_ids = []
-                for item in imdb_list_id.split(","):
-                    item = item.strip()
-                    if "imdb.com/list/" in item:
-                        imdb_list_ids.append(urlparse(item).path.split("/")[2])
-                    else:
-                        imdb_list_ids.append(item)
+        if choice == "1":
+            # Start Sync with Saved Lists
+            start_sync(overseerr_url, api_key, added_logger)
 
-                for list_id in imdb_list_ids:
-                    add_to_sync = input(color_gradient(f"\n🚨  Are you sure {list_id} is correct? (y/n): ", "#ffaa00", "#ff5500")).lower()
-                    if add_to_sync == "y":
-                        save_list_id(list_id, "imdb")
+        elif choice == "2":
+            # Add New Lists
+            add_new_lists()
+            # Start sync immediately after adding new lists
+            start_sync(overseerr_url, api_key, added_logger)
 
-            elif source == "t":
-                trakt_list_id = input(color_gradient("\n🎬  Enter Trakt List ID (e.g., 20492796): ", "#ffaa00", "#ff5500"))
-                trakt_list_ids = []
-                for item in trakt_list_id.split(","):
-                    item = item.strip()
-                    if "trakt.tv/lists/" in item:
-                        trakt_list_ids.append(urlparse(item).path.split("/")[2])
-                    else:
-                        trakt_list_ids.append(item)
+        elif choice == "3":
+            # Configure Sync Interval
+            configure_sync_interval()
+            sync_interval = load_sync_interval()
 
-                for list_id in trakt_list_ids:
-                    add_to_sync = input(color_gradient(f"\n🚨  Are you sure {list_id} is correct? (y/n): ", "#ffaa00", "#ff5500")).lower()
-                    if add_to_sync == "y":
-                        save_list_id(list_id, "trakt")
+        elif choice == "4":
+            # Exit
+            print(color_gradient("Exiting the application. Goodbye! 👋", "#00aaff", "#00ffaa"))
+            return
 
-            else:
-                print(color_gradient("\n❌  Invalid choice. Please enter 'i' for IMDb or 't' for Trakt.", "#ff0000", "#aa0000"))
-                continue
-
-            more_lists = input(color_gradient("\n🏁  Before we start, do you want to import any other lists? (y/n): ", "#ffaa00", "#ff5500")).lower()
-            if more_lists != "y":
-                add_new_list = False
-
-        try:
-            test_overseerr_api(overseerr_url, api_key)
-        except Exception as e:
-            print(color_gradient(f"\n❌  Error testing Overseerr API: {e}", "#ff0000", "#aa0000") + "\n")
-            logging.error(f"Error testing Overseerr API: {e}")
-            break
-
-        movies = []
-        tv_series = []
-        for list_type, list_id in load_list_ids():
-            try:
-                if list_type == "imdb":
-                    fetched_movies, fetched_tv_series = fetch_imdb_list(list_id)
-                    movies.extend(fetched_movies)
-                    tv_series.extend(fetched_tv_series)
-                elif list_type == "trakt":
-                    media_items = fetch_trakt_list(list_id)
-                    movies.extend([item for item in media_items if item["media_type"] == "movie"])
-                    tv_series.extend([item for item in media_items if item["media_type"] == "show"])
-            except Exception as e:
-                print(color_gradient(f"\n❌  Error fetching list: {e}", "#ff0000", "#aa0000") + "\n")
-                logging.error(f"Error fetching list: {e}")
-                continue
-
-        total_movies = len(movies)
-        requested_movies = 0
-        already_requested_movies = 0
-        already_available_movies = 0
-        failed_movies = 0
-        not_found_movies = 0
-
-        total_tv_series = len(tv_series)
-        requested_tv_series = 0
-        already_requested_tv_series = 0
-        already_available_tv_series = 0
-        failed_tv_series = 0
-        not_found_tv_series = 0
-
-        print(color_gradient("\n🎬  Processing movies...", "#00aaff", "#00ffaa") + "\n")
-        for idx, movie in enumerate(movies, 1):
-            movie_status = f"{idx}/{total_movies} {movie['title']}: Processing..."
-            print(color_gradient(movie_status, "#ffaa00", "#ff5500"), end="\r")
-            logging.info(f'Processing movie {idx}/{total_movies}: {movie["title"]}')
-            try:
-                search_result = search_media_in_overseerr(overseerr_url, api_key, movie["title"], "movie")
-                if search_result:
-                    is_available_to_watch, is_requested, _ = confirm_media_status(overseerr_url, api_key, search_result["id"], "movie")
-                    if is_available_to_watch:
-                        movie_status = f"{idx}/{total_movies} {movie['title']}: Already available ☑️"
-                        print(color_gradient(movie_status, "#aaaaaa", "#00ff00"))
-                        logging.info(f'Movie already available: {movie["title"]}')
-                        already_available_movies += 1
-                    elif is_requested:
-                        movie_status = f"{idx}/{total_movies} {movie['title']}: Already requested 📌"
-                        print(color_gradient(movie_status, "#aaaaaa", "#ffff00"))
-                        logging.info(f'Movie already requested: {movie["title"]}')
-                        already_requested_movies += 1
-                    else:
-                        request_status = request_media_in_overseerr(overseerr_url, api_key, search_result["id"], "movie")
-                        if request_status == "success":
-                            movie_status = f"{idx}/{total_movies} {movie['title']}: Successfully requested ✅"
-                            print(color_gradient(movie_status, "#00ff00", "#00aa00"))
-                            logging.info(f'Requested movie: {movie["title"]}')
-                            added_logger.info(f'Requested: {movie["title"]} (IMDB ID: {movie.get("imdb_id", "N/A")})')
-                            requested_movies += 1
-                        else:
-                            movie_status = f"{idx}/{total_movies} {movie['title']}: Failed to request ❌"
-                            print(color_gradient(movie_status, "#ff0000", "#aa0000"))
-                            logging.error(f'Failed to request movie: {movie["title"]}')
-                            failed_movies += 1
-                else:
-                    movie_status = f"{idx}/{total_movies} {movie['title']}: Not found ❓"
-                    print(color_gradient(movie_status, "#ff0000", "#aa0000"))
-                    logging.error(f'Movie not found in Overseerr: {movie["title"]}')
-                    not_found_movies += 1
-            except Exception as e:
-                movie_status = f"{idx}/{total_movies} {movie['title']}: Error processing ❌"
-                print(color_gradient(movie_status, "#ff0000", "#aa0000"))
-                logging.error(f'Error processing movie {movie["title"]}: {e}')
-                failed_movies += 1
-            time.sleep(0.1)  # Rate limiting
-
-        print(color_gradient("\n📺  Processing TV shows...", "#00aaff", "#00ffaa") + "\n")
-        for idx, series in enumerate(tv_series, 1):
-            series_status = f"{idx}/{total_tv_series} {series['title']}: Processing..."
-            print(color_gradient(series_status, "#ffaa00", "#ff5500"), end="\r")
-            logging.info(f'Processing TV series {idx}/{total_tv_series}: {series["title"]}')
-            try:
-                search_result = search_media_in_overseerr(overseerr_url, api_key, series["title"], "tv")
-                if search_result:
-                    is_available_to_watch, is_requested, number_of_seasons = confirm_media_status(overseerr_url, api_key, search_result["id"], "tv")
-                    logging.debug(f"Processing {series['title']} - Available: {is_available_to_watch}, Requested: {is_requested}, Seasons: {number_of_seasons}")
-                    if is_available_to_watch:
-                        series_status = f"{idx}/{total_tv_series} {series['title']}: Already available ☑️"
-                        print(color_gradient(series_status, "#aaaaaa", "#00ff00"))
-                        logging.info(f'TV series already available: {series["title"]}')
-                        already_available_tv_series += 1
-                    elif is_requested:
-                        series_status = f"{idx}/{total_tv_series} {series['title']}: Already requested 📌"
-                        print(color_gradient(series_status, "#aaaaaa", "#ffff00"))
-                        logging.info(f'TV series already requested: {series["title"]}')
-                        already_requested_tv_series += 1
-                    else:
-                        logging.debug(f"Number of seasons identified for {series['title']}: {number_of_seasons}")
-                        request_status = request_tv_series_in_overseerr(overseerr_url, api_key, search_result["id"], number_of_seasons)
-                        if request_status == "success":
-                            series_status = f"{idx}/{total_tv_series} {series['title']}: Successfully requested ✅"
-                            print(color_gradient(series_status, "#00ff00", "#00aa00"))
-                            logging.info(f'Requested TV series: {series["title"]}')
-                            added_logger.info(f'Requested: {series["title"]} (IMDB ID: {series.get("imdb_id", "N/A")})')
-                            requested_tv_series += 1
-                        else:
-                            series_status = f"{idx}/{total_tv_series} {series['title']}: Failed to request ❌"
-                            print(color_gradient(series_status, "#ff0000", "#aa0000"))
-                            logging.error(f'Failed to request TV series: {series["title"]}')
-                            failed_tv_series += 1
-                else:
-                    series_status = f"{idx}/{total_tv_series} {series['title']}: Not found ❓"
-                    print(color_gradient(series_status, "#ff0000", "#aa0000"))
-                    logging.error(f'TV series not found in Overseerr: {series["title"]}')
-                    not_found_tv_series += 1
-            except Exception as e:
-                series_status = f"{idx}/{total_tv_series} {series['title']}: Error processing ❌"
-                print(color_gradient(series_status, "#ff0000", "#aa0000"))
-                logging.error(f'Error processing TV series {series["title"]}: {e}')
-                failed_tv_series += 1
-            time.sleep(0.1)  # Rate limiting
-
-        display_summary(
-            total_movies,
-            requested_movies,
-            already_requested_movies,
-            already_available_movies,
-            not_found_movies,
-            failed_movies,
-            total_tv_series,
-            requested_tv_series,
-            already_requested_tv_series,
-            already_available_tv_series,
-            not_found_tv_series,
-            failed_tv_series,
-        )
+        else:
+            print(color_gradient("\n❌  Invalid choice. Please select a valid option.", "#ff0000", "#aa0000"))
 
         if sync_interval:
-            print(f'\n{color_gradient(f"😴  Sleeping for {sync_interval} hours. Press Ctrl + C to perform actions.", "#00aaff", "#00ffaa")}')
+            print(f'\n{color_gradient(f"😴  Sleeping for {sync_interval} hours. Press Ctrl + C to return to the main menu.", "#00aaff", "#00ffaa")}')
             try:
                 for _ in range(sync_interval * 3600):
                     time.sleep(1)
                     if os.path.exists(f"{DATA_DIR}/interrupt.txt"):
                         raise KeyboardInterrupt()
             except KeyboardInterrupt:
-                action = input(color_gradient("Enter 's' to configure a new sync or 'e' to exit the application: ", "#ffaa00", "#ff5500")).lower()
-                if action == "s":
-                    continue  # On-demand scan
-                elif action == "e":
-                    print(color_gradient("Exiting the application. Goodbye! 👋", "#00aaff", "#00ffaa"))
-                    return
-        else:
-            print(color_gradient("\nSync completed. Exiting the application. 👋", "#00aaff", "#00ffaa"))
-            return
+                print(color_gradient("\nReturning to the main menu...", "#00aaff", "#00ffaa"))
+                continue
 
 if __name__ == "__main__":
     main()
 
 # =======================================================================================================
-# Soluify  |  You actually read it? Nice work, stay safe out there people!  |  {list-sync v0.4.1}
+# Soluify  |  You actually read it? Nice work, stay safe out there people!  |  {list-sync v0.4.2}
 # =======================================================================================================
