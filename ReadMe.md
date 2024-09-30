@@ -333,6 +333,10 @@ The ListSync Tool is a Python-based application that leverages several libraries
 
 If you encounter persistent issues not covered here, please remeber this is in beta development and you will find bugs.
 
+**Known Bugs**
+- Trakt scraping stops at 120 = needs pagination.
+- Overseerr API rate limiting / unresponsive to api calls = improved rate limiting.
+
 ---
 
 ## 🛤️ Roadmap
