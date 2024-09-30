@@ -104,7 +104,7 @@ def display_summary(
 
 📌 Items Already Requested: {already_requested_items}
 
-✔️ Items Already Checked: {already_checked_items}
+✔️  Items Already Checked: {already_checked_items}
 
 ❓ Items Not Found: {not_found_items}
 
