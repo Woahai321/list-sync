@@ -242,7 +242,7 @@ def fetch_trakt_list(list_id):
             title_element = item.find("h3", class_="ellipsify")
             if title_element:
                 title = title_element.text.strip()
-                media_type = item.get("data-type", "unknown")
+                media_type = "tv" if item.get("data-type") == "show" else item.get("data-type", "unknown")
                 media_items.append({"title": title, "media_type": media_type})
         
         spinner.succeed(color_gradient(f"✨  Found {len(media_items)} items from Trakt list {list_id}!", "#00ff00", "#00aa00"))
@@ -263,11 +263,12 @@ def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type):
         logging.debug(f'Search response for "{media_title}": {json.dumps(search_results)}')
 
         for result in search_results.get("results", []):
-            if result["mediaType"] == media_type:
+            if (media_type in ["show", "tv"] and result["mediaType"] == "tv") or (result["mediaType"] == media_type):
                 return {
                     "id": result["id"],
                     "mediaType": result["mediaType"],
                 }
+        logging.warning(f'No matching results found for "{media_title}" of type "{media_type}"')
         return None
     except Exception as e:
         logging.error(f'Error searching for {media_type} "{media_title}": {str(e)}')
@@ -401,7 +402,7 @@ def process_media(media_items, overseerr_url, api_key, added_logger):
         try:
             search_result = search_media_in_overseerr(overseerr_url, api_key, title, media_type)
             if search_result:
-                is_available, is_requested, number_of_seasons = confirm_media_status(overseerr_url, api_key, search_result["id"], media_type)
+                is_available, is_requested, number_of_seasons = confirm_media_status(overseerr_url, api_key, search_result["id"], search_result["mediaType"])
                 
                 if is_available:
                     item_status = f"{idx}/{total_items} {title}: Already available ☑️"
@@ -414,10 +415,10 @@ def process_media(media_items, overseerr_url, api_key, added_logger):
                     logging.info(f'Item already requested: {title}')
                     already_requested_items += 1
                 else:
-                    if media_type == 'tv':
+                    if search_result["mediaType"] == 'tv':
                         request_status = request_tv_series_in_overseerr(overseerr_url, api_key, search_result["id"], number_of_seasons)
                     else:
-                        request_status = request_media_in_overseerr(overseerr_url, api_key, search_result["id"], media_type)
+                        request_status = request_media_in_overseerr(overseerr_url, api_key, search_result["id"], search_result["mediaType"])
                     
                     if request_status == "success":
                         item_status = f"{idx}/{total_items} {title}: Successfully requested ✅"
