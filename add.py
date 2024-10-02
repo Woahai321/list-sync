@@ -18,8 +18,7 @@ import time
 import readline
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
-from urllib.parse import quote, urlparse
-from datetime import datetime, timedelta
+from urllib.parse import quote
 
 import requests
 from bs4 import BeautifulSoup
