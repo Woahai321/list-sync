@@ -42,19 +42,28 @@ This powerful tool automates the import of your carefully curated IMDB and Trakt
 
 ---
 
-## 🔑 Key Features
+### 🔑 Key Features
 
 | Feature                                      | Status |
 | -------------------------------------------- | ------ |
-| Simultaneous List Import                         | ✅     |
-| Support for IMDB & Trakt Lists             | ✅     |
-| Fetch & Import Movies & TV Shows           | ✅     |
-| Identify Media Already Requested | ✅     |
-| Identify Media Already Available | ✅     |
-| Real-time Detailed Logging                   | ✅     |
-| Encrypted Configuration Storage              | ✅     |
-| Configurable Sync Interval                   | ✅     |
-| Graceful Exit During Sleep                   | ✅     |
+| **List Management**                          |        |
+| - Simultaneous List Import                   | ✅     |
+| - Support for IMDB & Trakt Lists             | ✅     |
+| - Multi-page Trakt List Fetching             | ✅     |
+| - List Management Menu                       | ✅     |
+| **Media Processing**                         |        |
+| - Fetch & Import Movies & TV Shows           | ✅     |
+| - Identify Media Already Requested           | ✅     |
+| - Identify Media Already Available           | ✅     |
+| **Performance**                              |        |
+| - Thread Pool Executor for Concurrent Processing | ✅     |
+| **Configuration & Security**                 |        |
+| - Encrypted Configuration Storage            | ✅     |
+| - Configurable Sync Interval                 | ✅     |
+| **User Experience**                          |        |
+| - Real-time Detailed Logging                 | ✅     |
+| - Graceful Exit During Sleep                 | ✅     |
+| - Dry Run Mode                               | ✅     |
 
 ---
 
@@ -324,13 +333,6 @@ The ListSync Tool is a Python-based application that leverages several libraries
      - Check if the titles in your lists match exactly with how they appear in Overseerr's search.
      - For TV shows, try using the original title rather than localised versions.
 
-7. **Sync Interval Not Working**
-   - **Symptom:** Script doesn't automatically run at the specified interval.
-   - **Solution:** 
-     - Ensure the script is running continuously and not being terminated.
-     - Check if the `sync_interval.txt` file in the `./data` directory contains the correct interval value.
-     - Verify that the system's sleep settings aren't interfering with the script's execution.
-
 If you encounter persistent issues not covered here, please remeber this is in beta development and you will find bugs.
 
 **Known Bugs**
@@ -355,9 +357,9 @@ If you encounter persistent issues not covered here, please remeber this is in b
 - [x] **Configuration Management:** Save and reuse configuration setups.
 - [x] **Batch Processing:** Enable batch processing for multiple lists simultaneously.
 - [x] **Support for TV Shows:** Extend functionality to import TV shows from IMDB and Trakt lists.
+- [x] **Database Integration:** Implement a real database to track sync history and metrics, not just a file.
 - [ ] **Integration with Other Services:** Letterboxd, etc.
 - [ ] **Customisation Options:** Allow users to fully customise the UI and behaviour of the tool.
-- [ ] **Database Integration:** Implement a real database to track sync history and metrics, not just a file.
 
 ### Big Tasks
 
