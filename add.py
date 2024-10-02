@@ -1,11 +1,11 @@
 # =============================================================================
-# Soluify  |  Your #1 IT Problem Solver  |  {list-sync v0.4.4}
+# Soluify  |  Your #1 IT Problem Solver  |  {list-sync v0.5.1}
 # =============================================================================
 #  __         _
 # (_  _ |   .(_
 # __)(_)||_||| \/
 #              /
-# © 2024 Soluify LLC
+# © 2024
 # -----------------------------------------------------------------------------
 import base64
 import getpass
@@ -15,9 +15,11 @@ import logging
 import os
 import sqlite3
 import time
+import readline
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
 from urllib.parse import quote, urlparse
+from datetime import datetime, timedelta
 
 import requests
 from bs4 import BeautifulSoup
@@ -33,12 +35,19 @@ DATA_DIR = "./data"
 CONFIG_FILE = os.path.join(DATA_DIR, "config.enc")
 DB_FILE = os.path.join(DATA_DIR, "list_sync.db")
 
+def custom_input(prompt):
+    readline.set_startup_hook(lambda: readline.insert_text(''))
+    try:
+        return input(prompt)
+    finally:
+        readline.set_startup_hook()
+
 def ensure_data_directory_exists():
     os.makedirs(DATA_DIR, exist_ok=True)
 
 def setup_logging():
     logging.basicConfig(
-        filename=os.path.join(DATA_DIR, "overseerr_sync.log"),
+        filename=os.path.join(DATA_DIR, "list_sync.log"),
         level=logging.DEBUG,
         format="%(asctime)s - %(levelname)s - %(message)s",
     )
@@ -115,7 +124,7 @@ def display_ascii_art():
 def display_banner():
     banner = """
     ==============================================================
-             Soluify - {servarr-tools_list-sync_v0.5.0}
+             Soluify - {servarr-tools_list-sync_v0.5.1}
     ==============================================================
     """
     print(color_gradient(banner, "#aa00aa", "#00aa00") + Style.RESET_ALL)
@@ -143,13 +152,14 @@ def load_config():
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, "rb") as f:
             encrypted_config = f.read()
+        print()  # Ensure password prompt is on a new line
         password = getpass.getpass(color_gradient("🔑  Enter your password: ", "#ff0000", "#aa0000"))
         try:
             config = decrypt_config(encrypted_config, password)
             return config["overseerr_url"], config["api_key"]
         except Exception:
             print(f'\n{color_gradient("❌  Incorrect password. Unable to decrypt config.", "#ff0000", "#aa0000")}')
-            if input("\n🗑️  Delete this config and start over? (y/n): ").lower() == "y":
+            if custom_input("\n🗑️  Delete this config and start over? (y/n): ").lower() == "y":
                 os.remove(CONFIG_FILE)
                 print(f'\n{color_gradient("🔄  Config deleted. Rerun the script to set it up again.", "#ffaa00", "#ff5500")}\n')
             return None, None
@@ -288,7 +298,6 @@ def fetch_trakt_list(list_id):
         logging.error(f"Error fetching Trakt list {list_id}: {str(e)}")
         raise
 
-
 def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type):
     headers = {"X-Api-Key": api_key, "Content-Type": "application/json"}
     search_url = f"{overseerr_url}/api/v1/search?query={quote(media_title)}"
@@ -406,7 +415,7 @@ def display_lists():
 def delete_list():
     lists = load_list_ids()
     display_lists()
-    choice = input(color_gradient("\nEnter the number of the list to delete (or 'c' to cancel): ", "#ffaa00", "#ff5500"))
+    choice = custom_input(color_gradient("\nEnter the number of the list to delete (or 'c' to cancel): ", "#ffaa00", "#ff5500"))
     if choice.lower() == 'c':
         return
     try:
@@ -432,7 +441,7 @@ def edit_lists():
     print(color_gradient("\nEnter new list IDs (or press Enter to keep the current ID):", "#00aaff", "#00ffaa"))
     updated_lists = []
     for list_info in lists:
-        new_id = input(color_gradient(f"{list_info['type'].upper()}: {list_info['id']} -> ", "#ffaa00", "#ff5500"))
+        new_id = custom_input(color_gradient(f"{list_info['type'].upper()}: {list_info['id']} -> ", "#ffaa00", "#ff5500"))
         updated_lists.append({
             "type": list_info['type'],
             "id": new_id if new_id else list_info['id']
@@ -449,7 +458,7 @@ def edit_lists():
     print(color_gradient("\nLists updated successfully.", "#00ff00", "#00aa00"))
 
 def configure_sync_interval():
-    interval = input(color_gradient("\n🕒  How often do you want to sync your lists (in hours)? ", "#ffaa00", "#ff5500"))
+    interval = custom_input(color_gradient("\n🕒  How often do you want to sync your lists (in hours)? ", "#ffaa00", "#ff5500"))
     with sqlite3.connect(DB_FILE) as conn:
         cursor = conn.cursor()
         cursor.execute("DELETE FROM sync_interval")
@@ -462,7 +471,28 @@ def load_sync_interval():
         cursor = conn.cursor()
         cursor.execute("SELECT interval_hours FROM sync_interval")
         result = cursor.fetchone()
-        return result[0] if result else None
+        return result[0] if result else 0  # Default to 0 hours if not set
+
+def should_sync_item(overseerr_id):
+    with sqlite3.connect(DB_FILE) as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT last_synced FROM synced_items
+            WHERE overseerr_id = ?
+            AND last_synced > datetime('now', '-48 hours')
+        ''', (overseerr_id,))
+        result = cursor.fetchone()
+        return result is None
+
+def save_sync_result(title, media_type, imdb_id, overseerr_id, status):
+    with sqlite3.connect(DB_FILE) as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT OR REPLACE INTO synced_items 
+            (title, media_type, imdb_id, overseerr_id, status, last_synced)
+            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ''', (title, media_type, imdb_id, overseerr_id, status))
+        conn.commit()
 
 def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, dry_run: bool) -> Dict[str, Any]:
     title = item.get('title', 'Unknown Title')
@@ -475,23 +505,32 @@ def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, d
     try:
         search_result = search_media_in_overseerr(overseerr_url, api_key, title, media_type)
         if search_result:
-            is_available, is_requested, number_of_seasons = confirm_media_status(overseerr_url, api_key, search_result["id"], search_result["mediaType"])
+            overseerr_id = search_result["id"]
+            if not should_sync_item(overseerr_id):
+                return {"title": title, "status": "skipped"}
+
+            is_available, is_requested, number_of_seasons = confirm_media_status(overseerr_url, api_key, overseerr_id, search_result["mediaType"])
             
             if is_available:
+                save_sync_result(title, media_type, imdb_id, overseerr_id, "already_available")
                 return {"title": title, "status": "already_available"}
             elif is_requested:
+                save_sync_result(title, media_type, imdb_id, overseerr_id, "already_requested")
                 return {"title": title, "status": "already_requested"}
             else:
                 if search_result["mediaType"] == 'tv':
-                    request_status = request_tv_series_in_overseerr(overseerr_url, api_key, search_result["id"], number_of_seasons)
+                    request_status = request_tv_series_in_overseerr(overseerr_url, api_key, overseerr_id, number_of_seasons)
                 else:
-                    request_status = request_media_in_overseerr(overseerr_url, api_key, search_result["id"], search_result["mediaType"])
+                    request_status = request_media_in_overseerr(overseerr_url, api_key, overseerr_id, search_result["mediaType"])
                 
                 if request_status == "success":
+                    save_sync_result(title, media_type, imdb_id, overseerr_id, "requested")
                     return {"title": title, "status": "requested"}
                 else:
+                    save_sync_result(title, media_type, imdb_id, overseerr_id, "request_failed")
                     return {"title": title, "status": "request_failed"}
         else:
+            save_sync_result(title, media_type, imdb_id, None, "not_found")
             return {"title": title, "status": "not_found"}
     except Exception as e:
         logging.error(f'Error processing item {title}: {str(e)}')
@@ -504,7 +543,8 @@ def process_media(media_items: List[Dict[str, Any]], overseerr_url: str, api_key
         "already_requested": 0,
         "already_available": 0,
         "not_found": 0,
-        "error": 0
+        "error": 0,
+        "skipped": 0
     }
 
     print(color_gradient(f"\n🎬  Processing {total_items} media items...", "#00aaff", "#00ffaa") + "\n")
@@ -522,12 +562,14 @@ def process_media(media_items: List[Dict[str, Any]], overseerr_url: str, api_key
                     print(color_gradient("🔍 {}: Would be synced".format(result['title']), "#ffaa00", "#ff5500") + "\n")
                 else:
                     status_info = {
-                        "requested": ("✅", "Successfully Requested", "#00ff00", "#00aa00"),
-                        "already_requested": ("📌", "Already Requested", "#ffff00", "#ffaa00"),
-                        "already_available": ("☑️ ", "Already Available", "#aaaaaa", "#888888"),
-                        "not_found": ("❓", "Not Found", "#ff0000", "#aa0000"),
-                        "error": ("❌", "Error", "#ff0000", "#aa0000")
-                    }.get(status, ("➖", "Unknown Status", "#ffffff", "#aaaaaa"))
+                    "requested": ("✅", "Successfully Requested", "#4CAF50", "#45a049"),
+                    "already_requested": ("📌", "Already Requested", "#2196F3", "#1E88E5"),
+                    "already_available": ("☑️ ", "Already Available", "#00BCD4", "#00ACC1"),
+                    "not_found": ("❓", "Not Found", "#FFC107", "#FFA000"),
+                    "error": ("❌", "Error", "#F44336", "#E53935"),
+                    "skipped": ("⏭️ ", "Skipped", "#9E9E9E", "#757575")
+                    }.get(status, ("➖", "Unknown Status", "#607D8B", "#546E7A"))
+
                     
                     emoji, status_text, start_color, end_color = status_info
                     message = "{}: {}".format(result['title'], status_text)
@@ -538,7 +580,6 @@ def process_media(media_items: List[Dict[str, Any]], overseerr_url: str, api_key
 
     if not dry_run:
         display_summary(total_items, results)
-
 
 def display_summary(total_items: int, results: Dict[str, int]):
     summary = f"""
@@ -555,6 +596,8 @@ def display_summary(total_items: int, results: Dict[str, int]):
 
 ❓ Items Not Found: {results["not_found"]}
 
+⏭️  Items Skipped: {results["skipped"]}
+
 ❌ Items Failed: {results["error"]}
 ==============================================================
 """
@@ -565,12 +608,13 @@ def display_menu():
 ==============================================================
                     🛠️  Soluify - List Sync Tool 🛠️
 ==============================================================
-1. 🔄 Start Sync with Saved Lists 🔄
-2. ➕ Add New Lists ➕
-3. 📋 Manage Existing Lists 📋
-4. ⏰ Configure Sync Interval ⏰
-5. 🏃 Run Dry Sync 🏃
-6. ❌ Exit ❌
+1. ➕ Add New Lists ➕
+2. 🔄 Start Sync with Saved Lists 🔄
+3. 🔍 One-Time List Sync 🔍
+4. 📋 Manage Existing Lists 📋
+5. ⏰ Configure Sync Interval ⏰
+6. 🏃 Run Dry Sync 🏃
+7. ❌ Exit ❌
 ==============================================================
 """
     print(color_gradient(menu, "#00aaff", "#00ffaa") + Style.RESET_ALL)
@@ -600,45 +644,55 @@ def start_sync(overseerr_url, api_key, added_logger, dry_run=False):
 def add_new_lists():
     add_new_list = True
     while add_new_list:
-        source = input(color_gradient("\n🍿  Are you importing from 'i'mdb or 't'rakt? (i/t): ", "#ffaa00", "#ff5500")).lower()
+        list_ids = custom_input(color_gradient("\n🎬  Enter List ID(s) (comma-separated for multiple): ", "#ffaa00", "#ff5500"))
+        list_ids = [id.strip() for id in list_ids.split(',')]
+        
+        for list_id in list_ids:
+            # Automatically detect list type
+            if list_id.startswith(('ls', 'ur')):
+                list_type = "imdb"
+                confirmation_message = f"Are you sure the IMDb list ID '{list_id}' is correct?"
+            elif list_id.isdigit():
+                list_type = "trakt"
+                confirmation_message = f"Are you sure the Trakt list ID '{list_id}' is correct?"
+            else:
+                print(color_gradient(f"\n❌  Invalid list ID format for '{list_id}'. Skipping this ID.", "#ff0000", "#aa0000"))
+                continue
 
-        if source == "i":
-            imdb_list_id = input(color_gradient("\n🎬  Enter IMDB List ID (e.g., ls012345678): ", "#ffaa00", "#ff5500"))
-            imdb_list_ids = []
-            for item in imdb_list_id.split(","):
-                item = item.strip()
-                if "imdb.com/list/" in item:
-                    imdb_list_ids.append(urlparse(item).path.split("/")[2])
-                else:
-                    imdb_list_ids.append(item)
+            add_to_sync = custom_input(color_gradient(f"\n🚨  {confirmation_message} (y/n): ", "#ffaa00", "#ff5500")).lower()
+            if add_to_sync == "y":
+                save_list_id(list_id, list_type)
 
-            for list_id in imdb_list_ids:
-                add_to_sync = input(color_gradient(f"\n🚨  Are you sure {list_id} is correct? (y/n): ", "#ffaa00", "#ff5500")).lower()
-                if add_to_sync == "y":
-                    save_list_id(list_id, "imdb")
-
-        elif source == "t":
-            trakt_list_id = input(color_gradient("\n🎬  Enter Trakt List ID (e.g., 20492796): ", "#ffaa00", "#ff5500"))
-            trakt_list_ids = []
-            for item in trakt_list_id.split(","):
-                item = item.strip()
-                if "trakt.tv/lists/" in item:
-                    trakt_list_ids.append(urlparse(item).path.split("/")[2])
-                else:
-                    trakt_list_ids.append(item)
-
-            for list_id in trakt_list_ids:
-                add_to_sync = input(color_gradient(f"\n🚨  Are you sure {list_id} is correct? (y/n): ", "#ffaa00", "#ff5500")).lower()
-                if add_to_sync == "y":
-                    save_list_id(list_id, "trakt")
-
-        else:
-            print(color_gradient("\n❌  Invalid choice. Please enter 'i' for IMDb or 't' for Trakt.", "#ff0000", "#aa0000"))
-            continue
-
-        more_lists = input(color_gradient("\n🏁  Do you want to import any other lists? (y/n): ", "#ffaa00", "#ff5500")).lower()
+        more_lists = custom_input(color_gradient("\n🏁  Do you want to import any other lists? (y/n): ", "#ffaa00", "#ff5500")).lower()
         if more_lists != "y":
             add_new_list = False
+
+    # Start sync immediately after adding new lists
+    overseerr_url, api_key = load_config()
+    if overseerr_url and api_key:
+        start_sync(overseerr_url, api_key, setup_logging())
+
+def one_time_list_sync(overseerr_url, api_key, added_logger):
+    list_ids = custom_input(color_gradient("\n🎬  Enter List ID(s) for one-time sync (comma-separated for multiple): ", "#ffaa00", "#ff5500"))
+    list_ids = [id.strip() for id in list_ids.split(',')]
+    
+    media_items = []
+    for list_id in list_ids:
+        try:
+            if list_id.startswith(('ls', 'ur')):
+                media_items.extend(fetch_imdb_list(list_id))
+            elif list_id.isdigit():
+                media_items.extend(fetch_trakt_list(list_id))
+            else:
+                print(color_gradient(f"\n❌  Invalid list ID format for '{list_id}'. Skipping this ID.", "#ff0000", "#aa0000"))
+        except Exception as e:
+            print(color_gradient(f"\n❌  Error fetching list {list_id}: {e}", "#ff0000", "#aa0000") + "\n")
+            logging.error(f"Error fetching list {list_id}: {e}")
+    
+    if media_items:
+        process_media(media_items, overseerr_url, api_key)
+    else:
+        print(color_gradient("\n❌  No valid lists were processed.", "#ff0000", "#aa0000"))
 
 def manage_lists():
     while True:
@@ -648,7 +702,7 @@ def manage_lists():
         print(color_gradient("3. Edit Lists", "#ffaa00", "#ff5500"))
         print(color_gradient("4. Return to Main Menu", "#ffaa00", "#ff5500"))
         
-        choice = input(color_gradient("\nEnter your choice: ", "#ffaa00", "#ff5500"))
+        choice = custom_input(color_gradient("\nEnter your choice: ", "#ffaa00", "#ff5500"))
         
         if choice == "1":
             display_lists()
@@ -673,40 +727,56 @@ def main():
 
     overseerr_url, api_key = load_config()
     if not overseerr_url or not api_key:
-        overseerr_url = input(color_gradient("\n🌐  Enter your Overseerr URL: ", "#ffaa00", "#ff5500"))
-        api_key = input(color_gradient("\n🔑  Enter your Overseerr API key: ", "#ffaa00", "#ff5500"))
+        overseerr_url = custom_input(color_gradient("\n🌐  Enter your Overseerr URL: ", "#ffaa00", "#ff5500"))
+        api_key = custom_input(color_gradient("\n🔑  Enter your Overseerr API key: ", "#ffaa00", "#ff5500"))
         save_config(overseerr_url, api_key)
 
+    # Prompt for sync configuration
+    print(color_gradient("\n📋 Configure regular syncing:", "#00aaff", "#00ffaa"))
+    print(color_gradient("1. Yes, configure sync interval in hours", "#ffaa00", "#ff5500"))
+    print(color_gradient("2. No, run a one-time sync", "#ffaa00", "#ff5500"))
+    sync_choice = custom_input(color_gradient("\nEnter your choice: ", "#ffaa00", "#ff5500"))
+
+    if sync_choice == "1":
+        configure_sync_interval()
+    else:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM sync_interval")
+            conn.commit()
+
     sync_interval = load_sync_interval()
-    if sync_interval:
-        print(f'\n{color_gradient(f"🔄  Syncing every {sync_interval} hours.", "#00aaff", "#00ffaa")}')
 
     while True:
         display_menu()
-        choice = input(color_gradient("Please select an option: ", "#ffaa00", "#ff5500"))
+        choice = custom_input(color_gradient("Please select an option: ", "#ffaa00", "#ff5500"))
 
         if choice == "1":
-            # Start Sync with Saved Lists
-            start_sync(overseerr_url, api_key, added_logger)
-
-        elif choice == "2":
             # Add New Lists
             add_new_lists()
 
+        elif choice == "2":
+            # Start Sync with Saved Lists
+            start_sync(overseerr_url, api_key, added_logger)
+
         elif choice == "3":
+            # One-Time List Sync
+            one_time_list_sync(overseerr_url, api_key, added_logger)
+
+        elif choice == "4":
             # Manage Existing Lists
             manage_lists()
 
-        elif choice == "4":
+        elif choice == "5":
             # Configure Sync Interval
             configure_sync_interval()
             sync_interval = load_sync_interval()
 
-        elif choice == "5":
+        elif choice == "6":
             # Run Dry Sync
             start_sync(overseerr_url, api_key, added_logger, dry_run=True)
 
-        elif choice == "6":
+        elif choice == "7":
             # Exit
             print(color_gradient("Exiting the application. Goodbye! 👋", "#00aaff", "#00ffaa"))
             return
@@ -732,5 +802,5 @@ if __name__ == "__main__":
     main()
 
 # =======================================================================================================
-# Soluify  |  You actually read it? Nice work, stay safe out there people!  |  {list-sync v0.4.4}
+# Soluify  |  You actually read it? Nice work, stay safe out there people!  |  {list-sync v0.5.1}
 # =======================================================================================================
