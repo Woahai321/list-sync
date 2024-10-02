@@ -38,7 +38,7 @@ This powerful tool automates the import of your carefully curated IMDB and Trakt
 
 ## 🎬 Demo
 
-![Bot In Action](https://share.woahlab.com/-Skh7Ne3vXg)
+![Bot In Action](https://share.woahlab.com/-BZtwSD96LN)
 
 ---
 
@@ -233,15 +233,7 @@ To obtain a Trakt list ID:
 
 ### Adding Multiple List IDs
 
-When inputting list IDs, you can add multiple IDs by separating them with commas. However, please note:
-
-- You can add multiple IMDB IDs together, and multiple Trakt IDs together.
-- You cannot mix IMDB and Trakt IDs in the same input.
-
-Example:
-- IMDB: `ls012345678,ls987654321`
-- Trakt: `20492796,30492797`
-
+When inputting list IDs, you can add multiple IDs by separating them with commas.
 ---
 
 ## 🔎 How it Works
@@ -334,10 +326,6 @@ The ListSync Tool is a Python-based application that leverages several libraries
      - For TV shows, try using the original title rather than localised versions.
 
 If you encounter persistent issues not covered here, please remeber this is in beta development and you will find bugs.
-
-**Known Bugs**
-- Trakt scraping stops at 120 = needs pagination.
-- Overseerr API rate limiting / unresponsive to api calls = improved rate limiting.
 
 ---
 
