@@ -200,73 +200,41 @@ def fetch_imdb_list(list_id):
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
 
-        # Extract the list ID and key from the page
-        script_tag = soup.find('script', {"type": "application/ld+json"})
-        if script_tag:
-            ld_json = json.loads(script_tag.string)
+        # Extract the total number of items
+        total_items_div = soup.find('div', {'data-testid': 'list-page-mc-total-items'})
+        if total_items_div:
+            total_items = int(total_items_div.text.split()[0])
         else:
-            script_tag = soup.find("script", {"id": "__NEXT_DATA__"})
-            if not script_tag:
-                raise ValueError("Could not find ld+json or __NEXT_DATA__ script tag in the IMDb page")
-            next_data = json.loads(script_tag.string)
-            ld_json = next_data["props"]["pageProps"]["mainColumnData"]["predefinedList"]["titleListItemSearch"]
+            total_items = 0
+
+        spinner.text = color_gradient(f"📚  Found {total_items} items. Fetching details...", "#ffaa00", "#ff5500")
 
         media_items = []
-
-        if "itemListElement" in ld_json:
-            for row in ld_json["itemListElement"]:
-                item = row["item"]
-                media_items.append({
-                    "title": html.unescape(item["name"]),
-                    "imdb_id": item["url"].split("/")[-2],
-                    "media_type": "tv" if item["@type"] == "TVSeries" else "movie"
-                })
-        elif "edges" in ld_json:
-            for row in ld_json["edges"]:
-                item = row["listItem"]
-                media_items.append({
-                    "title": html.unescape(item["titleText"]["text"]),
-                    "imdb_id": item["id"],
-                    "media_type": "tv" if item["titleType"]["id"] == "tvSeries" else "movie"
-                })
-
-        # Fetch additional items using pagination
         page_number = 1
-        total_items = ld_json.get('total', float('inf'))
-        end_cursor = ld_json.get('pageInfo', {}).get('endCursor', None)
+        while len(media_items) < total_items:
+            if page_number == 1:
+                current_url = base_url
+            else:
+                current_url = f"{base_url}?page={page_number}"
 
-        while len(media_items) < total_items and end_cursor:
-            ajax_url = f"https://www.imdb.com/list/{list_id}/_ajax"
-            params = {
-                "sort": "list_order,asc",
-                "mode": "detail",
-                "page": page_number,
-                "pageId": list_id,
-                "pageType": "list",
-                "subpageType": "watchlist",
-                "endCursor": end_cursor
-            }
-            response = requests.get(ajax_url, headers=headers, params=params)
+            response = requests.get(current_url, headers=headers)
             response.raise_for_status()
-            data = response.json()
+            soup = BeautifulSoup(response.text, 'html.parser')
 
-            if 'items' not in data:
-                break
+            items = soup.find_all('div', class_='lister-item')
+            for item in items:
+                title_element = item.find('h3', class_='lister-item-header')
+                if title_element:
+                    title = title_element.a.text.strip()
+                    imdb_id = title_element.a['href'].split('/')[2]
+                    media_type = 'movie'  # Default to movie, adjust if you can determine TV shows
+                    media_items.append({
+                        "title": title,
+                        "imdb_id": imdb_id,
+                        "media_type": media_type
+                    })
 
-            for item in data['items']:
-                title = item['titleText']['text']
-                imdb_id = item['id']
-                year = item['releaseYear']['year'] if 'releaseYear' in item else 'N/A'
-                media_type = 'tv' if item['titleType']['id'] == 'tvSeries' else 'movie'
-
-                media_items.append({
-                    "title": title,
-                    "imdb_id": imdb_id,
-                    "media_type": media_type,
-                    "year": year
-                })
-
-            end_cursor = data.get('pageInfo', {}).get('endCursor', None)
+            spinner.text = color_gradient(f"📚  Fetching IMDB list... ({len(media_items)}/{total_items})", "#ffaa00", "#ff5500")
             page_number += 1
             time.sleep(1)  # Be respectful with rate limiting
 
