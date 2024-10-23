@@ -5,3 +5,5 @@ halo==0.0.31
 colorama==0.4.6
 cryptography==43.0.1
 python-dotenv==0.19.2
+selenium==4.15.2
+webdriver-manager==4.0.1

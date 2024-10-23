@@ -1,5 +1,5 @@
 # =============================================================================
-# Soluify  |  Your #1 IT Problem Solver  |  {list-sync v0.5.1}
+# Soluify  |  Your #1 IT Problem Solver  |  {list-sync v0.5.2}
 # =============================================================================
 #  __         _
 # (_  _ |   .(_
@@ -25,6 +25,11 @@ from bs4 import BeautifulSoup
 from colorama import Style, init
 from cryptography.fernet import Fernet
 from halo import Halo
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 # Initialize colorama for cross-platform colored terminal output
 init(autoreset=True)
@@ -123,7 +128,7 @@ def display_ascii_art():
 def display_banner():
     banner = """
     ==============================================================
-             Soluify - {servarr-tools_list-sync_v0.5.1}
+             Soluify - {servarr-tools_list-sync_v0.5.2}
     ==============================================================
     """
     print(color_gradient(banner, "#aa00aa", "#00aa00") + Style.RESET_ALL)
@@ -184,56 +189,83 @@ def fetch_imdb_list(list_id):
     spinner.start()
     try:
         if list_id.startswith("ls"):
-            url = f"https://www.imdb.com/list/{list_id}"
+            url = f"https://www.imdb.com/list/{list_id}/"
         elif list_id.startswith("ur"):
-            url = f"https://www.imdb.com/user/{list_id}/watchlist"
+            url = f"https://www.imdb.com/user/{list_id}/watchlist/"
         else:
             raise ValueError("Invalid IMDb list ID format. It should start with 'ls' for lists or 'ur' for watchlists.")
-        
-        headers = {"Accept-Language": "en-US", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
-        
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        
-        soup = BeautifulSoup(response.text, "html.parser")
-        
-        script_tag = soup.find("script", {"type": "application/ld+json"})
-        
-        if script_tag:
-            ld_json = json.loads(script_tag.string)
-        else:
-            script_tag = soup.find("script", {"id": "__NEXT_DATA__"})
-            if not script_tag:
-                raise ValueError("Could not find ld+json or __NEXT_DATA__ script tag in the IMDb page")
-            next_data = json.loads(script_tag.string)
-            ld_json = next_data["props"]["pageProps"]["mainColumnData"]["predefinedList"]["titleListItemSearch"]
+
+        # Configure Selenium WebDriver options
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+
+        # Initialize WebDriver
+        driver = webdriver.Chrome(options=chrome_options)
+
+        # Navigate to the IMDb list URL
+        driver.get(url)
+
+        # Wait for the initial content to load
+        wait = WebDriverWait(driver, 10)
+        wait.until(EC.presence_of_element_located((By.CLASS_NAME, "lister-item")))
+
+        # Function to scroll to the bottom
+        def scroll_to_bottom(driver, pause_time=2):
+            last_height = driver.execute_script("return document.body.scrollHeight")
+            while True:
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                time.sleep(pause_time)
+                new_height = driver.execute_script("return document.body.scrollHeight")
+                if new_height == last_height:
+                    break
+                last_height = new_height
+
+        # Scroll to load all items
+        scroll_to_bottom(driver)
+
+        # Parse the loaded content
+        soup = BeautifulSoup(driver.page_source, "html.parser")
         
         media_items = []
         
-        if "itemListElement" in ld_json:
-            for row in ld_json["itemListElement"]:
-                item = row["item"]
-                media_items.append({
-                    "title": html.unescape(item["name"]),
-                    "imdb_id": item["url"].split("/")[-2],
-                    "media_type": "tv" if item["@type"] == "TVSeries" else "movie"
-                })
-        elif "edges" in ld_json:
-            for row in ld_json["edges"]:
-                item = row["listItem"]
-                media_items.append({
-                    "title": html.unescape(item["titleText"]["text"]),
-                    "imdb_id": item["id"],
-                    "media_type": "tv" if item["titleType"]["id"] == "tvSeries" else "movie"
-                })
+        # For standard IMDb lists
+        lister_items = soup.find_all('div', class_='lister-item mode-detail')
         
+        if not lister_items:
+            # Alternate structure (e.g., watchlists)
+            lister_items = soup.find_all('div', class_='lister-item mode-detail')
+
+        for item in lister_items:
+            title_element = item.find('h3', class_='lister-item-header')
+            if title_element and title_element.find('a'):
+                title = html.unescape(title_element.find('a').text)
+                imdb_id = title_element.find('a')['href'].split('/')[2]
+                year_element = title_element.find('span', class_='lister-item-year')
+                year = year_element.text if year_element else "N/A"
+                media_type = "movie" if "TV Series" not in year else "tv"
+                
+                media_items.append({
+                    "title": title,
+                    "imdb_id": imdb_id,
+                    "media_type": media_type,
+                    "year": year
+                })
+
         spinner.succeed(color_gradient(f"✨  Found {len(media_items)} items from IMDB list {list_id}!", "#00ff00", "#00aa00"))
         logging.info(f"IMDB list {list_id} fetched successfully. Found {len(media_items)} items.")
         return media_items
+
     except Exception as e:
         spinner.fail(color_gradient(f"💥  Failed to fetch IMDB list {list_id}. Error: {str(e)}", "#ff0000", "#aa0000"))
         logging.error(f"Error fetching IMDB list {list_id}: {str(e)}")
         raise
+
+    finally:
+        if 'driver' in locals():
+            driver.quit()
 
 def fetch_trakt_list(list_id):
     base_url = f"https://trakt.tv/lists/{list_id}"
@@ -801,5 +833,5 @@ if __name__ == "__main__":
     main()
 
 # =======================================================================================================
-# Soluify  |  You actually read it? Nice work, stay safe out there people!  |  {list-sync v0.5.1}
+# Soluify  |  You actually read it? Nice work, stay safe out there people!  |  {list-sync v0.5.2}
 # =======================================================================================================
