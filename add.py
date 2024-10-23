@@ -201,48 +201,72 @@ def fetch_imdb_list(list_id):
         soup = BeautifulSoup(response.text, 'html.parser')
 
         # Extract the list ID and key from the page
-        script_tag = soup.find('script', id="__NEXT_DATA__")
-        if not script_tag:
-            raise ValueError("Unable to find necessary data on the page.")
+        script_tag = soup.find('script', {"type": "application/ld+json"})
+        if script_tag:
+            ld_json = json.loads(script_tag.string)
+        else:
+            script_tag = soup.find("script", {"id": "__NEXT_DATA__"})
+            if not script_tag:
+                raise ValueError("Could not find ld+json or __NEXT_DATA__ script tag in the IMDb page")
+            next_data = json.loads(script_tag.string)
+            ld_json = next_data["props"]["pageProps"]["mainColumnData"]["predefinedList"]["titleListItemSearch"]
 
-        script_content = script_tag.string
-        json_data = json.loads(script_content)
+        media_items = []
 
-        list_id = json_data['props']['pageProps']['mainColumnData']['list']['id']
-        list_key = json_data['props']['pageProps']['mainColumnData']['list']['name']['originalText']
+        if "itemListElement" in ld_json:
+            for row in ld_json["itemListElement"]:
+                item = row["item"]
+                media_items.append({
+                    "title": html.unescape(item["name"]),
+                    "imdb_id": item["url"].split("/")[-2],
+                    "media_type": "tv" if item["@type"] == "TVSeries" else "movie"
+                })
+        elif "edges" in ld_json:
+            for row in ld_json["edges"]:
+                item = row["listItem"]
+                media_items.append({
+                    "title": html.unescape(item["titleText"]["text"]),
+                    "imdb_id": item["id"],
+                    "media_type": "tv" if item["titleType"]["id"] == "tvSeries" else "movie"
+                })
 
-        # Function to fetch items
-        def fetch_items(page_number):
-            ajax_url = f"https://www.imdb.com/tr/?ref_=ls_ip_fetch&pt=list&spt=main&const={list_id}&ht=actionOnly&pageAction=pagination-next"
+        # Fetch additional items using pagination
+        page_number = 1
+        total_items = ld_json.get('total', float('inf'))
+        end_cursor = ld_json.get('pageInfo', {}).get('endCursor', None)
+
+        while len(media_items) < total_items and end_cursor:
+            ajax_url = f"https://www.imdb.com/list/{list_id}/_ajax"
             params = {
-                "page": page_number
+                "sort": "list_order,asc",
+                "mode": "detail",
+                "page": page_number,
+                "pageId": list_id,
+                "pageType": "list",
+                "subpageType": "watchlist",
+                "endCursor": end_cursor
             }
             response = requests.get(ajax_url, headers=headers, params=params)
             response.raise_for_status()
-            return response.json()
+            data = response.json()
 
-        media_items = []
-        page_number = 1
-        total_items = float('inf')
+            if 'items' not in data:
+                break
 
-        while len(media_items) < total_items:
-            data = fetch_items(page_number)
-            if 'total' in data:
-                total_items = data['total']
-            
             for item in data['items']:
                 title = item['titleText']['text']
                 imdb_id = item['id']
                 year = item['releaseYear']['year'] if 'releaseYear' in item else 'N/A'
                 media_type = 'tv' if item['titleType']['id'] == 'tvSeries' else 'movie'
-                
+
                 media_items.append({
                     "title": title,
                     "imdb_id": imdb_id,
                     "media_type": media_type,
                     "year": year
                 })
-            
+
+            end_cursor = data.get('pageInfo', {}).get('endCursor', None)
             page_number += 1
             time.sleep(1)  # Be respectful with rate limiting
 
