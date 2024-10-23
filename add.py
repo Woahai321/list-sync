@@ -201,28 +201,21 @@ def fetch_imdb_list(list_id):
         soup = BeautifulSoup(response.text, 'html.parser')
 
         # Extract the list ID and key from the page
-        script_tag = soup.find('script', string=lambda text: text and 'IMDbReactInitialState' in text)
+        script_tag = soup.find('script', id="__NEXT_DATA__")
         if not script_tag:
             raise ValueError("Unable to find necessary data on the page.")
 
         script_content = script_tag.string
-        start_index = script_content.index('{')
-        end_index = script_content.rindex('}') + 1
-        json_data = json.loads(script_content[start_index:end_index])
+        json_data = json.loads(script_content)
 
-        list_id = json_data['list']['id']
-        list_key = json_data['list']['listId']
+        list_id = json_data['props']['pageProps']['mainColumnData']['list']['id']
+        list_key = json_data['props']['pageProps']['mainColumnData']['list']['name']['originalText']
 
         # Function to fetch items
         def fetch_items(page_number):
-            ajax_url = f"https://www.imdb.com/list/{list_id}/_ajax"
+            ajax_url = f"https://www.imdb.com/tr/?ref_=ls_ip_fetch&pt=list&spt=main&const={list_id}&ht=actionOnly&pageAction=pagination-next"
             params = {
-                "sort": "list_order,asc",
-                "mode": "detail",
-                "page": page_number,
-                "pageId": list_id,
-                "pageType": "list",
-                "subpageType": "watchlist"
+                "page": page_number
             }
             response = requests.get(ajax_url, headers=headers, params=params)
             response.raise_for_status()
@@ -238,10 +231,10 @@ def fetch_imdb_list(list_id):
                 total_items = data['total']
             
             for item in data['items']:
-                title = item['title']
+                title = item['titleText']['text']
                 imdb_id = item['id']
-                year = item.get('year', 'N/A')
-                media_type = 'tv' if item.get('qid') == 'tvSeries' else 'movie'
+                year = item['releaseYear']['year'] if 'releaseYear' in item else 'N/A'
+                media_type = 'tv' if item['titleType']['id'] == 'tvSeries' else 'movie'
                 
                 media_items.append({
                     "title": title,
