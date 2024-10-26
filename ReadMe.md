@@ -28,7 +28,7 @@ Welcome to the **ListSync Tool**! This powerful tool automates the import of you
 
 |                                                                                                                                                                                                                                                                                     Application                                                                                                                                                                                                                                                                                     |    Status    | Notes                              |
 | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :----------: | :--------------------------------- |
-|                                                                                                                                                                                                                                      ![SeerrBridge](https://img.shields.io/badge/SeerrBridge-Compatible-blue?style=for-the-badge&logo=github)                                                                                                                                                                                                                                       | ✅ Supported | Fully compatible                   |
+|                                                                                                                                                                                                                [![SeerrBridge](https://img.shields.io/badge/SeerrBridge-Compatible-blue?style=for-the-badge&logo=github)](https://github.com/Woahai321/SeerrBridge)                                                                                                                                                                                                                 | ✅ Supported | Fully compatible                   |
 |  ![Overseerr](https://img.shields.io/badge/Overseerr-1.33.2+-blue?style=for-the-badge&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABB0lEQVQ4jZXTMUoDQRQG4C+7YmFhYSHYWFgIHkAQPICFhYcQBEEQxGNYWHgIC0H0BsELWFhYWAQLC2GzxSzsLrOz2f0hMDDvzXvfzLz3ZkopKKMxxrjHJc7wjjd0UgpfZRYVgbM4P2AevZzEHlZwiU5KYa8QmMUNtnCMh5TCqCR0jgF6eEQfq1jHFfbRxHFKYVQQWMQIZxjGehObeEUH7ZTCJCcYx2Ub99jGEEtYwDnWsIk2LlIK/ZzALK7RwlKsPWMppfAc/m+0UwrTnKCBHt7iZnlp5/GCVkrhKyd4wg5WYv6NTkrhNSdoRd0b2Cg0z0dOcIj9uHnePG/+t/k3wR/kyUNUdQE+UAAAAABJRU5ErkJgg==)   | ✅ Supported | Full functionality with Overseerr  |
 | ![Jellyseerr](https://img.shields.io/badge/Jellyseerr-1.9.2+-purple?style=for-the-badge&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABB0lEQVQ4jZXTMUoDQRQG4C+7YmFhYSHYWFgIHkAQPICFhYcQBEEQxGNYWHgIC0H0BsELWFhYWAQLC2GzxSzsLrOz2f0hMDDvzXvfzLz3ZkopKKMxxrjHJc7wjjd0UgpfZRYVgbM4P2AevZzEHlZwiU5KYa8QmMUNtnCMh5TCqCR0jgF6eEQfq1jHFfbRxHFKYVQQWMQIZxjGehObeEUH7ZTCJCcYx2Ub99jGEEtYwDnWsIk2LlIK/ZzALK7RwlKsPWMppfAc/m+0UwrTnKCBHt7iZnlp5/GCVkrhKyd4wg5WYv6NTkrhNSdoRd0b2Cg0z0dOcIj9uHnePG/+t/k3wR/kyUNUdQE+UAAAAABJRU5ErkJgg==) | ✅ Supported | Full functionality with Jellyseerr |
 |    ![Radarr](https://img.shields.io/badge/Radarr-5.11.0+-orange?style=for-the-badge&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABKElEQVQ4jZXTMUoDQRQG4C+7YmFhYSHYWFgIHkAQPICFhYcQBEEQxGNYWHgIC0H0BsELWFhYWAQLC2GzxSzsLrOz2f0hMDDvzXvfzLz3ZkopKKMxxrjHJc7wjjd0UgpfZRYVgbM4P2AevZzEHlZwiU5KYa8QmMUNtnCMh5TCqCR0jgF6eEQfq1jHFfbRxHFKYVQQWMQIZxjGehObeEUH7ZTCJCcYx2Ub99jGEEtYwDnWsIk2LlIK/ZzALK7RwlKsPWMppfAc/m+0UwrTnKCBHt7iZnlp5/GCVkrhKyd4wg5WYv6NTkrhNSdoRd0b2Cg0z0dOcIj9uHnePG/+t/k3wR/kyUNUdQE+UAAAAABJRU5ErkJgg==)     | ✅ Supported | Started with supporting movies     |
@@ -76,6 +76,22 @@ To obtain a Trakt list ID:
 
 When inputting list IDs, you can add multiple IDs by separating them with commas.
 
+## 📋 Notes
+
+- **Security Best Practices:** Please read scripts you find online before running them.
+- **API Credentials:** Always keep your API credentials secure.
+- **Rate Limiting:** Be mindful of Overseerr's rate limiting policies during imports.
+- **Permissions:** Only import and manage media you have the rights to handle.
+
+## 💰 Donations
+
+If you find ListSync useful and would like to support its development, consider making a donation:
+
+- BTC (Bitcoin): `bc1qxjpfszwvy3ty33weu6tjkr394uq30jwkysp4x0`
+- ETH (Ethereum): `0xAF3ADE79B7304784049D200ea50352D1C717d7f2`
+
+Thank you for your support!
+
 ## 🔎 How it Works
 
 For detailed information on how ListSync works, please refer to our [How it Works](/docs/how-it-works.md) document.
@@ -88,13 +104,6 @@ If you encounter any issues while using ListSync, please check our [Troubleshoot
 
 To see our plans for future development and features, visit our [Roadmap](/docs/roadmap.md).
 
-## 📋 Notes
-
-- **Security Best Practices:** Please read scripts you find online before running them.
-- **API Credentials:** Always keep your API credentials secure.
-- **Rate Limiting:** Be mindful of Overseerr's rate limiting policies during imports.
-- **Permissions:** Only import and manage media you have the rights to handle.
-
 ## 🤝 Contributing
 
 We welcome contributions! For guidelines on how to contribute, please see our [Contributing Guide](/docs/contributing.md).
@@ -106,15 +115,6 @@ This project is licensed under the [MIT License](https://opensource.org/license/
 ## 🛡️ Legal Disclaimer
 
 For important legal information about using ListSync, please refer to our [Legal Disclaimer](/docs/legal-disclaimer.md).
-
-## 💰 Donations
-
-If you find ListSync useful and would like to support its development, consider making a donation:
-
-- BTC (Bitcoin): `bc1qxjpfszwvy3ty33weu6tjkr394uq30jwkysp4x0`
-- ETH (Ethereum): `0xAF3ADE79B7304784049D200ea50352D1C717d7f2`
-
-Thank you for your support!
 
 ## Star History
 
