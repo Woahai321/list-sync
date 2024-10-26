@@ -14,10 +14,6 @@ We're thrilled that you're interested in contributing to ListSync! This document
 8. [Suggesting Enhancements](#suggesting-enhancements)
 9. [Questions](#questions)
 
-## Code of Conduct
-
-This project and everyone participating in it is governed by our [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to [project_email@example.com].
-
 ## Getting Started
 
 1. Fork the repository on GitHub.
