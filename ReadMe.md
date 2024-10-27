@@ -12,6 +12,10 @@
 
 Welcome to the **ListSync Tool**! This powerful tool automates the import of your carefully curated IMDB and Trakt lists into Overseerr, transforming movie and TV show management into a breeze.
 
+## 🎬 Demo
+
+![Bot In Action](https://share.woahlab.com/-BZtwSD96LN)
+
 ## 📜 Table of Contents
 
 1. [Compatibility](#-compatibility)
