@@ -25,10 +25,10 @@ def fetch_imdb_list(list_id: str) -> List[Dict[str, str]]:
         headers = {"Accept-Language": "en-US", "User-Agent": "Mozilla/5.0"}
         response = requests.get(url, headers=headers)
         response.raise_for_status()
-        
+
         soup = BeautifulSoup(response.text, "html.parser")
         script_tag = soup.find("script", {"type": "application/ld+json"})
-        
+
         if script_tag:
             ld_json = json.loads(script_tag.string)
         else:
@@ -37,9 +37,9 @@ def fetch_imdb_list(list_id: str) -> List[Dict[str, str]]:
                 raise ValueError("Could not find ld+json or __NEXT_DATA__ script tag in the IMDb page")
             next_data = json.loads(script_tag.string)
             ld_json = next_data["props"]["pageProps"]["mainColumnData"]["predefinedList"]["titleListItemSearch"]
-        
+
         media_items = []
-        
+
         if "itemListElement" in ld_json:
             for row in ld_json["itemListElement"]:
                 item = row["item"]
@@ -56,7 +56,7 @@ def fetch_imdb_list(list_id: str) -> List[Dict[str, str]]:
                     "imdb_id": item["id"],
                     "media_type": "tv" if item["titleType"]["id"] == "tvSeries" else "movie"
                 })
-        
+
         spinner.succeed(color_gradient(f"✨  Found {len(media_items)} items from IMDB list {list_id}!", "#00ff00", "#00aa00"))
         logging.info(f"IMDB list {list_id} fetched successfully. Found {len(media_items)} items.")
         return media_items
@@ -69,10 +69,10 @@ def fetch_trakt_list(list_id: str) -> List[Dict[str, str]]:
     """Fetch media items from a Trakt list."""
     base_url = f"https://trakt.tv/lists/{list_id}"
     headers = {"Accept-Language": "en-US", "User-Agent": "Mozilla/5.0"}
-    
+
     spinner = Halo(text=color_gradient("📚  Fetching Trakt list...", "#ffaa00", "#ff5500"), spinner="dots")
     spinner.start()
-    
+
     try:
         response = requests.get(base_url, headers=headers, allow_redirects=True)
         response.raise_for_status()
@@ -87,34 +87,34 @@ def fetch_trakt_list(list_id: str) -> List[Dict[str, str]]:
             url = f"{final_base_url}?page={page}&sort=added,asc"
             response = requests.get(url, headers=headers)
             response.raise_for_status()
-            
+
             soup = BeautifulSoup(response.text, "html.parser")
             grid = soup.find("div", class_="row posters without-rank added")
             if grid and 'data-page-count' in grid.attrs:
                 total_pages = int(grid['data-page-count'])
                 logging.info(f"Total pages: {total_pages}")
-            
+
             items = soup.find_all("div", class_="grid-item")
-            
+
             if not items:
                 break
-            
+
             for item in items:
                 title_element = item.find("h3", class_="ellipsify")
                 if title_element:
                     title = title_element.text.strip()
                     media_type = "tv" if item.get("data-type") == "show" else item.get("data-type", "movie")
                     media_items.append({"title": title, "media_type": media_type})
-            
+
             logging.info(f"Fetched {len(items)} items from page {page}")
-            
+
             if page >= total_pages:
                 next_link = soup.find("a", rel="next")
                 if not next_link:
                     break
-            
+
             page += 1
-        
+
         spinner.succeed(color_gradient(f"✨  Found {len(media_items)} items from Trakt list {list_id}!", "#00ff00", "#00aa00"))
         logging.info(f"Trakt list {list_id} fetched successfully. Found {len(media_items)} items.")
         return media_items
@@ -176,3 +176,27 @@ def edit_lists():
         )
         conn.commit()
     print(color_gradient("\nLists updated successfully.", "#00ff00", "#00aa00"))
+
+def add_new_lists():
+    """Add new lists interactively and save to the database."""
+    add_new_list = True
+    while add_new_list:
+        list_ids = custom_input(color_gradient("\n🎬  Enter List ID(s) (comma-separated for multiple): ", "#ffaa00", "#ff5500"))
+        list_ids = [id.strip() for id in list_ids.split(',')]
+        
+        for list_id in list_ids:
+            if list_id.startswith(('ls', 'ur')):
+                list_type = "imdb"
+            elif list_id.isdigit():
+                list_type = "trakt"
+            else:
+                print(color_gradient(f"\n❌  Invalid list ID format for '{list_id}'. Skipping this ID.", "#ff0000", "#aa0000"))
+                continue
+
+            add_to_sync = custom_input(color_gradient(f"\n🚨  Are you sure the list ID '{list_id}' is correct for '{list_type}'? (y/n): ", "#ffaa00", "#ff5500")).lower()
+            if add_to_sync == "y":
+                save_list_id(list_id, list_type)
+
+        more_lists = custom_input(color_gradient("\n🏁  Do you want to import any other lists? (y/n): ", "#ffaa00", "#ff5500")).lower()
+        if more_lists != "y":
+            add_new_list = False
