@@ -138,8 +138,8 @@ def decrypt_config(encrypted_data, password):
     fernet = Fernet(key)
     return json.loads(fernet.decrypt(encrypted_data).decode())
 
-def save_config(overseerr_url, api_key):
-    config = {"overseerr_url": overseerr_url, "api_key": api_key}
+def save_config(overseerr_url, api_key, requester_user_id):
+    config = {"overseerr_url": overseerr_url, "api_key": api_key, "requester_user_id": requester_user_id}
     print(color_gradient("🔐  Enter a password to encrypt your API details: ", "#ff0000", "#aa0000"), end="")
     password = getpass.getpass("")
     encrypted_config = encrypt_config(config, password)
@@ -155,14 +155,14 @@ def load_config():
         password = getpass.getpass(color_gradient("🔑  Enter your password: ", "#ff0000", "#aa0000"))
         try:
             config = decrypt_config(encrypted_config, password)
-            return config["overseerr_url"], config["api_key"]
+            return config["overseerr_url"], config["api_key"], config["requester_user_id"]
         except Exception:
             print(f'\n{color_gradient("❌  Incorrect password. Unable to decrypt config.", "#ff0000", "#aa0000")}')
             if custom_input("\n🗑️  Delete this config and start over? (y/n): ").lower() == "y":
                 os.remove(CONFIG_FILE)
                 print(f'\n{color_gradient("🔄  Config deleted. Rerun the script to set it up again.", "#ffaa00", "#ff5500")}\n')
-            return None, None
-    return None, None
+            return None, None, None
+    return None, None, None
 
 def test_overseerr_api(overseerr_url, api_key):
     headers = {"X-Api-Key": api_key, "Content-Type": "application/json"}
@@ -178,6 +178,29 @@ def test_overseerr_api(overseerr_url, api_key):
         spinner.fail(color_gradient(f"❌  Overseerr API connection failed. Error: {str(e)}", "#ff0000", "#aa0000"))
         logging.error(f"Overseerr API connection failed. Error: {str(e)}")
         raise
+
+def set_requester_user(overseerr_url, api_key):
+    headers = {"X-Api-Key": api_key, "Content-Type": "application/json"}
+    users_url = f"{overseerr_url}/api/v1/user"
+    try:
+        requester_user_id = "1"
+        response = requests.get(users_url, headers=headers)
+        response.raise_for_status()
+        jsonResult = response.json()
+        if jsonResult['pageInfo']['results'] > 1:
+            print(color_gradient("\n📋 Multiple users detected, you can choose which user will make the requests on ListSync behalf.\n", "#00aaff", "#00ffaa"))
+            for result in jsonResult['results']:
+                print(color_gradient(f"{result['id']}. {result['displayName']}", "#ffaa00", "#ff5500"))
+            requester_user_id = custom_input(color_gradient("\nEnter the number of the list to use as requester user: ", "#ffaa00", "#ff5500"))
+            if not next((x for x in jsonResult['results'] if str(x['id']) == requester_user_id), None):
+                requester_user_id = "1"
+                print(color_gradient("\n❌  Invalid option, using admin as requester user.", "#ff0000", "#aa0000"))
+
+        logging.info("Requester user set!")
+        return requester_user_id
+    except Exception as e:
+        logging.error(f"Overseerr API connection failed. Error: {str(e)}")
+        return 1
 
 def fetch_imdb_list(list_id):
     spinner = Halo(text=color_gradient("📚  Fetching IMDB list...", "#ffaa00", "#ff5500"), spinner="dots")
@@ -348,8 +371,8 @@ def confirm_media_status(overseerr_url, api_key, media_id, media_type):
         logging.error(f"Error confirming status for {media_type} ID {media_id}: {str(e)}")
         raise
 
-def request_media_in_overseerr(overseerr_url, api_key, media_id, media_type):
-    headers = {"X-Api-Key": api_key, "Content-Type": "application/json"}
+def request_media_in_overseerr(overseerr_url, api_key, requester_user_id, media_id, media_type):
+    headers = {"X-Api-Key": api_key, "X-Api-User": requester_user_id, "Content-Type": "application/json"}
     request_url = f"{overseerr_url}/api/v1/request"
     payload = {
         "mediaId": media_id,
@@ -365,8 +388,8 @@ def request_media_in_overseerr(overseerr_url, api_key, media_id, media_type):
         logging.error(f"Error requesting {media_type} ID {media_id}: {str(e)}")
         return "error"
 
-def request_tv_series_in_overseerr(overseerr_url, api_key, tv_id, number_of_seasons):
-    headers = {"X-Api-Key": api_key, "Content-Type": "application/json"}
+def request_tv_series_in_overseerr(overseerr_url, api_key, requester_user_id, tv_id, number_of_seasons):
+    headers = {"X-Api-Key": api_key, "X-Api-User": requester_user_id, "Content-Type": "application/json"}
     request_url = f"{overseerr_url}/api/v1/request"
     
     seasons_list = [i for i in range(1, number_of_seasons + 1)]
@@ -493,7 +516,7 @@ def save_sync_result(title, media_type, imdb_id, overseerr_id, status):
         ''', (title, media_type, imdb_id, overseerr_id, status))
         conn.commit()
 
-def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, dry_run: bool) -> Dict[str, Any]:
+def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, requester_user_id: str, dry_run: bool) -> Dict[str, Any]:
     title = item.get('title', 'Unknown Title')
     media_type = item.get('media_type', 'unknown')
     imdb_id = item.get('imdb_id')
@@ -518,9 +541,9 @@ def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, d
                 return {"title": title, "status": "already_requested"}
             else:
                 if search_result["mediaType"] == 'tv':
-                    request_status = request_tv_series_in_overseerr(overseerr_url, api_key, overseerr_id, number_of_seasons)
+                    request_status = request_tv_series_in_overseerr(overseerr_url, api_key, requester_user_id, overseerr_id, number_of_seasons)
                 else:
-                    request_status = request_media_in_overseerr(overseerr_url, api_key, overseerr_id, search_result["mediaType"])
+                    request_status = request_media_in_overseerr(overseerr_url, api_key, requester_user_id, overseerr_id, search_result["mediaType"])
                 
                 if request_status == "success":
                     save_sync_result(title, media_type, imdb_id, overseerr_id, "requested")
@@ -535,7 +558,7 @@ def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, d
         logging.error(f'Error processing item {title}: {str(e)}')
         return {"title": title, "status": "error"}
 
-def process_media(media_items: List[Dict[str, Any]], overseerr_url: str, api_key: str, dry_run: bool = False):
+def process_media(media_items: List[Dict[str, Any]], overseerr_url: str, api_key: str, requester_user_id: str, dry_run: bool = False):
     total_items = len(media_items)
     results = {
         "requested": 0,
@@ -549,7 +572,7 @@ def process_media(media_items: List[Dict[str, Any]], overseerr_url: str, api_key
     print(color_gradient(f"\n🎬  Processing {total_items} media items...", "#00aaff", "#00ffaa") + "\n")
     
     with ThreadPoolExecutor(max_workers=10) as executor:
-        future_to_item = {executor.submit(process_media_item, item, overseerr_url, api_key, dry_run): item for item in media_items}
+        future_to_item = {executor.submit(process_media_item, item, overseerr_url, api_key, requester_user_id, dry_run): item for item in media_items}
         for future in as_completed(future_to_item):
             item = future_to_item[future]
             try:
@@ -618,7 +641,7 @@ def display_menu():
 """
     print(color_gradient(menu, "#00aaff", "#00ffaa") + Style.RESET_ALL)
 
-def start_sync(overseerr_url, api_key, added_logger, dry_run=False):
+def start_sync(overseerr_url, api_key, requester_user_id, added_logger, dry_run=False):
     try:
         test_overseerr_api(overseerr_url, api_key)
     except Exception as e:
@@ -638,7 +661,7 @@ def start_sync(overseerr_url, api_key, added_logger, dry_run=False):
             logging.error(f"Error fetching list: {e}")
             continue
 
-    process_media(media_items, overseerr_url, api_key, dry_run)
+    process_media(media_items, overseerr_url, api_key, requester_user_id, dry_run)
 
 def add_new_lists():
     add_new_list = True
@@ -667,11 +690,11 @@ def add_new_lists():
             add_new_list = False
 
     # Start sync immediately after adding new lists
-    overseerr_url, api_key = load_config()
+    overseerr_url, api_key, requester_user_id = load_config()
     if overseerr_url and api_key:
-        start_sync(overseerr_url, api_key, setup_logging())
+        start_sync(overseerr_url, api_key, requester_user_id, setup_logging())
 
-def one_time_list_sync(overseerr_url, api_key, added_logger):
+def one_time_list_sync(overseerr_url, api_key, requester_user_id, added_logger):
     list_ids = custom_input(color_gradient("\n🎬  Enter List ID(s) for one-time sync (comma-separated for multiple): ", "#ffaa00", "#ff5500"))
     list_ids = [id.strip() for id in list_ids.split(',')]
     
@@ -689,7 +712,7 @@ def one_time_list_sync(overseerr_url, api_key, added_logger):
             logging.error(f"Error fetching list {list_id}: {e}")
     
     if media_items:
-        process_media(media_items, overseerr_url, api_key)
+        process_media(media_items, overseerr_url, api_key, requester_user_id)
     else:
         print(color_gradient("\n❌  No valid lists were processed.", "#ff0000", "#aa0000"))
 
@@ -724,11 +747,25 @@ def main():
 
     print(color_gradient("👋  Welcome to the List to Overseerr Sync Tool!", "#00aaff", "#00ffaa") + "\n")
 
-    overseerr_url, api_key = load_config()
-    if not overseerr_url or not api_key:
-        overseerr_url = custom_input(color_gradient("\n🌐  Enter your Overseerr URL: ", "#ffaa00", "#ff5500"))
-        api_key = custom_input(color_gradient("\n🔑  Enter your Overseerr API key: ", "#ffaa00", "#ff5500"))
-        save_config(overseerr_url, api_key)
+    overseerr_url, api_key, requester_user_id = load_config()
+    if not overseerr_url or not api_key or not requester_user_id:
+        while True:
+            if not overseerr_url or not api_key:
+                overseerr_url = custom_input(color_gradient("\n🌐  Enter your Overseerr URL: ", "#ffaa00", "#ff5500"))
+                api_key = custom_input(color_gradient("\n🔑  Enter your Overseerr API key: ", "#ffaa00", "#ff5500"))
+            if not requester_user_id:
+                try:
+                    test_overseerr_api(overseerr_url, api_key)
+
+                    requester_user_id = set_requester_user(overseerr_url, api_key)
+
+                    save_config(overseerr_url, api_key, requester_user_id)
+
+                    break
+                except Exception as e:
+                    print(color_gradient(f"\n❌  Error testing Overseerr API: {e}", "#ff0000", "#aa0000") + "\n")
+                    logging.error(f"Error testing Overseerr API: {e}")
+                    return
 
     # Prompt for sync configuration
     print(color_gradient("\n📋 Configure regular syncing:", "#00aaff", "#00ffaa"))
@@ -756,11 +793,11 @@ def main():
 
         elif choice == "2":
             # Start Sync with Saved Lists
-            start_sync(overseerr_url, api_key, added_logger)
+            start_sync(overseerr_url, api_key, requester_user_id, added_logger)
 
         elif choice == "3":
             # One-Time List Sync
-            one_time_list_sync(overseerr_url, api_key, added_logger)
+            one_time_list_sync(overseerr_url, api_key, requester_user_id, added_logger)
 
         elif choice == "4":
             # Manage Existing Lists
@@ -773,7 +810,7 @@ def main():
 
         elif choice == "6":
             # Run Dry Sync
-            start_sync(overseerr_url, api_key, added_logger, dry_run=True)
+            start_sync(overseerr_url, api_key, requester_user_id, added_logger, dry_run=True)
 
         elif choice == "7":
             # Exit
@@ -792,7 +829,7 @@ def main():
                         os.remove(f"{DATA_DIR}/interrupt.txt")
                         raise KeyboardInterrupt()
                 # Run sync after sleep
-                start_sync(overseerr_url, api_key, added_logger)
+                start_sync(overseerr_url, api_key, requester_user_id, added_logger)
             except KeyboardInterrupt:
                 print(color_gradient("\nReturning to the main menu...", "#00aaff", "#00ffaa"))
                 continue
