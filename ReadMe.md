@@ -76,6 +76,18 @@ To obtain a Trakt list ID:
 5. The copied link will be in the format: `https://trakt.tv/lists/12345678`
 6. The list ID is the number at the end. In this example, it would be `12345678`.
 
+
+### Letterboxd List ID
+
+To obtain a Trakt list ID:
+
+1. Go to your Letterboxd list.
+2. Look at the url.
+4. The link will be in the format: `https://letterboxd.com/username/list/name-of-list/` or `https://letterboxd.com/username/watchlist/page/1`
+5. The username will be the name after letterboxd.  If its a wathlist, the listname should be watchlist.  Otherwise it should be the name after "list"
+6. The list ID will be the 2 seperated by a colon.  In this example it would be either `username:name-of-list` or `username:watchlist`
+
+
 ### Adding Multiple List IDs
 
 When inputting list IDs, you can add multiple IDs by separating them with commas.

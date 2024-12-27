@@ -1,0 +1,62 @@
+# Sample Config file
+#
+# Note: the !ENV ${VAR:default} syntax is some syntactic sugar used by https://pypi.org/project/pyaml-env/
+# This allows variables to be passed through either in this config file or as environment variables
+#
+crontab: !ENV ${CRONTAB}   # If set, this runs the script on a schedule. Should be in crontab format e.g. `0 0 5 * *`
+timezone: !ENV ${TZ}   # Timezone the crontab operates on.
+jellyfin:
+  server_url: !ENV ${JELLYFIN_SERVER_URL:https://www.jellyfin.example.com}
+  api_key: !ENV ${JELLYFIN_API_KEY:1a1111aa1a1a1aaaa11a11aa111aaa11}         # Create an API key by going to: Admin>Dashboard>Advanced>API Keys
+  user_id: !ENV ${JELLYFIN_USER_ID:111111111111aaaaaaaa11111111111a}         #ID of your jellyfin user. Found in the URL when you navigate to your user in the Dashboard.
+jellyseerr:
+  server_url: !ENV ${JELLYSEERR_SERVER_URL:https://www.jellyfin.example.com}
+  api_key: !ENV ${JELLYSEERR_API_KEY:1a1111aa1a1a1aaaa11a11aa111aaa11}         # Create an API key by going to: Admin>Dashboard>Advanced>API Keys
+  user_id: !ENV ${JELLYSEERR_USER_ID:111111111111aaaaaaaa11111111111a}         #ID of your jellyfin user. Found in the URL when you navigate to your user in the Dashboard.
+
+plugins:
+  imdb_chart:
+    enabled: false
+    list_ids:
+      - top
+      - boxoffice
+      - moviemeter
+      - tvmeter
+    clear_collection: true   # If set, this empties out the collection before re-adding. Useful for lists which change often.
+  imdb_list:
+    enabled: true
+    imdb_id_filter: false # Uses the imdb id for better matching. This does slow the script down though!
+    list_ids:
+      - ls055592025
+      - ls068305490
+      - ls087301829
+  letterboxd:
+    enabled: true
+    list_ids:
+      - fcbarcelona/list/movies-everyone-should-watch-at-least-once
+      - dave/list/official-top-250-narrative-feature-films
+  mdblist:
+    enabled: false
+    list_ids:
+      - hdlists/crazy-plot-twists
+  tspdt:
+    enabled: true
+    list_ids:
+      - 1000-greatest-films
+  trakt:
+    enabled: false
+    list_ids:
+      - "movies/boxoffice"
+      - "shows/popular"
+      - walt-disney-animated-feature-films
+      - "20124699"   # Custom list ID for a user's list. Peek at the HTML source of the list page to find <input id="list-id" type="hidden" value="20124699">
+    client_id: aaaaaaa111111111 # Trakt API client ID. Create an app at https://trakt.tv/oauth/applications/new and copy the client ID
+    client_secret: aaaaaaa111111111  # Trakt API client secret. Create an app at https://trakt.tv/oauth/applications/new and copy the client secret
+  jellyfin_api:
+    enabled: false
+    list_ids:
+      - minCriticRating: ["9"]
+        limit: ["3"]
+        sortBy: ["Random"]
+        includeItemTypes: ["Movie"]
+      - genres: ["Mystery"]
