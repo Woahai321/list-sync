@@ -13,13 +13,14 @@ import html
 import json
 import logging
 import os
+import readline
 import sqlite3
 import time
-import readline
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 from urllib.parse import quote
 
+import pluginlib
 import requests
 from bs4 import BeautifulSoup
 from colorama import Style, init
@@ -108,11 +109,11 @@ def color_gradient(text, start_color, end_color):
 
 def display_ascii_art():
     ascii_art = """
-  _      _        _     ___                    
- | |    (_)  ___ | |_  / __|  _  _   _ _    __ 
+  _      _        _     ___
+ | |    (_)  ___ | |_  / __|  _  _   _ _    __
  | |__  | | (_-< |  _| \__ \ | || | | ' \  / _|
  |____| |_| /__/  \__| |___/  \_, | |_||_| \__|
-                              |__/             
+                              |__/
     """
     art_lines = ascii_art.split("\n")
     for line in art_lines:
@@ -189,16 +190,16 @@ def fetch_imdb_list(list_id):
             url = f"https://www.imdb.com/user/{list_id}/watchlist"
         else:
             raise ValueError("Invalid IMDb list ID format. It should start with 'ls' for lists or 'ur' for watchlists.")
-        
+
         headers = {"Accept-Language": "en-US", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
-        
+
         response = requests.get(url, headers=headers)
         response.raise_for_status()
-        
+
         soup = BeautifulSoup(response.text, "html.parser")
-        
+
         script_tag = soup.find("script", {"type": "application/ld+json"})
-        
+
         if script_tag:
             ld_json = json.loads(script_tag.string)
         else:
@@ -207,9 +208,9 @@ def fetch_imdb_list(list_id):
                 raise ValueError("Could not find ld+json or __NEXT_DATA__ script tag in the IMDb page")
             next_data = json.loads(script_tag.string)
             ld_json = next_data["props"]["pageProps"]["mainColumnData"]["predefinedList"]["titleListItemSearch"]
-        
+
         media_items = []
-        
+
         if "itemListElement" in ld_json:
             for row in ld_json["itemListElement"]:
                 item = row["item"]
@@ -226,7 +227,7 @@ def fetch_imdb_list(list_id):
                     "imdb_id": item["id"],
                     "media_type": "tv" if item["titleType"]["id"] == "tvSeries" else "movie"
                 })
-        
+
         spinner.succeed(color_gradient(f"✨  Found {len(media_items)} items from IMDB list {list_id}!", "#00ff00", "#00aa00"))
         logging.info(f"IMDB list {list_id} fetched successfully. Found {len(media_items)} items.")
         return media_items
@@ -235,13 +236,60 @@ def fetch_imdb_list(list_id):
         logging.error(f"Error fetching IMDB list {list_id}: {str(e)}")
         raise
 
+def listinfo_to_mediaItem(listinfo):
+
+    media_items=[]
+
+    for movie in listinfo['items']:
+        media_items.append({
+            "title": movie["title"],
+            "imdb_id": movie.get("imdb_id","") ,     # not found in letterboxd page, nor trackt
+            "release_year":movie.get("release_year",""),
+            "media_type": movie["media_type"]
+        })
+
+    return media_items
+
+
+def fetch_letterboxd_list(list_id):
+    spinner = Halo(text=color_gradient("📚  Fetching Letterboxd list...", "#ffaa00", "#ff5500"), spinner="dots")
+    spinner.start()
+
+    try:
+
+        # Match list items to jellyfin items  -
+        # TODO Modify the structure so it can be used with an yaml file.
+        # list_info = plugins[plugin_name].get_list(list_id, config['plugins'][plugin_name])
+        # data-ilm-id
+        loader = pluginlib.PluginLoader(modules=['plugins'])
+        plugins = loader.plugins['list_scraper']
+        plugin_name="letterboxd"
+        config={}
+        config['plugins']={'letterboxd':{"enabled":True,"list_ids":"/dredvard/list/testlist"}}   # sample as .get_list requires dictionary
+        list_info = plugins[plugin_name].get_list(list_id, config['plugins'][plugin_name])
+
+        media_items=listinfo_to_mediaItem(list_info)
+
+
+        spinner.succeed(color_gradient(f"✨  Found {len(media_items)} items from Letterboxd list {list_id}!", "#00ff00", "#00aa00"))
+        logging.info(f"IMDB list {list_id} fetched successfully. Found {len(media_items)} items.")
+        return media_items
+    except Exception as e:
+        spinner.fail(color_gradient(f"💥  Failed to fetch Letterboxd list {list_id}. Error: {str(e)}", "#ff0000", "#aa0000"))
+        logging.error(f"Error fetching Letterboxd list {list_id}: {str(e)}")
+        raise
+
+
+
+
+
 def fetch_trakt_list(list_id):
     base_url = f"https://trakt.tv/lists/{list_id}"
     headers = {"Accept-Language": "en-US", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
-    
+
     spinner = Halo(text=color_gradient("📚  Fetching Trakt list...", "#ffaa00", "#ff5500"), spinner="dots")
     spinner.start()
-    
+
     try:
         # First request to get the final URL after redirection
         response = requests.get(base_url, headers=headers, allow_redirects=True)
@@ -257,38 +305,38 @@ def fetch_trakt_list(list_id):
             url = f"{final_base_url}?page={page}&sort=added,asc"
             response = requests.get(url, headers=headers)
             response.raise_for_status()
-            
+
             soup = BeautifulSoup(response.text, "html.parser")
-            
+
             # Check the total page count
             grid = soup.find("div", class_="row posters without-rank added")
             if grid and 'data-page-count' in grid.attrs:
                 total_pages = int(grid['data-page-count'])
                 logging.info(f"Total pages: {total_pages}")
-            
+
             items = soup.find_all("div", class_="grid-item")
-            
+
             if not items:
                 # If no items found, we've reached the end
                 break
-            
+
             for item in items:
                 title_element = item.find("h3", class_="ellipsify")
                 if title_element:
                     title = title_element.text.strip()
                     media_type = "tv" if item.get("data-type") == "show" else item.get("data-type", "movie")
                     media_items.append({"title": title, "media_type": media_type})
-            
+
             logging.info(f"Fetched {len(items)} items from page {page}")
-            
+
             if page >= total_pages:
                 # Check if there's a "next" link
                 next_link = soup.find("a", rel="next")
                 if not next_link:
                     break
-            
+
             page += 1
-        
+
         spinner.succeed(color_gradient(f"✨  Found {len(media_items)} items from Trakt list {list_id}!", "#00ff00", "#00aa00"))
         logging.info(f"Trakt list {list_id} fetched successfully. Found {len(media_items)} items.")
         return media_items
@@ -297,7 +345,7 @@ def fetch_trakt_list(list_id):
         logging.error(f"Error fetching Trakt list {list_id}: {str(e)}")
         raise
 
-def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type):
+def search_media_in_overseerr(overseerr_url, api_key, media_title, release_year, media_type):
     headers = {"X-Api-Key": api_key, "Content-Type": "application/json"}
     search_url = f"{overseerr_url}/api/v1/search?query={quote(media_title)}"
     try:
@@ -308,11 +356,12 @@ def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type):
 
         for result in search_results.get("results", []):
             if (media_type in ["show", "tv"] and result["mediaType"] == "tv") or (result["mediaType"] == media_type):
-                return {
-                    "id": result["id"],
-                    "mediaType": result["mediaType"],
-                }
-        logging.warning(f'No matching results found for "{media_title}" of type "{media_type}"')
+                if (result['releaseDate'].split("-")[0]==release_year) or release_year == "":
+                    return {
+                        "id": result["id"],
+                        "mediaType": result["mediaType"],
+                    }
+        logging.warning(f'No matching results found for "{media_title}" ({release_year}) of type "{media_type}"')
         return None
     except Exception as e:
         logging.error(f'Error searching for {media_type} "{media_title}": {str(e)}')
@@ -326,7 +375,7 @@ def extract_number_of_seasons(media_data):
 def confirm_media_status(overseerr_url, api_key, media_id, media_type):
     headers = {"X-Api-Key": api_key, "Content-Type": "application/json"}
     media_url = f"{overseerr_url}/api/v1/{media_type}/{media_id}"
-    
+
     try:
         response = requests.get(media_url, headers=headers)
         response.raise_for_status()
@@ -368,17 +417,17 @@ def request_media_in_overseerr(overseerr_url, api_key, media_id, media_type):
 def request_tv_series_in_overseerr(overseerr_url, api_key, tv_id, number_of_seasons):
     headers = {"X-Api-Key": api_key, "Content-Type": "application/json"}
     request_url = f"{overseerr_url}/api/v1/request"
-    
+
     seasons_list = [i for i in range(1, number_of_seasons + 1)]
     logging.debug(f"Seasons list for TV series ID {tv_id}: {seasons_list}")
-    
+
     payload = {
         "mediaId": tv_id,
         "mediaType": "tv",
         "is4k": False,
         "seasons": seasons_list
     }
-    
+
     logging.debug(f"Request payload for TV series ID {tv_id}: {json.dumps(payload, indent=4)}")
 
     try:
@@ -445,7 +494,7 @@ def edit_lists():
             "type": list_info['type'],
             "id": new_id if new_id else list_info['id']
         })
-    
+
     with sqlite3.connect(DB_FILE) as conn:
         cursor = conn.cursor()
         cursor.execute("DELETE FROM lists")
@@ -487,7 +536,7 @@ def save_sync_result(title, media_type, imdb_id, overseerr_id, status):
     with sqlite3.connect(DB_FILE) as conn:
         cursor = conn.cursor()
         cursor.execute('''
-            INSERT OR REPLACE INTO synced_items 
+            INSERT OR REPLACE INTO synced_items
             (title, media_type, imdb_id, overseerr_id, status, last_synced)
             VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ''', (title, media_type, imdb_id, overseerr_id, status))
@@ -496,20 +545,21 @@ def save_sync_result(title, media_type, imdb_id, overseerr_id, status):
 def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, dry_run: bool) -> Dict[str, Any]:
     title = item.get('title', 'Unknown Title')
     media_type = item.get('media_type', 'unknown')
+    release_year = item.get('release_year',"")
     imdb_id = item.get('imdb_id')
 
     if dry_run:
         return {"title": title, "status": "would_be_synced"}
 
     try:
-        search_result = search_media_in_overseerr(overseerr_url, api_key, title, media_type)
+        search_result = search_media_in_overseerr(overseerr_url, api_key, title, release_year, media_type)
         if search_result:
             overseerr_id = search_result["id"]
             if not should_sync_item(overseerr_id):
                 return {"title": title, "status": "skipped"}
 
             is_available, is_requested, number_of_seasons = confirm_media_status(overseerr_url, api_key, overseerr_id, search_result["mediaType"])
-            
+
             if is_available:
                 save_sync_result(title, media_type, imdb_id, overseerr_id, "already_available")
                 return {"title": title, "status": "already_available"}
@@ -521,7 +571,7 @@ def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, d
                     request_status = request_tv_series_in_overseerr(overseerr_url, api_key, overseerr_id, number_of_seasons)
                 else:
                     request_status = request_media_in_overseerr(overseerr_url, api_key, overseerr_id, search_result["mediaType"])
-                
+
                 if request_status == "success":
                     save_sync_result(title, media_type, imdb_id, overseerr_id, "requested")
                     return {"title": title, "status": "requested"}
@@ -547,7 +597,7 @@ def process_media(media_items: List[Dict[str, Any]], overseerr_url: str, api_key
     }
 
     print(color_gradient(f"\n🎬  Processing {total_items} media items...", "#00aaff", "#00ffaa") + "\n")
-    
+
     with ThreadPoolExecutor(max_workers=10) as executor:
         future_to_item = {executor.submit(process_media_item, item, overseerr_url, api_key, dry_run): item for item in media_items}
         for future in as_completed(future_to_item):
@@ -556,7 +606,7 @@ def process_media(media_items: List[Dict[str, Any]], overseerr_url: str, api_key
                 result = future.result()
                 status = result["status"]
                 results[status] = results.get(status, 0) + 1
-                
+
                 if dry_run:
                     print(color_gradient("🔍 {}: Would be synced".format(result['title']), "#ffaa00", "#ff5500") + "\n")
                 else:
@@ -569,7 +619,7 @@ def process_media(media_items: List[Dict[str, Any]], overseerr_url: str, api_key
                     "skipped": ("⏭️ ", "Skipped", "#9E9E9E", "#757575")
                     }.get(status, ("➖", "Unknown Status", "#607D8B", "#546E7A"))
 
-                    
+
                     emoji, status_text, start_color, end_color = status_info
                     message = "{}: {}".format(result['title'], status_text)
                     print("{} {}\n".format(emoji,  color_gradient(message, start_color, end_color)))
@@ -633,6 +683,8 @@ def start_sync(overseerr_url, api_key, added_logger, dry_run=False):
                 media_items.extend(fetch_imdb_list(list_info['id']))
             elif list_info['type'] == "trakt":
                 media_items.extend(fetch_trakt_list(list_info['id']))
+            elif list_info['type'] == "letterboxd":
+                media_items.extend(fetch_letterboxd_list(list_info['id']))
         except Exception as e:
             print(color_gradient(f"\n❌  Error fetching list: {e}", "#ff0000", "#aa0000") + "\n")
             logging.error(f"Error fetching list: {e}")
@@ -645,7 +697,6 @@ def add_new_lists():
     while add_new_list:
         list_ids = custom_input(color_gradient("\n🎬  Enter List ID(s) (comma-separated for multiple): ", "#ffaa00", "#ff5500"))
         list_ids = [id.strip() for id in list_ids.split(',')]
-        
         for list_id in list_ids:
             # Automatically detect list type
             if list_id.startswith(('ls', 'ur')):
@@ -654,6 +705,9 @@ def add_new_lists():
             elif list_id.isdigit():
                 list_type = "trakt"
                 confirmation_message = f"Are you sure the Trakt list ID '{list_id}' is correct?"
+            elif len(list_id.split('/'))>1:
+                list_type = "letterboxd"
+                confirmation_message = f"Are you sure the Letterboxd ID '{list_id} is correct?"
             else:
                 print(color_gradient(f"\n❌  Invalid list ID format for '{list_id}'. Skipping this ID.", "#ff0000", "#aa0000"))
                 continue
@@ -674,7 +728,7 @@ def add_new_lists():
 def one_time_list_sync(overseerr_url, api_key, added_logger):
     list_ids = custom_input(color_gradient("\n🎬  Enter List ID(s) for one-time sync (comma-separated for multiple): ", "#ffaa00", "#ff5500"))
     list_ids = [id.strip() for id in list_ids.split(',')]
-    
+
     media_items = []
     for list_id in list_ids:
         try:
@@ -682,12 +736,14 @@ def one_time_list_sync(overseerr_url, api_key, added_logger):
                 media_items.extend(fetch_imdb_list(list_id))
             elif list_id.isdigit():
                 media_items.extend(fetch_trakt_list(list_id))
+            elif list_id.find("/")==True:
+                media_items.extend(fetch_letterboxd_list(list_id))
             else:
                 print(color_gradient(f"\n❌  Invalid list ID format for '{list_id}'. Skipping this ID.", "#ff0000", "#aa0000"))
         except Exception as e:
             print(color_gradient(f"\n❌  Error fetching list {list_id}: {e}", "#ff0000", "#aa0000") + "\n")
             logging.error(f"Error fetching list {list_id}: {e}")
-    
+
     if media_items:
         process_media(media_items, overseerr_url, api_key)
     else:
@@ -700,9 +756,9 @@ def manage_lists():
         print(color_gradient("2. Delete a List", "#ffaa00", "#ff5500"))
         print(color_gradient("3. Edit Lists", "#ffaa00", "#ff5500"))
         print(color_gradient("4. Return to Main Menu", "#ffaa00", "#ff5500"))
-        
+
         choice = custom_input(color_gradient("\nEnter your choice: ", "#ffaa00", "#ff5500"))
-        
+
         if choice == "1":
             display_lists()
         elif choice == "2":
@@ -735,6 +791,12 @@ def main():
     print(color_gradient("1. Yes, configure sync interval in hours", "#ffaa00", "#ff5500"))
     print(color_gradient("2. No, run a one-time sync", "#ffaa00", "#ff5500"))
     sync_choice = custom_input(color_gradient("\nEnter your choice: ", "#ffaa00", "#ff5500"))
+
+    # Load plugins
+    loader = pluginlib.PluginLoader(modules=['plugins'])
+    plugins = loader.plugins['list_scraper']
+
+
 
     if sync_choice == "1":
         configure_sync_interval()

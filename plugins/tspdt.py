@@ -1,5 +1,5 @@
 import json
-from utils.base_plugin import ListScraper
+from list_sync.base_plugin import ListScraper
 import bs4
 import requests
 

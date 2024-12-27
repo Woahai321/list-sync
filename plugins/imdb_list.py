@@ -1,7 +1,7 @@
 import bs4
 import requests
 import json
-from utils.base_plugin import ListScraper
+from list_sync.base_plugin import ListScraper
 
 class IMDBList(ListScraper):
 

@@ -1,6 +1,6 @@
 import bs4
 import requests
-from utils.base_plugin import ListScraper
+from list_sync.base_plugin import ListScraper
 import json
 
 class IMDBChart(ListScraper):
