@@ -19,6 +19,7 @@ cryptography = "^43.0.1"
 python-dotenv = "^0.19.2"
 pluginlib = "^0.9.4"
 loguru = "^0.7.3"
+pluglib = "^0.0.0"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.6.0"

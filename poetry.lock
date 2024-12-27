@@ -366,6 +366,17 @@ files = [
 setuptools = "*"
 
 [[package]]
+name = "pluglib"
+version = "0.0.0"
+description = "A package used to create and import your plugs"
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "pluglib-0.0.0-py3-none-any.whl", hash = "sha256:c4f6b581c411ba54880a8d677fe620939c5e8c0aed8ffa371bd702498904d51e"},
+    {file = "pluglib-0.0.0.tar.gz", hash = "sha256:002d6125584d9180ce49da24718f813d8a1f11e7595ae917ead58baccec8951b"},
+]
+
+[[package]]
 name = "pycparser"
 version = "2.22"
 description = "C parser in Python"
@@ -539,4 +550,4 @@ dev = ["black (>=19.3b0)", "pytest (>=4.6.2)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "659bd9254d35c552021acd916c291bffef50c779889ca099db6981167edcc323"
+content-hash = "61f1e142e4df56b0c7781cc24b3b376881c93e7c5e8763eb86daf1d0c195985a"
