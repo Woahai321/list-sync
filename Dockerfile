@@ -24,36 +24,39 @@ RUN --mount=type=cache,target=/tmp/poetry_cache poetry install --only main --no-
 # Stage 2: App stage
 FROM python:${PYTHON_VERSION}-slim AS app
 
-# Install Chrome and dependencies
-RUN apt-get update && apt-get install -y \
+# Install required dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
-    gnupg \
-    && wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg \
-    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | tee /etc/apt/sources.list.d/google-chrome.list \
-    && apt-get update \
-    && apt-get install -y \
-    google-chrome-stable \
-    fonts-liberation \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libatk1.0-0 \
-    libatspi2.0-0 \
-    libcups2 \
-    libdbus-1-3 \
-    libdrm2 \
-    libgbm1 \
-    libgtk-3-0 \
-    libnspr4 \
+    unzip \
     libnss3 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxrandr2 \
+    libxss1 \
+    libasound2 \
+    fonts-liberation \
+    libappindicator3-1 \
+    libgbm-dev \
+    libgtk-3-0 \
+    libx11-xcb1 \
+    libxtst6 \
     xdg-utils \
+    libglib2.0-0 \
+    libdrm2 \
+    libxrandr2 \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Set display port to avoid crash
+# Download and install Chrome (specific version)
+RUN wget -O /tmp/chrome-linux64.zip https://storage.googleapis.com/chrome-for-testing-public/131.0.6778.69/linux64/chrome-linux64.zip && \
+    unzip /tmp/chrome-linux64.zip -d /opt/ && \
+    mv /opt/chrome-linux64 /opt/chrome && \
+    ln -sf /opt/chrome/chrome /usr/bin/google-chrome && \
+    chmod +x /usr/bin/google-chrome && \
+    rm /tmp/chrome-linux64.zip
+
+# Set environment variables
 ENV PYTHONUNBUFFERED=1 \
+    CHROME_BIN=/usr/bin/google-chrome \
+    CHROME_DRIVER_PATH=/usr/local/bin/chromedriver \
+    RUNNING_IN_DOCKER=true \
     DISPLAY=:99
 
 # Set the working directory
