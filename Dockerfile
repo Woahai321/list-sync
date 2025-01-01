@@ -64,7 +64,6 @@ ENV PYTHONUNBUFFERED=1 \
     CHROME_DRIVER_PATH=/usr/local/bin/chromedriver \
     RUNNING_IN_DOCKER=true \
     DISPLAY=:99 \
-    PYTHONPATH=/usr/src/app/.venv/lib/python3.9/site-packages \
     SELENIUM_DRIVER_PATH=/usr/local/bin/chromedriver
 
 # Set the working directory
@@ -82,20 +81,5 @@ COPY . .
 # Ensure the data directory exists
 RUN mkdir -p /usr/src/app/data
 
-# Add a startup script
-COPY <<'EOF' /usr/src/app/startup.sh
-#!/bin/bash
-echo "Chrome version:"
-google-chrome --version
-echo "ChromeDriver version:"
-chromedriver --version
-echo "ChromeDriver location:"
-which chromedriver
-echo "Starting application..."
-python add.py
-EOF
-
-RUN chmod +x /usr/src/app/startup.sh
-
-# The entrypoint should run the startup script
-ENTRYPOINT ["/usr/src/app/startup.sh"]
+# The entrypoint should run the script directly
+ENTRYPOINT ["python", "add.py"]
