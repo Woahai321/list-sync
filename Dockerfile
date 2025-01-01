@@ -44,6 +44,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     xvfb \
     dbus-x11 \
+    xauth \
     && rm -rf /var/lib/apt/lists/*
 
 # Download and install specific versions of Chrome and ChromeDriver
@@ -61,12 +62,15 @@ RUN wget -O /tmp/chrome-linux64.zip https://storage.googleapis.com/chrome-for-te
     rm /tmp/chromedriver-linux64.zip
 
 # Set environment variables
-ENV PYTHONUNBUFFERED=1 \
+ENV DBUS_SESSION_BUS_ADDRESS=/dev/null \
+    PYTHONUNBUFFERED=1 \
     CHROME_BIN=/usr/bin/google-chrome \
     CHROME_DRIVER_PATH=/usr/local/bin/chromedriver \
     RUNNING_IN_DOCKER=true \
     DISPLAY=:99 \
-    SELENIUM_DRIVER_PATH=/usr/local/bin/chromedriver
+    SELENIUM_DRIVER_PATH=/usr/local/bin/chromedriver \
+    PYTHONPATH=/usr/src/app \
+    NO_SANDBOX=1
 
 # Set the working directory
 WORKDIR /usr/src/app
@@ -83,5 +87,9 @@ COPY . .
 # Ensure the data directory exists
 RUN mkdir -p /usr/src/app/data
 
+# Add these after the apt-get install section
+RUN mkdir -p /tmp/.X11-unix && \
+    chmod 1777 /tmp/.X11-unix
+
 # The entrypoint should run the script directly
-ENTRYPOINT ["xvfb-run", "--server-args='-screen 0 1920x1080x24'", "python", "add.py"]
+ENTRYPOINT ["xvfb-run", "--server-args='-screen 0 1920x1080x24 -ac'", "--auto-servernum", "python", "add.py"]

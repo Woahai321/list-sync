@@ -860,16 +860,23 @@ def init_selenium_driver():
             "goog:chromeOptions": {
                 "args": [
                     "--no-sandbox",
-                    "--headless",
+                    "--headless=new",
                     "--disable-gpu",
                     "--disable-dev-shm-usage",
-                    "--remote-debugging-port=9222"
+                    "--disable-software-rasterizer",
+                    "--disable-extensions",
+                    "--remote-debugging-port=9222",
+                    f"--user-data-dir=/tmp/chrome-data-{os.getpid()}",
                 ]
             }
         }
         
-        with SB(uc=True, headless=True, browser='chrome', cap_file=None, 
-                driver_kwargs={'desired_capabilities': chrome_options}) as sb:
+        with SB(uc=True, 
+               headless=True,
+               browser='chrome',
+               cap_file=None,
+               driver_kwargs={'desired_capabilities': chrome_options},
+               xvfb=True) as sb:
             logging.info("Chrome version: " + sb.execute_script("return navigator.userAgent"))
             sb.get("about:blank")
         logging.info("Successfully initialized Selenium driver")
