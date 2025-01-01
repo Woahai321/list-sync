@@ -350,6 +350,21 @@ def fetch_imdb_list(list_id):
                             sb.execute_script("arguments[0].scrollIntoView(true);", next_button)
                             sb.sleep(1)  # Give time for scrolling
                             next_button.click()
+                            
+                            # Wait for loading spinner to disappear and content to load
+                            sb.wait_for_element_present('[data-testid="list-page-mc-list-content"]', timeout=10)
+                            sb.sleep(3)  # Additional wait for content to fully render
+                            
+                            # Verify we have items on the page
+                            new_items = sb.find_elements(".sc-2bfd043a-3.jpWwpQ")
+                            if not new_items:
+                                logging.warning(f"No items found after navigation to page {current_page + 1}, retrying...")
+                                # Fall back to direct URL navigation
+                                next_page = current_page + 1
+                                next_url = f"{url}/?page={next_page}"
+                                sb.open(next_url)
+                                sb.wait_for_element_present('[data-testid="list-page-mc-list-content"]', timeout=10)
+                                sb.sleep(3)
                     except Exception as e:
                         logging.info(f"Could not click next button: {str(e)}")
                         # Fall back to direct URL navigation
@@ -357,6 +372,8 @@ def fetch_imdb_list(list_id):
                         next_url = f"{url}/?page={next_page}"
                         logging.info(f"Attempting to navigate directly to page {next_page}: {next_url}")
                         sb.open(next_url)
+                        sb.wait_for_element_present('[data-testid="list-page-mc-list-content"]', timeout=10)
+                        sb.sleep(3)
                     
                     current_page += 1
                     sb.sleep(2)
