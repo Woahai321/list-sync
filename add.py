@@ -364,29 +364,30 @@ def fetch_trakt_list(list_id):
         raise
 
 def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type, release_year=None):
-    headers = {"X-Api-Key": api_key, "Content-Type": "application/json"}
+    headers = {"X-Api-Key": api_key}
+    search_url = f"{overseerr_url}/api/v1/search"
     page = 1
     best_match = None
     closest_year_diff = float('inf')
     
-    def normalize_title(title):
-        return re.sub(r'[^a-zA-Z0-9\s]', '', title.lower()).strip()
-    
-    search_title_normalized = normalize_title(media_title)
-    
-    while True:  # Loop through all pages
-        search_url = f"{overseerr_url}/api/v1/search?query={quote(media_title)}&page={page}"
-        
+    while True:
         try:
-            response = requests.get(search_url, headers=headers)
+            params = {
+                "query": media_title,
+                "page": page,
+                "language": "en"
+            }
+            
+            response = requests.get(search_url, headers=headers, params=params)
             response.raise_for_status()
             search_results = response.json()
-            logging.debug(f'Search response page {page} for "{media_title}" ({release_year}): {json.dumps(search_results)}')
-
-            # Process each result on this page
-            for result in search_results.get("results", []):
-                # Check media type matches (tv/movie)
+            
+            if not search_results.get("results"):
+                break
+                
+            for result in search_results["results"]:
                 result_type = result.get("mediaType")
+                
                 if result_type != media_type:
                     continue
                     
@@ -403,10 +404,14 @@ def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type, r
                     
                 # Get year based on media type
                 result_year = None
-                if media_type == "movie" and "releaseDate" in result:
-                    result_year = int(result["releaseDate"][:4])
-                elif media_type == "tv" and "firstAirDate" in result:
-                    result_year = int(result["firstAirDate"][:4])
+                try:
+                    if media_type == "movie" and "releaseDate" in result and result["releaseDate"]:
+                        result_year = int(result["releaseDate"][:4])
+                    elif media_type == "tv" and "firstAirDate" in result and result["firstAirDate"]:
+                        result_year = int(result["firstAirDate"][:4])
+                except (ValueError, TypeError):
+                    # If we can't parse the year, continue with result_year as None
+                    pass
                     
                 if release_year and result_year:
                     year_diff = abs(result_year - release_year)
@@ -429,10 +434,13 @@ def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type, r
 
     if best_match:
         result_year = None
-        if media_type == "movie" and "releaseDate" in best_match:
-            result_year = best_match["releaseDate"][:4]
-        elif media_type == "tv" and "firstAirDate" in best_match:
-            result_year = best_match["firstAirDate"][:4]
+        try:
+            if media_type == "movie" and "releaseDate" in best_match and best_match["releaseDate"]:
+                result_year = best_match["releaseDate"][:4]
+            elif media_type == "tv" and "firstAirDate" in best_match and best_match["firstAirDate"]:
+                result_year = best_match["firstAirDate"][:4]
+        except (ValueError, TypeError):
+            pass
             
         result_title = best_match.get("title") if media_type == "movie" else best_match.get("name")
         logging.info(f"Best match for '{media_title}' ({release_year}): '{result_title}' ({result_year})")
