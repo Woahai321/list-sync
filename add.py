@@ -33,7 +33,6 @@ DATA_DIR = "./data"
 CONFIG_FILE = os.path.join(DATA_DIR, "config.enc")
 DB_FILE = os.path.join(DATA_DIR, "list_sync.db")
 
-logging.basicConfig(level=logging.DEBUG)
 
 def custom_input(prompt):
     readline.set_startup_hook(lambda: readline.insert_text(''))
@@ -46,16 +45,32 @@ def ensure_data_directory_exists():
     os.makedirs(DATA_DIR, exist_ok=True)
 
 def setup_logging():
-    logging.basicConfig(
-        filename=os.path.join(DATA_DIR, "list_sync.log"),
-        level=logging.DEBUG,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-    )
+    # Create a formatter
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    
+    # Set up file handler for general logging
+    file_handler = logging.FileHandler(os.path.join(DATA_DIR, "list_sync.log"))
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(formatter)
+    
+    # Set up console handler for general logging
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.DEBUG)
+    console_handler.setFormatter(formatter)
+    
+    # Set up the root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+    root_logger.addHandler(file_handler)
+    root_logger.addHandler(console_handler)
+    
+    # Set up separate logger for added items
     added_logger = logging.getLogger("added_items")
     added_logger.setLevel(logging.INFO)
     added_handler = logging.FileHandler(os.path.join(DATA_DIR, "added.log"))
     added_handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))
     added_logger.addHandler(added_handler)
+    
     return added_logger
 
 def init_database():
