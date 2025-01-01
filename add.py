@@ -363,12 +363,18 @@ def fetch_trakt_list(list_id):
         logging.error(f"Error fetching Trakt list {list_id}: {str(e)}")
         raise
 
+def normalize_title(title: str) -> str:
+    """Normalize a title for comparison by removing special characters and converting to lowercase."""
+    # Remove special characters and convert to lowercase
+    return re.sub(r'[^a-zA-Z0-9\s]', '', title).lower().strip()
+
 def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type, release_year=None):
     headers = {"X-Api-Key": api_key}
     search_url = f"{overseerr_url}/api/v1/search"
     page = 1
     best_match = None
     closest_year_diff = float('inf')
+    search_title_normalized = normalize_title(media_title)
     
     while True:
         try:
