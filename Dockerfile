@@ -44,20 +44,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Download and install Chrome (specific version)
-RUN wget -O /tmp/chrome-linux64.zip https://storage.googleapis.com/chrome-for-testing-public/131.0.6778.69/linux64/chrome-linux64.zip && \
+# Download and install specific versions of Chrome and ChromeDriver
+RUN wget -O /tmp/chrome-linux64.zip https://storage.googleapis.com/chrome-for-testing-public/131.0.6778.204/linux64/chrome-linux64.zip && \
     unzip /tmp/chrome-linux64.zip -d /opt/ && \
     mv /opt/chrome-linux64 /opt/chrome && \
     ln -sf /opt/chrome/chrome /usr/bin/google-chrome && \
     chmod +x /usr/bin/google-chrome && \
-    rm /tmp/chrome-linux64.zip
+    rm /tmp/chrome-linux64.zip && \
+    \
+    wget -O /tmp/chromedriver-linux64.zip https://storage.googleapis.com/chrome-for-testing-public/131.0.6778.204/linux64/chromedriver-linux64.zip && \
+    unzip /tmp/chromedriver-linux64.zip -d /opt/ && \
+    mv /opt/chromedriver-linux64/chromedriver /usr/local/bin/ && \
+    chmod +x /usr/local/bin/chromedriver && \
+    rm /tmp/chromedriver-linux64.zip
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     CHROME_BIN=/usr/bin/google-chrome \
     CHROME_DRIVER_PATH=/usr/local/bin/chromedriver \
     RUNNING_IN_DOCKER=true \
-    DISPLAY=:99
+    DISPLAY=:99 \
+    PYTHONPATH=/usr/src/app/.venv/lib/python3.9/site-packages \
+    SELENIUM_DRIVER_PATH=/usr/local/bin/chromedriver
 
 # Set the working directory
 WORKDIR /usr/src/app
@@ -74,5 +82,20 @@ COPY . .
 # Ensure the data directory exists
 RUN mkdir -p /usr/src/app/data
 
-# The entrypoint should run the script
-ENTRYPOINT ["python", "add.py"]
+# Add a startup script
+COPY <<'EOF' /usr/src/app/startup.sh
+#!/bin/bash
+echo "Chrome version:"
+google-chrome --version
+echo "ChromeDriver version:"
+chromedriver --version
+echo "ChromeDriver location:"
+which chromedriver
+echo "Starting application..."
+python add.py
+EOF
+
+RUN chmod +x /usr/src/app/startup.sh
+
+# The entrypoint should run the startup script
+ENTRYPOINT ["/usr/src/app/startup.sh"]
