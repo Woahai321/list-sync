@@ -629,6 +629,7 @@ def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, r
     title = item.get('title', 'Unknown Title')
     media_type = item.get('media_type', 'unknown')
     imdb_id = item.get('imdb_id')
+    year = item.get('year')  # Make year optional
 
     if dry_run:
         return {"title": title, "status": "would_be_synced"}
@@ -639,7 +640,7 @@ def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, r
             api_key, 
             title, 
             media_type,
-            item["year"]
+            year  # Pass year as is - it can be None
         )
         if search_result:
             overseerr_id = search_result["id"]
