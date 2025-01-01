@@ -1,5 +1,5 @@
 # =============================================================================
-# Soluify  |  Your #1 IT Problem Solver  |  {list-sync v0.6.1}
+# Soluify  |  Your #1 IT Problem Solver  |  {list-sync v0.5.1}
 # =============================================================================
 #  __         _
 # (_  _ |   .(_
@@ -9,7 +9,6 @@
 # -----------------------------------------------------------------------------
 import base64
 import getpass
-import html
 import json
 import logging
 import os
@@ -22,14 +21,9 @@ from urllib.parse import quote
 import re
 
 import requests
-from bs4 import BeautifulSoup
 from colorama import Style, init
 from cryptography.fernet import Fernet
 from halo import Halo
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from seleniumbase import SB
 
 # Initialize colorama for cross-platform colored terminal output
@@ -867,28 +861,28 @@ def init_selenium_driver():
         logging.error(f"Failed to initialize Selenium driver: {e}")
 
 def scrape_imdb_list():
+    """Scrape IMDB list using SeleniumBase"""
     all_items = []
-    current_page = 1
     
-    while True:
-        # Get all list items on current page
-        items = driver.find_elements(By.CSS_SELECTOR, "li.ipc-metadata-list-summary-item")
-        
-        for item in items:
-            # Extract title, year, rating etc
-            title = item.find_element(By.CSS_SELECTOR, "h3.ipc-title__text").text
-            # ... other fields
-            all_items.append({"title": title})
-        
-        # Check if there's more pages
-        next_button = driver.find_element(By.CSS_SELECTOR, "button[aria-label='Next']")
-        if "disabled" in next_button.get_attribute("class"):
-            break
+    try:
+        with SB(uc=True, headless=True) as sb:
+            # Use sb instead of driver
+            items = sb.find_elements("li.ipc-metadata-list-summary-item")
             
-        # Go to next page
-        next_button.click()
-        current_page += 1
-        time.sleep(2)  # Wait for page load
+            for item in items:
+                # Extract title, year, rating etc using sb
+                title = sb.find_element("h3.ipc-title__text", by="css selector", element=item).text
+                # ... other fields
+                all_items.append({"title": title})
+            
+            # Check if there's more pages
+            next_button = sb.find_element("button[aria-label='Next']")
+            if "disabled" not in next_button.get_attribute("class"):
+                next_button.click()
+                sb.sleep(2)  # Wait for page load
+                
+    except Exception as e:
+        logging.error(f"Error scraping IMDB list: {e}")
         
     return all_items
 
@@ -991,10 +985,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# =======================================================================================================
-# Soluify  |  You actually read it? Nice work, stay safe out there people!  |  {list-sync v0.6.1}
-# =======================================================================================================
 
 # =======================================================================================================
 # Soluify  |  You actually read it? Nice work, stay safe out there people!  |  {list-sync v0.5.1}
