@@ -17,7 +17,6 @@ import time
 import readline
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
-from urllib.parse import quote
 import re
 
 import requests
