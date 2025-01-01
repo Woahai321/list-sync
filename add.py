@@ -856,7 +856,8 @@ def init_selenium_driver():
     """Initialize Selenium driver at startup"""
     try:
         with SB(uc=True, headless=True) as sb:
-            pass  # Just initialize and close
+            sb.get("about:blank")  # Do a simple action to test the driver
+        logging.info("Successfully initialized Selenium driver")
     except Exception as e:
         logging.error(f"Failed to initialize Selenium driver: {e}")
 
