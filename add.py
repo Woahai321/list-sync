@@ -853,13 +853,31 @@ def manage_lists():
             print(color_gradient("\n❌ Invalid choice. Please try again.", "#ff0000", "#aa0000"))
 
 def init_selenium_driver():
-    """Initialize Selenium driver at startup"""
+    logging.info("Initializing Selenium driver...")
     try:
-        with SB(uc=True, headless=True) as sb:
-            sb.get("about:blank")  # Do a simple action to test the driver
+        chrome_options = {
+            "browserName": "chrome",
+            "goog:chromeOptions": {
+                "args": [
+                    "--no-sandbox",
+                    "--headless",
+                    "--disable-gpu",
+                    "--disable-dev-shm-usage",
+                    "--remote-debugging-port=9222"
+                ]
+            }
+        }
+        
+        with SB(uc=True, headless=True, browser='chrome', cap_file=None, 
+                driver_kwargs={'desired_capabilities': chrome_options}) as sb:
+            logging.info("Chrome version: " + sb.execute_script("return navigator.userAgent"))
+            sb.get("about:blank")
         logging.info("Successfully initialized Selenium driver")
     except Exception as e:
-        logging.error(f"Failed to initialize Selenium driver: {e}")
+        logging.error(f"Failed to initialize Selenium driver: {str(e)}")
+        logging.error(f"Chrome binary path: {os.environ.get('CHROME_BIN')}")
+        logging.error(f"ChromeDriver path: {os.environ.get('CHROME_DRIVER_PATH')}")
+        raise
 
 def scrape_imdb_list():
     """Scrape IMDB list using SeleniumBase"""

@@ -42,6 +42,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libdrm2 \
     libxrandr2 \
     ca-certificates \
+    xvfb \
+    dbus-x11 \
     && rm -rf /var/lib/apt/lists/*
 
 # Download and install specific versions of Chrome and ChromeDriver
@@ -82,4 +84,4 @@ COPY . .
 RUN mkdir -p /usr/src/app/data
 
 # The entrypoint should run the script directly
-ENTRYPOINT ["python", "add.py"]
+ENTRYPOINT ["xvfb-run", "--server-args='-screen 0 1920x1080x24'", "python", "add.py"]
