@@ -264,10 +264,25 @@ def fetch_imdb_list(list_id):
             # Wait for list content to load
             sb.wait_for_element_present('[data-testid="list-page-mc-list-content"]', timeout=20)
             
+            # Get total number of items
+            try:
+                total_element = sb.find_element('[data-testid="list-page-mc-total-items"]')
+                total_text = total_element.text
+                total_items = int(re.search(r'(\d+)\s+titles?', total_text).group(1))
+                logging.info(f"Total items in list: {total_items}")
+                expected_pages = (total_items + 249) // 250  # Round up division by 250
+                logging.info(f"Expected number of pages: {expected_pages}")
+            except Exception as e:
+                logging.warning(f"Could not determine total items: {str(e)}")
+                total_items = None
+                expected_pages = None
+            
+            current_page = 1
+            
             # Process items on the page
             while True:
                 items = sb.find_elements(".sc-2bfd043a-3.jpWwpQ")
-                logging.info(f"Found {len(items)} items on current page")
+                logging.info(f"Processing page {current_page}: Found {len(items)} items")
                 
                 for item in items:
                     try:
@@ -318,16 +333,29 @@ def fetch_imdb_list(list_id):
                         logging.warning(f"Failed to parse IMDb item: {str(e)}")
                         continue
                 
+                # Check if we've processed all expected pages
+                if expected_pages and current_page >= expected_pages:
+                    logging.info(f"Reached final page {current_page} of {expected_pages}")
+                    break
+                
                 # Check for next page button
                 try:
-                    next_button = sb.find_element(".pagination-next:not(.disabled)")
+                    next_button = sb.find_element("xpath", "//span[contains(@class, 'ipc-responsive-button__text') and text()='Next']")
                     if not next_button:
+                        logging.info("No more pages to process")
                         break
-                    next_button.click()
+                    
+                    # Click the parent button element
+                    next_button.find_element("xpath", "./..").click()
+                    current_page += 1
                     sb.sleep(2)
-                except Exception:
-                    logging.info("No more pages to process")
+                except Exception as e:
+                    logging.info(f"No more pages available: {str(e)}")
                     break
+            
+            # Validate total items found
+            if total_items and len(media_items) < total_items:
+                logging.warning(f"Only found {len(media_items)} items out of {total_items} total")
             
             print(color_gradient(f"✨  Found {len(media_items)} items from IMDB list {list_id}!", "#00ff00", "#00aa00"))
             logging.info(f"IMDB list {list_id} fetched successfully. Found {len(media_items)} items.")
