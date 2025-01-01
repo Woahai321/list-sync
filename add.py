@@ -53,14 +53,27 @@ def setup_logging():
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
     
-    # Set up console handler for errors only
+    # Create a custom filter to block non-colored output
+    class ColoredOutputFilter(logging.Filter):
+        def filter(self, record):
+            # Only allow ERROR level messages that are explicitly marked for console
+            return False  # Block all logging to console
+    
+    # Set up console handler
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.ERROR)  # Only show errors in console
+    console_handler.setLevel(logging.ERROR)
     console_handler.setFormatter(formatter)
+    console_handler.addFilter(ColoredOutputFilter())
     
     # Set up the root logger
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)  # Capture all levels
+    
+    # Remove any existing handlers
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+    
+    # Add our handlers
     root_logger.addHandler(file_handler)
     root_logger.addHandler(console_handler)
     
@@ -73,6 +86,16 @@ def setup_logging():
     
     # Prevent added_logger from propagating to root logger
     added_logger.propagate = False
+    
+    # Disable selenium logging to console
+    selenium_logger = logging.getLogger('selenium')
+    selenium_logger.setLevel(logging.INFO)
+    selenium_logger.propagate = False
+    
+    # Disable urllib3 logging to console
+    urllib3_logger = logging.getLogger('urllib3')
+    urllib3_logger.setLevel(logging.INFO)
+    urllib3_logger.propagate = False
     
     return added_logger
 
