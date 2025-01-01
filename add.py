@@ -338,15 +338,26 @@ def fetch_imdb_list(list_id):
                     logging.info(f"Reached final page {current_page} of {expected_pages}")
                     break
                 
-                # Check for next page button
+                # Try to navigate to next page
                 try:
-                    next_button = sb.find_element("xpath", "//span[contains(@class, 'ipc-responsive-button__text') and text()='Next']")
-                    if not next_button:
-                        logging.info("No more pages to process")
-                        break
+                    # First try clicking the button using a more specific selector
+                    try:
+                        next_button = sb.find_element(
+                            "css selector", 
+                            "button.ipc-responsive-button[aria-label='Next']:not([disabled])"
+                        )
+                        if next_button:
+                            sb.execute_script("arguments[0].scrollIntoView(true);", next_button)
+                            sb.sleep(1)  # Give time for scrolling
+                            next_button.click()
+                    except Exception as e:
+                        logging.info(f"Could not click next button: {str(e)}")
+                        # Fall back to direct URL navigation
+                        next_page = current_page + 1
+                        next_url = f"{url}/?page={next_page}"
+                        logging.info(f"Attempting to navigate directly to page {next_page}: {next_url}")
+                        sb.open(next_url)
                     
-                    # Click the parent button element
-                    next_button.find_element("xpath", "./..").click()
                     current_page += 1
                     sb.sleep(2)
                 except Exception as e:
