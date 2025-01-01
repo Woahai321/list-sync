@@ -855,27 +855,21 @@ def manage_lists():
 def init_selenium_driver():
     logging.info("Initializing Selenium driver...")
     try:
-        chrome_options = {
-            "browserName": "chrome",
-            "goog:chromeOptions": {
-                "args": [
-                    "--no-sandbox",
-                    "--headless=new",
-                    "--disable-gpu",
-                    "--disable-dev-shm-usage",
-                    "--disable-software-rasterizer",
-                    "--disable-extensions",
-                    "--remote-debugging-port=9222",
-                    f"--user-data-dir=/tmp/chrome-data-{os.getpid()}",
-                ]
-            }
-        }
+        chrome_options = [
+            "--no-sandbox",
+            "--headless=new",
+            "--disable-gpu",
+            "--disable-dev-shm-usage",
+            "--disable-software-rasterizer",
+            "--disable-extensions",
+            "--remote-debugging-port=9222",
+            f"--user-data-dir=/tmp/chrome-data-{os.getpid()}"
+        ]
         
         with SB(uc=True, 
                headless=True,
                browser='chrome',
-               cap_file=None,
-               driver_kwargs={'desired_capabilities': chrome_options},
+               chromium_arg=" ".join(chrome_options),
                xvfb=True) as sb:
             logging.info("Chrome version: " + sb.execute_script("return navigator.userAgent"))
             sb.get("about:blank")
