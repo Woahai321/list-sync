@@ -377,13 +377,28 @@ def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type, r
     
     while True:
         try:
+            # Clean and encode the search query
+            clean_title = re.sub(r'[^\w\s-]', '', media_title)  # Remove special characters except spaces and hyphens
             params = {
-                "query": media_title,
-                "page": page,
+                "query": clean_title,
+                "page": str(page),
                 "language": "en"
             }
             
-            response = requests.get(search_url, headers=headers, params=params)
+            # Make the request with properly encoded parameters
+            response = requests.get(
+                search_url,
+                headers=headers,
+                params=params,
+                timeout=10  # Add timeout
+            )
+            
+            # Check if the response indicates rate limiting
+            if response.status_code == 429:
+                logging.warning("Rate limited, waiting 5 seconds...")
+                time.sleep(5)
+                continue
+                
             response.raise_for_status()
             search_results = response.json()
             
@@ -415,7 +430,6 @@ def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type, r
                     elif media_type == "tv" and "firstAirDate" in result and result["firstAirDate"]:
                         result_year = int(result["firstAirDate"][:4])
                 except (ValueError, TypeError):
-                    # If we can't parse the year, continue with result_year as None
                     pass
                     
                 if release_year and result_year:
@@ -427,14 +441,16 @@ def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type, r
                 elif best_match is None:
                     best_match = result
 
-            # Check if we've reached the last page
             if page >= search_results.get("totalPages", 1):
                 break
                 
             page += 1
             
-        except Exception as e:
+        except requests.exceptions.RequestException as e:
             logging.error(f'Error searching page {page} for {media_type} "{media_title}": {str(e)}')
+            if "429" in str(e):  # Rate limited
+                time.sleep(5)
+                continue
             raise
 
     if best_match:
