@@ -1,4 +1,13 @@
 # =============================================================================
+# Soluify  |  Your #1 IT Problem Solver  |  {list-sync v0.6.1}
+# =============================================================================
+#  __         _
+# (_  _ |   .(_
+# __)(_)||_||| \/
+#              /
+# © 2024
+# -----------------------------------------------------------------------------
+# =============================================================================
 # Soluify  |  Your #1 IT Problem Solver  |  {list-sync v0.5.1}
 # =============================================================================
 #  __         _
@@ -19,12 +28,18 @@ import readline
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
 from urllib.parse import quote
+import re
 
 import requests
 from bs4 import BeautifulSoup
 from colorama import Style, init
 from cryptography.fernet import Fernet
 from halo import Halo
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from seleniumbase import SB
 
 # Initialize colorama for cross-platform colored terminal output
 init(autoreset=True)
@@ -203,143 +218,247 @@ def set_requester_user(overseerr_url, api_key):
         return 1
 
 def fetch_imdb_list(list_id):
-    spinner = Halo(text=color_gradient("📚  Fetching IMDB list...", "#ffaa00", "#ff5500"), spinner="dots")
-    spinner.start()
+    """Fetch IMDb list using Selenium with pagination"""
+    media_items = []
+    print(color_gradient("📚  Fetching IMDB list...", "#ffaa00", "#ff5500"))
+    
     try:
-        if list_id.startswith("ls"):
-            url = f"https://www.imdb.com/list/{list_id}"
-        elif list_id.startswith("ur"):
-            url = f"https://www.imdb.com/user/{list_id}/watchlist"
-        else:
-            raise ValueError("Invalid IMDb list ID format. It should start with 'ls' for lists or 'ur' for watchlists.")
+        with SB(uc=True, headless=True) as sb:
+            if list_id.startswith("ls"):
+                url = f"https://www.imdb.com/list/{list_id}"
+            elif list_id.startswith("ur"):
+                url = f"https://www.imdb.com/user/{list_id}/watchlist"
+            else:
+                raise ValueError("Invalid IMDb list ID format")
+            
+            logging.info(f"Attempting to load URL: {url}")
+            sb.open(url)
+            
+            # Wait for list content to load
+            sb.wait_for_element_present('[data-testid="list-page-mc-list-content"]', timeout=20)
+            
+            # Process items on the page
+            while True:
+                items = sb.find_elements(".sc-2bfd043a-3.jpWwpQ")
+                logging.info(f"Found {len(items)} items on current page")
+                
+                for item in items:
+                    try:
+                        # Get title element
+                        title_element = item.find_element("css selector", ".ipc-title__text")
+                        full_title = title_element.text
+                        title = full_title.split(". ", 1)[1] if ". " in full_title else full_title
+                        
+                        # Get year from metadata
+                        year = None
+                        try:
+                            metadata = item.find_element("css selector", ".dli-title-metadata")
+                            metadata_text = metadata.text
+                            # Extract year from formats like "2008–2013" or "2024"
+                            year_match = re.search(r'(\d{4})', metadata_text)
+                            if year_match:
+                                year = int(year_match.group(1))
+                            logging.debug(f"Extracted year for {title}: {year}")
+                        except Exception as e:
+                            logging.warning(f"Could not extract year for {title}: {str(e)}")
+                        
+                        # More robust media type detection
+                        media_type = "movie"  # default
+                        try:
+                            type_element = item.find_element("css selector", ".dli-title-type-data")
+                            if "TV Series" in type_element.text or "TV Mini Series" in type_element.text:
+                                media_type = "tv"
+                        except Exception:
+                            try:
+                                if "eps" in metadata_text or "episodes" in metadata_text.lower():
+                                    media_type = "tv"
+                            except Exception:
+                                logging.warning(f"Could not determine media type from metadata for {title}")
+                        
+                        # Get IMDB ID from the title link
+                        title_link = item.find_element("css selector", "a.ipc-title-link-wrapper")
+                        imdb_id = title_link.get_attribute("href").split("/")[4]
+                        
+                        media_items.append({
+                            "title": title.strip(),
+                            "imdb_id": imdb_id,
+                            "media_type": media_type,
+                            "year": year
+                        })
+                        logging.info(f"Added {media_type}: {title} ({year}) (IMDB ID: {imdb_id})")
+                        
+                    except Exception as e:
+                        logging.warning(f"Failed to parse IMDb item: {str(e)}")
+                        continue
+                
+                # Check for next page button
+                try:
+                    next_button = sb.find_element(".pagination-next:not(.disabled)")
+                    if not next_button:
+                        break
+                    next_button.click()
+                    sb.sleep(2)
+                except Exception:
+                    logging.info("No more pages to process")
+                    break
+            
+            print(color_gradient(f"✨  Found {len(media_items)} items from IMDB list {list_id}!", "#00ff00", "#00aa00"))
+            logging.info(f"IMDB list {list_id} fetched successfully. Found {len(media_items)} items.")
+            return media_items
         
-        headers = {"Accept-Language": "en-US", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
-        
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        
-        soup = BeautifulSoup(response.text, "html.parser")
-        
-        script_tag = soup.find("script", {"type": "application/ld+json"})
-        
-        if script_tag:
-            ld_json = json.loads(script_tag.string)
-        else:
-            script_tag = soup.find("script", {"id": "__NEXT_DATA__"})
-            if not script_tag:
-                raise ValueError("Could not find ld+json or __NEXT_DATA__ script tag in the IMDb page")
-            next_data = json.loads(script_tag.string)
-            ld_json = next_data["props"]["pageProps"]["mainColumnData"]["predefinedList"]["titleListItemSearch"]
-        
-        media_items = []
-        
-        if "itemListElement" in ld_json:
-            for row in ld_json["itemListElement"]:
-                item = row["item"]
-                media_items.append({
-                    "title": html.unescape(item["name"]),
-                    "imdb_id": item["url"].split("/")[-2],
-                    "media_type": "tv" if item["@type"] == "TVSeries" else "movie"
-                })
-        elif "edges" in ld_json:
-            for row in ld_json["edges"]:
-                item = row["listItem"]
-                media_items.append({
-                    "title": html.unescape(item["titleText"]["text"]),
-                    "imdb_id": item["id"],
-                    "media_type": "tv" if item["titleType"]["id"] == "tvSeries" else "movie"
-                })
-        
-        spinner.succeed(color_gradient(f"✨  Found {len(media_items)} items from IMDB list {list_id}!", "#00ff00", "#00aa00"))
-        logging.info(f"IMDB list {list_id} fetched successfully. Found {len(media_items)} items.")
-        return media_items
     except Exception as e:
-        spinner.fail(color_gradient(f"💥  Failed to fetch IMDB list {list_id}. Error: {str(e)}", "#ff0000", "#aa0000"))
+        print(color_gradient(f"💥  Failed to fetch IMDB list {list_id}. Error: {str(e)}", "#ff0000", "#aa0000"))
         logging.error(f"Error fetching IMDB list {list_id}: {str(e)}")
         raise
 
 def fetch_trakt_list(list_id):
-    base_url = f"https://trakt.tv/lists/{list_id}"
-    headers = {"Accept-Language": "en-US", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
-    
-    spinner = Halo(text=color_gradient("📚  Fetching Trakt list...", "#ffaa00", "#ff5500"), spinner="dots")
-    spinner.start()
+    """Fetch Trakt list using Selenium with pagination"""
+    media_items = []
+    print(color_gradient("📚  Fetching Trakt list...", "#ffaa00", "#ff5500"))
     
     try:
-        # First request to get the final URL after redirection
-        response = requests.get(base_url, headers=headers, allow_redirects=True)
-        response.raise_for_status()
-        final_base_url = response.url.split('?')[0]  # Remove any query parameters
-        logging.info(f"Final Trakt URL: {final_base_url}")
-
-        media_items = []
-        page = 1
-        total_pages = 1  # Default to 1 page if we can't determine the total
-
-        while True:
-            url = f"{final_base_url}?page={page}&sort=added,asc"
-            response = requests.get(url, headers=headers)
-            response.raise_for_status()
+        with SB(uc=True, headless=True) as sb:
+            base_url = f"https://trakt.tv/lists/{list_id}"
+            sb.open(base_url)
             
-            soup = BeautifulSoup(response.text, "html.parser")
+            # Wait for container to load
+            sb.wait_for_element_present(".container", timeout=10)
             
-            # Check the total page count
-            grid = soup.find("div", class_="row posters without-rank added")
-            if grid and 'data-page-count' in grid.attrs:
-                total_pages = int(grid['data-page-count'])
-                logging.info(f"Total pages: {total_pages}")
-            
-            items = soup.find_all("div", class_="grid-item")
-            
-            if not items:
-                # If no items found, we've reached the end
-                break
-            
-            for item in items:
-                title_element = item.find("h3", class_="ellipsify")
-                if title_element:
-                    title = title_element.text.strip()
-                    media_type = "tv" if item.get("data-type") == "show" else item.get("data-type", "movie")
-                    media_items.append({"title": title, "media_type": media_type})
-            
-            logging.info(f"Fetched {len(items)} items from page {page}")
-            
-            if page >= total_pages:
-                # Check if there's a "next" link
-                next_link = soup.find("a", rel="next")
-                if not next_link:
+            while True:
+                # Wait for either movies or shows container to load
+                sb.wait_for_element_present(".row.posters", timeout=10)
+                
+                # Get all items on current page (both movies and shows)
+                items = sb.find_elements(".grid-item.col-xs-6.col-md-2.col-sm-3")
+                logging.info(f"Found {len(items)} items on current page")
+                
+                for item in items:
+                    try:
+                        # Get the full title and media type
+                        watch_button = item.find_element("css selector", "a.watch")
+                        full_title = watch_button.get_attribute("data-full-title")
+                        media_type = item.get_attribute("data-type")
+                        
+                        # Remove year from title if present (movies only typically have years)
+                        title = full_title
+                        if " (" in full_title and media_type == "movie":
+                            title = full_title.split(" (")[0]
+                        
+                        media_items.append({
+                            "title": title.strip(),
+                            "media_type": "tv" if media_type == "show" else "movie"
+                        })
+                        logging.info(f"Added {media_type}: {title}")
+                        
+                    except Exception as e:
+                        logging.warning(f"Failed to parse Trakt item: {str(e)}")
+                        continue
+                
+                # Check for next page button
+                try:
+                    next_button = sb.find_element(".pagination-top .next:not(.disabled)")
+                    if not next_button:
+                        logging.info("No more pages to process")
+                        break
+                    
+                    next_link = next_button.find_element("css selector", "a")
+                    next_link.click()
+                    sb.sleep(3)  # Wait for new page to load
+                    
+                except Exception as e:
+                    logging.info(f"No more pages available: {str(e)}")
                     break
             
-            page += 1
+            print(color_gradient(f"✨  Found {len(media_items)} items from Trakt list {list_id}!", "#00ff00", "#00aa00"))
+            logging.info(f"Trakt list {list_id} fetched successfully. Found {len(media_items)} items.")
+            return media_items
         
-        spinner.succeed(color_gradient(f"✨  Found {len(media_items)} items from Trakt list {list_id}!", "#00ff00", "#00aa00"))
-        logging.info(f"Trakt list {list_id} fetched successfully. Found {len(media_items)} items.")
-        return media_items
     except Exception as e:
-        spinner.fail(color_gradient(f"💥  Failed to fetch Trakt list {list_id}. Error: {str(e)}", "#ff0000", "#aa0000"))
+        print(color_gradient(f"💥  Failed to fetch Trakt list {list_id}. Error: {str(e)}", "#ff0000", "#aa0000"))
         logging.error(f"Error fetching Trakt list {list_id}: {str(e)}")
         raise
 
-def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type):
+def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type, release_year=None):
     headers = {"X-Api-Key": api_key, "Content-Type": "application/json"}
-    search_url = f"{overseerr_url}/api/v1/search?query={quote(media_title)}"
-    try:
-        response = requests.get(search_url, headers=headers)
-        response.raise_for_status()
-        search_results = response.json()
-        logging.debug(f'Search response for "{media_title}": {json.dumps(search_results)}')
+    page = 1
+    best_match = None
+    closest_year_diff = float('inf')
+    
+    def normalize_title(title):
+        return re.sub(r'[^a-zA-Z0-9\s]', '', title.lower()).strip()
+    
+    search_title_normalized = normalize_title(media_title)
+    
+    while True:  # Loop through all pages
+        search_url = f"{overseerr_url}/api/v1/search?query={quote(media_title)}&page={page}"
+        
+        try:
+            response = requests.get(search_url, headers=headers)
+            response.raise_for_status()
+            search_results = response.json()
+            logging.debug(f'Search response page {page} for "{media_title}" ({release_year}): {json.dumps(search_results)}')
 
-        for result in search_results.get("results", []):
-            if (media_type in ["show", "tv"] and result["mediaType"] == "tv") or (result["mediaType"] == media_type):
-                return {
-                    "id": result["id"],
-                    "mediaType": result["mediaType"],
-                }
-        logging.warning(f'No matching results found for "{media_title}" of type "{media_type}"')
-        return None
-    except Exception as e:
-        logging.error(f'Error searching for {media_type} "{media_title}": {str(e)}')
-        raise
+            # Process each result on this page
+            for result in search_results.get("results", []):
+                # Check media type matches (tv/movie)
+                result_type = result.get("mediaType")
+                if result_type != media_type:
+                    continue
+                    
+                # Get the title based on media type
+                result_title = result.get("title") if media_type == "movie" else result.get("name")
+                if not result_title:
+                    continue
+                    
+                result_title_normalized = normalize_title(result_title)
+                
+                # Check for exact title match
+                if search_title_normalized != result_title_normalized:
+                    continue
+                    
+                # Get year based on media type
+                result_year = None
+                if media_type == "movie" and "releaseDate" in result:
+                    result_year = int(result["releaseDate"][:4])
+                elif media_type == "tv" and "firstAirDate" in result:
+                    result_year = int(result["firstAirDate"][:4])
+                    
+                if release_year and result_year:
+                    year_diff = abs(result_year - release_year)
+                    if year_diff < closest_year_diff:
+                        closest_year_diff = year_diff
+                        best_match = result
+                        logging.debug(f"Found better year match for {media_title}: {result_title} ({result_year})")
+                elif best_match is None:
+                    best_match = result
+
+            # Check if we've reached the last page
+            if page >= search_results.get("totalPages", 1):
+                break
+                
+            page += 1
+            
+        except Exception as e:
+            logging.error(f'Error searching page {page} for {media_type} "{media_title}": {str(e)}')
+            raise
+
+    if best_match:
+        result_year = None
+        if media_type == "movie" and "releaseDate" in best_match:
+            result_year = best_match["releaseDate"][:4]
+        elif media_type == "tv" and "firstAirDate" in best_match:
+            result_year = best_match["firstAirDate"][:4]
+            
+        result_title = best_match.get("title") if media_type == "movie" else best_match.get("name")
+        logging.info(f"Best match for '{media_title}' ({release_year}): '{result_title}' ({result_year})")
+        
+        return {
+            "id": best_match["id"],
+            "mediaType": best_match["mediaType"],
+        }
+    
+    logging.warning(f'No matching results found for "{media_title}" ({release_year}) of type "{media_type}"')
+    return None
 
 def extract_number_of_seasons(media_data):
     number_of_seasons = media_data.get("numberOfSeasons")
@@ -363,6 +482,11 @@ def confirm_media_status(overseerr_url, api_key, media_id, media_type):
         logging.debug(f"Status for {media_type} ID {media_id}: {status}")
         logging.debug(f"Number of seasons for {media_type} ID {media_id}: {number_of_seasons}")
 
+        # Status codes:
+        # 2: PENDING
+        # 3: PROCESSING
+        # 4: PARTIALLY_AVAILABLE
+        # 5: AVAILABLE
         is_available_to_watch = status in [4, 5]
         is_requested = status in [2, 3]
 
@@ -525,7 +649,13 @@ def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, r
         return {"title": title, "status": "would_be_synced"}
 
     try:
-        search_result = search_media_in_overseerr(overseerr_url, api_key, title, media_type)
+        search_result = search_media_in_overseerr(
+            overseerr_url, 
+            api_key, 
+            title, 
+            media_type,
+            item["year"]
+        )
         if search_result:
             overseerr_id = search_result["id"]
             if not should_sync_item(overseerr_id):
@@ -737,10 +867,44 @@ def manage_lists():
         else:
             print(color_gradient("\n❌ Invalid choice. Please try again.", "#ff0000", "#aa0000"))
 
+def init_selenium_driver():
+    """Initialize Selenium driver at startup"""
+    try:
+        with SB(uc=True, headless=True) as sb:
+            pass  # Just initialize and close
+    except Exception as e:
+        logging.error(f"Failed to initialize Selenium driver: {e}")
+
+def scrape_imdb_list():
+    all_items = []
+    current_page = 1
+    
+    while True:
+        # Get all list items on current page
+        items = driver.find_elements(By.CSS_SELECTOR, "li.ipc-metadata-list-summary-item")
+        
+        for item in items:
+            # Extract title, year, rating etc
+            title = item.find_element(By.CSS_SELECTOR, "h3.ipc-title__text").text
+            # ... other fields
+            all_items.append({"title": title})
+        
+        # Check if there's more pages
+        next_button = driver.find_element(By.CSS_SELECTOR, "button[aria-label='Next']")
+        if "disabled" in next_button.get_attribute("class"):
+            break
+            
+        # Go to next page
+        next_button.click()
+        current_page += 1
+        time.sleep(2)  # Wait for page load
+        
+    return all_items
+
 def main():
     ensure_data_directory_exists()
-    added_logger = setup_logging()
     init_database()
+    init_selenium_driver()
 
     display_banner()
     display_ascii_art()
@@ -793,11 +957,11 @@ def main():
 
         elif choice == "2":
             # Start Sync with Saved Lists
-            start_sync(overseerr_url, api_key, requester_user_id, added_logger)
+            start_sync(overseerr_url, api_key, requester_user_id, setup_logging())
 
         elif choice == "3":
             # One-Time List Sync
-            one_time_list_sync(overseerr_url, api_key, requester_user_id, added_logger)
+            one_time_list_sync(overseerr_url, api_key, requester_user_id, setup_logging())
 
         elif choice == "4":
             # Manage Existing Lists
@@ -810,7 +974,7 @@ def main():
 
         elif choice == "6":
             # Run Dry Sync
-            start_sync(overseerr_url, api_key, requester_user_id, added_logger, dry_run=True)
+            start_sync(overseerr_url, api_key, requester_user_id, setup_logging(), dry_run=True)
 
         elif choice == "7":
             # Exit
@@ -829,13 +993,17 @@ def main():
                         os.remove(f"{DATA_DIR}/interrupt.txt")
                         raise KeyboardInterrupt()
                 # Run sync after sleep
-                start_sync(overseerr_url, api_key, requester_user_id, added_logger)
+                start_sync(overseerr_url, api_key, requester_user_id, setup_logging())
             except KeyboardInterrupt:
                 print(color_gradient("\nReturning to the main menu...", "#00aaff", "#00ffaa"))
                 continue
 
 if __name__ == "__main__":
     main()
+
+# =======================================================================================================
+# Soluify  |  You actually read it? Nice work, stay safe out there people!  |  {list-sync v0.6.1}
+# =======================================================================================================
 
 # =======================================================================================================
 # Soluify  |  You actually read it? Nice work, stay safe out there people!  |  {list-sync v0.5.1}
