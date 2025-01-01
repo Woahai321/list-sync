@@ -33,6 +33,8 @@ DATA_DIR = "./data"
 CONFIG_FILE = os.path.join(DATA_DIR, "config.enc")
 DB_FILE = os.path.join(DATA_DIR, "list_sync.db")
 
+logging.basicConfig(level=logging.DEBUG)
+
 def custom_input(prompt):
     readline.set_startup_hook(lambda: readline.insert_text(''))
     try:
@@ -369,7 +371,11 @@ def normalize_title(title: str) -> str:
 
 def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type, release_year=None):
     headers = {"X-Api-Key": api_key}
+    
+    # Ensure overseerr_url doesn't end with a slash
+    overseerr_url = overseerr_url.rstrip('/')
     search_url = f"{overseerr_url}/api/v1/search"
+    
     page = 1
     best_match = None
     closest_year_diff = float('inf')
@@ -377,23 +383,27 @@ def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type, r
     
     while True:
         try:
-            # Clean and encode the search query
-            clean_title = re.sub(r'[^\w\s-]', '', media_title)  # Remove special characters except spaces and hyphens
-            params = {
-                "query": clean_title,
-                "page": str(page),
-                "language": "en"
-            }
+            # Properly encode the query parameter
+            encoded_query = requests.utils.quote(media_title)
             
-            # Make the request with properly encoded parameters
+            # Build the URL manually to ensure proper encoding
+            url = f"{search_url}?query={encoded_query}&page={page}&language=en"
+            
+            # Log the exact URL being requested (for debugging)
+            logging.debug(f"Requesting URL: {url}")
+            logging.debug(f"Headers: {headers}")
+            
+            # Make the request
             response = requests.get(
-                search_url,
+                url,
                 headers=headers,
-                params=params,
-                timeout=10  # Add timeout
+                timeout=10
             )
             
-            # Check if the response indicates rate limiting
+            # Log the response status and headers (for debugging)
+            logging.debug(f"Response status: {response.status_code}")
+            logging.debug(f"Response headers: {response.headers}")
+            
             if response.status_code == 429:
                 logging.warning("Rate limited, waiting 5 seconds...")
                 time.sleep(5)
