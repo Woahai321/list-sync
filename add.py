@@ -48,19 +48,19 @@ def setup_logging():
     # Create a formatter
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
     
-    # Set up file handler for general logging
+    # Set up file handler for general logging (DEBUG and above)
     file_handler = logging.FileHandler(os.path.join(DATA_DIR, "list_sync.log"))
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
     
-    # Set up console handler for general logging
+    # Set up console handler for errors only
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.DEBUG)
+    console_handler.setLevel(logging.ERROR)  # Only show errors in console
     console_handler.setFormatter(formatter)
     
     # Set up the root logger
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.DEBUG)
+    root_logger.setLevel(logging.DEBUG)  # Capture all levels
     root_logger.addHandler(file_handler)
     root_logger.addHandler(console_handler)
     
@@ -70,6 +70,9 @@ def setup_logging():
     added_handler = logging.FileHandler(os.path.join(DATA_DIR, "added.log"))
     added_handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))
     added_logger.addHandler(added_handler)
+    
+    # Prevent added_logger from propagating to root logger
+    added_logger.propagate = False
     
     return added_logger
 
