@@ -1,5 +1,5 @@
 # =============================================================================
-# Soluify  |  Your #1 IT Problem Solver  |  {list-sync v0.5.2}
+# Soluify  |  Your #1 IT Problem Solver  |  {list-sync v0.5.3}
 # =============================================================================
 #  __         _
 # (_  _ |   .(_
@@ -165,7 +165,7 @@ def display_ascii_art():
 def display_banner():
     banner = """
     ==============================================================
-             Soluify - {servarr-tools_list-sync_v0.5.2}
+             Soluify - {servarr-tools_list-sync_v0.5.3}
     ==============================================================
     """
     print(color_gradient(banner, "#aa00aa", "#00aa00") + Style.RESET_ALL)
@@ -1277,5 +1277,5 @@ if __name__ == "__main__":
     main()
 
 # =======================================================================================================
-# Soluify  |  You actually read it? Nice work, stay safe out there people!  |  {list-sync v0.5.2}
+# Soluify  |  You actually read it? Nice work, stay safe out there people!  |  {list-sync v0.5.3}
 # =======================================================================================================

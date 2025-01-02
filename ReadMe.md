@@ -12,14 +12,88 @@
 
 ---
 
-## Currently in development for v0.6.0, please use the source code from the most recent release instead of the docker or main repo: [Here](https://github.com/Woahai321/list-sync/releases/tag/v0.5.2)
+## 🚀 What is ListSync?
+
+ListSync is a powerful tool designed to bridge your watchlists from platforms like IMDb and Trakt with your media server (Overseerr or Jellyseerr). It automatically syncs your designated watchlists, ensuring that your media server is always up-to-date with the movies and TV shows you want to watch. ListSync eliminates the manual effort of adding items to your media server, filling a hole in the jellyfine pipeline, making it easier to manage your media library.
+
+### How Does It Work?
+
+ListSync operates through a series of well-defined steps to ensure seamless synchronization between your watchlists and media server. Here’s a detailed breakdown of how it works:
+
+#### 1. **Fetch Watchlists**
+
+ListSync starts by fetching your watchlists from IMDb or Trakt. This is achieved using web browser automation and scraping techniques:
+
+- **IMDb Lists**:
+
+  - ListSync can fetch lists from IMDb using list IDs (e.g., `ls123456789`) or URLs.
+  - It supports IMDb charts like Top 250, Box Office, MovieMeter, and TVMeter.
+  - The tool uses Selenium to scrape the IMDb website, ensuring it can handle dynamic content and pagination. This is necessary because IMDb lists can span multiple pages, and Selenium allows ListSync to navigate through these pages and extract all items.
+
+- **Trakt Lists**:
+
+  - ListSync can fetch lists from Trakt using list IDs or URLs.
+  - Similar to IMDb, it uses Selenium to navigate Trakt’s website and extract the list items. This ensures that all items, regardless of the list size, are retrieved.
+
+- **[Obtaining List IDs](#-obtaining-list-ids)**
+
+#### 2. **Search Media on Media Server**
+
+Once the watchlists are fetched, ListSync searches for each item on your media server:
+
+- **Search API**:
+  - ListSync uses the media server’s search API to look up each item by title and media type (movie or TV show).
+  - It handles various edge cases, such as titles with special characters or multiple results, to help ensure accurate matches.
+
+#### 3. **Request Media**
+
+After finding the media item on the server, ListSync checks its availability and requests it if necessary:
+
+- **Availability Check**:
+
+  - ListSync checks if the media is already available or has been requested using the media server’s API.
+  - This step ensures that ListSync does not duplicate requests or skip items that are already in your library.
+
+- **Requesting Media**:
+  - If the media is not available or requested, ListSync automatically requests it on your behalf.
+  - For TV shows, it requests all available seasons, ensuring you get the complete series.
+
+#### 4. **Syncing Regularly**
+
+ListSync can be configured to sync your watchlists at regular intervals, ensuring your media server is always up-to-date:
+
+- **Sync Interval**:
+
+  - You can set how often ListSync should check and update your watchlists (e.g., every 6 hours).
+  - The tool runs in the background and performs the sync automatically, so you don’t have to worry about manual updates.
+
+- **Database Tracking**:
+  - ListSync uses a SQLite database to track which items have been synced and their status.
+  - This ensures that items are not repeatedly requested or skipped unnecessarily, maintaining efficiency and accuracy.
+
+### Why Use ListSync?
+
+ListSync offers several benefits that make it an essential tool for managing your media library:
+
+- **Save Time**: Automates the process of adding movies and TV shows to your media server, freeing up your time for other activities.
+- **Stay Organized**: Keeps your media server in sync with your watchlists, ensuring you always have access to the content you want to watch.
+- **Flexible**: Supports multiple watchlist platforms (IMDb, Trakt) and media servers (Overseerr, Jellyseerr), making it versatile and adaptable to your needs.
+- **Customizable**: Allows you to set sync intervals and manage lists according to your preferences.
+
+### Currently in Development for v0.6.0
+
+Please note that ListSync is currently in development for version 0.6.0. For the most stable experience, use the source code from the most recent release instead of the Docker or main repo. You can find the latest release [here](https://github.com/Woahai321/list-sync/releases/tag/v0.5.3).
 
 ---
 
+## 🎬 Demo
+
+![Bot In Action](https://share.woahlab.com/-BZtwSD96LN)
+
 ## 📜 Table of Contents
 
-1. [Compatibility](#-compatibility)
-2. [Getting Started](#-getting-started)
+1. [Getting Started](#-getting-started)
+2. [Compatibility](#-compatibility)
 3. [Obtaining List IDs](#-obtaining-list-ids)
 4. [How it Works](/docs/how-it-works.md)
 5. [Troubleshooting](/docs/troubleshooting.md)
@@ -27,12 +101,6 @@
 7. [Notes](#-notes)
 8. [Contributing](#-contributing)
 9. [License](#-license)
-
-## 🎬 Demo
-
-![Bot In Action](https://share.woahlab.com/-BZtwSD96LN)
-
----
 
 ## 🚀 Getting Started
 
@@ -65,28 +133,67 @@ For detailed installation instructions, please refer to our [Installation Guide]
 
 ## 🔍 Obtaining List IDs
 
-### IMDB List ID
+ListSync supports both IMDb and Trakt lists, and you can add them using either the raw URL or the list ID. This flexibility allows you to simply copy and paste from your browser’s URL bar or follow the instructions below to extract the list ID. Additionally, ListSync now supports IMDb charts, making it even easier to sync popular lists like the Top 250 or Box Office.
 
-To obtain an IMDB list ID:
+### IMDb List ID or URL
 
-1. Navigate to your IMDB list.
-2. Look at the URL. It should be in the format: `https://www.imdb.com/list/ls012345678/`
-3. The list ID is the `ls` number. In this example, it would be `ls012345678`.
+You can add IMDb lists using either the raw URL or the list ID. Here’s how:
 
-### Trakt List ID
+#### **Using the Raw URL**:
 
-To obtain a Trakt list ID:
+1. Navigate to your IMDb list in your browser.
+2. Copy the URL from the address bar. It will look like one of the following:
+   - For custom lists: `https://www.imdb.com/list/ls012345678/`
+   - For IMDb charts: `https://www.imdb.com/chart/top/` (Top 250), `https://www.imdb.com/chart/boxoffice/` (Box Office), etc.
+   - For watchlists: `https://www.imdb.com/user/ur12345678/watchlist`
+3. Paste the URL directly into ListSync.
 
-1. Go to your Trakt list.
+#### **Using the List ID**:
+
+1. Navigate to your IMDb list in your browser.
+2. Look at the URL. It will be in one of the following formats:
+   - For custom lists: `https://www.imdb.com/list/ls012345678/` → The list ID is `ls012345678`.
+   - For IMDb charts: The chart name (e.g., `top`, `boxoffice`, `moviemeter`, `tvmeter`) is the list ID.
+   - For watchlists: `https://www.imdb.com/user/ur12345678/watchlist` → The list ID is `ur12345678`.
+3. Use the list ID in ListSync.
+
+#### **Supported IMDb Charts**:
+
+ListSync supports the following IMDb charts by name:
+
+- `top` (Top 250 Movies)
+- `boxoffice` (Box Office)
+- `moviemeter` (MovieMeter)
+- `tvmeter` (TVMeter)
+
+### Trakt List ID or URL
+
+You can add Trakt lists using either the raw URL or the list ID. Here’s how:
+
+#### **Using the Raw URL**:
+
+1. Navigate to your Trakt list in your browser.
+2. Copy the URL from the address bar. It will look like one of the following:
+   - For public lists: `https://trakt.tv/lists/12345678`
+   - For user lists: `https://trakt.tv/users/username/lists/12345678`
+3. Paste the URL directly into ListSync.
+
+#### **Using the List ID**:
+
+1. Go to your Trakt list in your browser.
 2. Look for the blue "Share" button, located in the list.
 3. ![trakt-help](https://share.woahlab.com/-Nx5VJnbUEY)
-4. Hover over it, it should say "**Copy Link**".
-5. The copied link will be in the format: `https://trakt.tv/lists/12345678`
+4. Hover over it, and it should say "**Copy Link**".
+5. The copied link will be in the format: `https://trakt.tv/lists/12345678` or `https://trakt.tv/users/username/lists/12345678`.
 6. The list ID is the number at the end. In this example, it would be `12345678`.
 
 ### Adding Multiple List IDs
 
-When inputting list IDs, you can add multiple IDs by separating them with commas.
+When inputting list IDs or URLs, you can add multiple lists by separating them with commas. For example:
+
+- IMDb: `ls012345678,12345678,https://www.imdb.com/chart/top/,ur987654321,https://trakt.tv/lists/87654321`
+
+This allows you to sync multiple lists at once, whether they are custom lists, charts, or watchlists.
 
 ## 📋 Notes
 

@@ -1,51 +1,116 @@
-# How ListSync Works
+## 📖 Detailed How It Works Document
 
-ListSync is a powerful tool that bridges your IMDB and Trakt lists with Overseerr, automating the process of importing and managing your media requests. Here's a detailed breakdown of its functionality:
+### Overview
 
-## 1. Authentication and Security
+ListSync is a tool designed to automate the process of syncing your watchlists from platforms like IMDb and Trakt with your media server (Overseerr, Jellyseerr, etc.). It ensures that your media server is always up-to-date with the movies and TV shows you want to watch. Below is a detailed breakdown of how ListSync works.
 
-- ListSync uses the `cryptography` library's Fernet symmetric encryption to secure your credentials.
-- Your encrypted data is stored locally, ensuring that your sensitive information remains protected.
+### Step-by-Step Process
 
-## 2. List Fetching and Parsing
+#### 1. **Fetching Watchlists**
 
-### IMDB Lists
+ListSync starts by fetching your watchlists from IMDb or Trakt. Here’s how it does it:
 
-- The tool uses the `requests` library to fetch the HTML content of your IMDB list.
-- It then employs `BeautifulSoup` to parse the HTML and extract structured data about movies and TV shows.
+- **IMDb Lists**:
 
-### Trakt Lists
+  - ListSync can fetch lists from IMDb using list IDs (e.g., `ls123456789`) or URLs.
+  - It supports IMDb charts like Top 250, Box Office, MovieMeter, and TVMeter.
+  - The tool uses Selenium to scrape the IMDb website, ensuring it can handle dynamic content and pagination.
 
-- A similar process is used for Trakt lists.
-- The HTML response is parsed to extract media information.
+- **Trakt Lists**:
+  - ListSync can fetch lists from Trakt using list IDs or URLs.
+  - It uses Selenium to navigate Trakt’s website and extract the list items.
 
-## 3. Overseerr Integration
+#### 2. **Searching Media on Media Server**
 
-- ListSync interacts with the Overseerr API using the `requests` library.
-- It implements minimal rate limiting to prevent overwhelming the Overseerr server and webhooks.
-- The tool performs media searches, status checks, and request submissions via API endpoints.
+Once the watchlists are fetched, ListSync searches for each item on your media server (Overseerr, Jellyseerr, etc.):
 
-## 4. Intelligent Processing
+- **Search API**:
 
-- ListSync differentiates between movies and TV shows for appropriate handling.
-- For TV shows, it determines the number of seasons and requests all available seasons.
-- The tool checks if media is already available or requested before submitting new requests.
+  - ListSync uses the media server’s search API to look up each item by title and media type (movie or TV show).
+  - It handles various edge cases, such as titles with special characters or multiple results.
 
-## 5. Error Handling and Logging
+- **Year Matching**:
+  - For more accurate results, ListSync can use the release year (if available) to find the correct media item.
 
-- Comprehensive error handling is implemented for network issues, API errors, and parsing problems.
-- ListSync uses Python's `logging` module to maintain detailed logs for troubleshooting.
-- Real-time status updates are provided in the console using the `colorama` and `halo` libraries.
+#### 3. **Requesting Media**
 
-## 6. Periodic Syncing
+After finding the media item on the server, ListSync checks its availability and requests it if necessary:
 
-- Users can set up recurring syncs at user-defined intervals.
-- A sleep mechanism is implemented that can be interrupted for on-demand actions.
+- **Availability Check**:
 
-## 7. User Interface
+  - ListSync checks if the media is already available or has been requested.
+  - It uses the media server’s API to get the current status of the item.
 
-- ListSync presents a user-friendly command-line interface with color-coded outputs.
-- ASCII art and banners are displayed for an engaging user experience.
-- Summary statistics are provided after each sync operation.
+- **Requesting Media**:
+  - If the media is not available or requested, ListSync automatically requests it on your behalf.
+  - For TV shows, it requests all available seasons.
 
-By leveraging these components, ListSync provides a seamless, automated solution for managing your media library through Overseerr.
+#### 4. **Syncing Regularly**
+
+ListSync can be configured to sync your watchlists at regular intervals:
+
+- **Sync Interval**:
+
+  - You can set how often ListSync should check and update your watchlists (e.g., every 6 hours).
+  - The tool runs in the background and performs the sync automatically.
+
+- **Database Tracking**:
+  - ListSync uses a SQLite database to track which items have been synced and their status.
+  - This ensures that items are not repeatedly requested or skipped unnecessarily.
+
+### Technical Details
+
+#### **Selenium Integration**
+
+ListSync uses Selenium to fetch watchlists from IMDb and Trakt. This allows it to handle dynamic content and pagination, ensuring all items are retrieved.
+
+#### **API Integration**
+
+ListSync integrates with the media server’s API to search for and request media. It handles API rate limits and retries failed requests.
+
+#### **Database Management**
+
+ListSync uses a SQLite database to store:
+
+- List IDs and types (IMDb, Trakt).
+- Synced items and their status (requested, available, etc.).
+- Sync intervals and last sync times.
+
+#### **Error Handling**
+
+ListSync includes robust error handling to manage:
+
+- Failed API requests.
+- Network issues.
+- Invalid list IDs or URLs.
+- Media not found on the server.
+
+### Example Workflow
+
+1. **User Configures ListSync**:
+
+   - Adds IMDb and Trakt list IDs.
+   - Sets sync interval to 6 hours.
+
+2. **ListSync Fetches Watchlists**:
+
+   - Fetches items from IMDb and Trakt lists.
+
+3. **ListSync Searches Media**:
+
+   - Searches for each item on the media server.
+
+4. **ListSync Requests Media**:
+
+   - Requests items that are not available or already requested.
+
+5. **ListSync Tracks Status**:
+
+   - Updates the database with the status of each item.
+
+6. **ListSync Syncs Regularly**:
+   - Repeats the process every 6 hours.
+
+### Conclusion
+
+ListSync automates the process of keeping your media server in sync with your watchlists, saving you time and ensuring you never miss out on your favorite content. With its robust features and easy setup, ListSync is the ultimate tool for managing your media library.
