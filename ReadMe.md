@@ -42,23 +42,11 @@ ListSync checks if the media is already available or requested. If not, it autom
 ### Currently in Development for v0.6.0  
 For the most stable experience, use the source code from the latest release [here](https://github.com/Woahai321/list-sync/releases/tag/v0.5.3).  
 
----
-
 ## 🎬 Demo
 
 ![Bot In Action](https://share.woahlab.com/-BZtwSD96LN)
 
-## 📜 Table of Contents
-
-1. [Getting Started](#-getting-started)
-2. [Compatibility](#-compatibility)
-3. [Obtaining List IDs](#-obtaining-list-ids)
-4. [How it Works](/docs/how-it-works.md)
-5. [Troubleshooting](/docs/troubleshooting.md)
-6. [Roadmap](/docs/roadmap.md)
-7. [Notes](#-notes)
-8. [Contributing](#-contributing)
-9. [License](#-license)
+---
 
 ## 🚀 Getting Started
 
