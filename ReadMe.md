@@ -16,73 +16,31 @@
 
 ListSync is a powerful tool designed to bridge your watchlists from platforms like IMDb and Trakt with your media server (Overseerr or Jellyseerr). It automatically syncs your designated watchlists, ensuring that your media server is always up-to-date with the movies and TV shows you want to watch. ListSync eliminates the manual effort of adding items to your media server, filling a hole in the jellyfine pipeline, making it easier to manage your media library.
 
-### How Does It Work?
+### How Does It Work?  
 
-ListSync operates through a series of well-defined steps to ensure seamless synchronization between your watchlists and media server. Here’s a detailed breakdown of how it works:
+ListSync seamlessly syncs your watchlists with your media server in three simple steps:  
 
-#### 1. **Fetch Watchlists**
+#### 1. **Fetch Watchlists**  
+ListSync retrieves your watchlists from **IMDb** or **Trakt** using web scraping techniques:  
+- **IMDb Lists**: Supports list IDs (e.g., `ls123456789`), URLs, and charts like Top 250, Box Office, MovieMeter, and TVMeter.  
+- **Trakt Lists**: Fetches lists using IDs or URLs, ensuring all items are retrieved regardless of size.  
 
-ListSync starts by fetching your watchlists from IMDb or Trakt. This is achieved using web browser automation and scraping techniques:
+#### 2. **Search Media on Media Server**  
+ListSync searches for each item on your media server (**Overseerr** or **Jellyseerr**) using its API. It handles edge cases like special characters or multiple results for accurate matches.  
 
-- **IMDb Lists**:
+#### 3. **Request Media**  
+ListSync checks if the media is already available or requested. If not, it automatically requests the item:  
+- For **movies**, it requests the title.  
+- For **TV shows**, it requests all available seasons.  
 
-  - ListSync can fetch lists from IMDb using list IDs (e.g., `ls123456789`) or URLs.
-  - It supports IMDb charts like Top 250, Box Office, MovieMeter, and TVMeter.
-  - The tool uses Selenium to scrape the IMDb website, ensuring it can handle dynamic content and pagination. This is necessary because IMDb lists can span multiple pages, and Selenium allows ListSync to navigate through these pages and extract all items.
+### Why Use ListSync?  
+- **Save Time**: Automates adding movies and TV shows to your media server.  
+- **Stay Organized**: Keeps your media server in sync with your watchlists.  
+- **Flexible**: Works with IMDb, Trakt, Overseerr, and Jellyseerr.  
+- **Customizable**: Set sync intervals to match your preferences.  
 
-- **Trakt Lists**:
-
-  - ListSync can fetch lists from Trakt using list IDs or URLs.
-  - Similar to IMDb, it uses Selenium to navigate Trakt’s website and extract the list items. This ensures that all items, regardless of the list size, are retrieved.
-
-- **[Obtaining List IDs](#-obtaining-list-ids)**
-
-#### 2. **Search Media on Media Server**
-
-Once the watchlists are fetched, ListSync searches for each item on your media server:
-
-- **Search API**:
-  - ListSync uses the media server’s search API to look up each item by title and media type (movie or TV show).
-  - It handles various edge cases, such as titles with special characters or multiple results, to help ensure accurate matches.
-
-#### 3. **Request Media**
-
-After finding the media item on the server, ListSync checks its availability and requests it if necessary:
-
-- **Availability Check**:
-
-  - ListSync checks if the media is already available or has been requested using the media server’s API.
-  - This step ensures that ListSync does not duplicate requests or skip items that are already in your library.
-
-- **Requesting Media**:
-  - If the media is not available or requested, ListSync automatically requests it on your behalf.
-  - For TV shows, it requests all available seasons, ensuring you get the complete series.
-
-#### 4. **Syncing Regularly**
-
-ListSync can be configured to sync your watchlists at regular intervals, ensuring your media server is always up-to-date:
-
-- **Sync Interval**:
-
-  - You can set how often ListSync should check and update your watchlists (e.g., every 6 hours).
-  - The tool runs in the background and performs the sync automatically, so you don’t have to worry about manual updates.
-
-- **Database Tracking**:
-  - ListSync uses a SQLite database to track which items have been synced and their status.
-  - This ensures that items are not repeatedly requested or skipped unnecessarily, maintaining efficiency and accuracy.
-
-### Why Use ListSync?
-
-ListSync offers several benefits that make it an essential tool for managing your media library:
-
-- **Save Time**: Automates the process of adding movies and TV shows to your media server, freeing up your time for other activities.
-- **Stay Organized**: Keeps your media server in sync with your watchlists, ensuring you always have access to the content you want to watch.
-- **Flexible**: Supports multiple watchlist platforms (IMDb, Trakt) and media servers (Overseerr, Jellyseerr), making it versatile and adaptable to your needs.
-- **Customizable**: Allows you to set sync intervals and manage lists according to your preferences.
-
-### Currently in Development for v0.6.0
-
-Please note that ListSync is currently in development for version 0.6.0. For the most stable experience, use the source code from the most recent release instead of the Docker or main repo. You can find the latest release [here](https://github.com/Woahai321/list-sync/releases/tag/v0.5.3).
+### Currently in Development for v0.6.0  
+For the most stable experience, use the source code from the latest release [here](https://github.com/Woahai321/list-sync/releases/tag/v0.5.3).  
 
 ---
 
