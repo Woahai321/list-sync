@@ -1028,9 +1028,13 @@ def one_time_list_sync(overseerr_url, api_key, requester_user_id, added_logger):
         try:
             # Check for IMDb URLs or chart IDs
             if list_id.startswith(('http://', 'https://')) and 'imdb.com' in list_id:
-                media_items.extend(fetch_imdb_list(list_id))
+                items = fetch_imdb_list(list_id)  # Add items = here
+                if items:  # Add this check
+                    media_items.extend(items)
             elif list_id in ['top', 'boxoffice', 'moviemeter', 'tvmeter']:
-                media_items.extend(fetch_imdb_list(list_id))
+                items = fetch_imdb_list(list_id)  # Add items = here
+                if items:  # Add this check
+                    media_items.extend(items)
             # Check for IMDb list IDs
             elif list_id.startswith(('ls', 'ur')):
                 media_items.extend(fetch_imdb_list(list_id))
@@ -1044,6 +1048,7 @@ def one_time_list_sync(overseerr_url, api_key, requester_user_id, added_logger):
         except Exception as e:
             print(color_gradient(f"\n❌  Error fetching list {list_id}: {e}", "#ff0000", "#aa0000") + "\n")
             logging.error(f"Error fetching list {list_id}: {e}")
+            continue
     
     if media_items:
         process_media(media_items, overseerr_url, api_key, requester_user_id)
@@ -1067,6 +1072,10 @@ def add_new_lists():
                     else:
                         raise ValueError("Invalid URL - must be IMDb or Trakt")
                 elif list_id in ['top', 'boxoffice', 'moviemeter', 'tvmeter']:
+                    # Verify the list works before saving
+                    test_items = fetch_imdb_list(list_id)  # Add this test
+                    if not test_items:  # Add this check
+                        raise ValueError("Failed to fetch items from list")
                     list_type = "imdb"
                 elif list_id.startswith(('ls', 'ur')):
                     list_type = "imdb"
