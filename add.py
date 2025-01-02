@@ -462,9 +462,9 @@ def fetch_imdb_list(list_id):
                 if total_items and len(media_items) < total_items:
                     logging.warning(f"Only found {len(media_items)} items out of {total_items} total")
                 
-                print(color_gradient(f"✨  Found {len(media_items)} items from IMDB list {list_id}!", "#00ff00", "#00aa00"))
-                logging.info(f"IMDB list {list_id} fetched successfully. Found {len(media_items)} items.")
-                return media_items
+            print(color_gradient(f"✨  Found {len(media_items)} items from IMDB list {list_id}!", "#00ff00", "#00aa00"))
+            logging.info(f"IMDB list {list_id} fetched successfully. Found {len(media_items)} items.")
+            return media_items
         
     except Exception as e:
         print(color_gradient(f"💥  Failed to fetch IMDB list {list_id}. Error: {str(e)}", "#ff0000", "#aa0000"))
