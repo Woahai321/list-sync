@@ -747,11 +747,27 @@ def request_tv_series_in_overseerr(overseerr_url, api_key, requester_user_id, tv
         return "error"
 
 def save_list_id(list_id: str, list_type: str):
+    """Save list ID to database, converting URLs to IDs if needed"""
     with sqlite3.connect(DB_FILE) as conn:
         cursor = conn.cursor()
+        
+        # For IMDb URLs, store the full URL
+        if list_type == "imdb" and list_id.startswith(('http://', 'https://')):
+            # Keep the full URL as is
+            id_to_save = list_id.rstrip('/')
+        # For IMDb chart names, store as is
+        elif list_type == "imdb" and list_id in ['top', 'boxoffice', 'moviemeter', 'tvmeter']:
+            id_to_save = list_id
+        # For Trakt URLs, store the full URL
+        elif list_type == "trakt" and list_id.startswith(('http://', 'https://')):
+            id_to_save = list_id.rstrip('/')
+        else:
+            # For traditional IDs (ls, ur, numeric), store as is
+            id_to_save = list_id
+            
         cursor.execute(
             "INSERT OR REPLACE INTO lists (list_type, list_id) VALUES (?, ?)",
-            (list_type, list_id)
+            (list_type, id_to_save)
         )
         conn.commit()
 
@@ -1003,37 +1019,6 @@ def start_sync(overseerr_url, api_key, requester_user_id, added_logger, dry_run=
 
     process_media(media_items, overseerr_url, api_key, requester_user_id, dry_run)
 
-def add_new_lists():
-    add_new_list = True
-    while add_new_list:
-        list_ids = custom_input(color_gradient("\n🎬  Enter List ID(s) (comma-separated for multiple): ", "#ffaa00", "#ff5500"))
-        list_ids = [id.strip() for id in list_ids.split(',')]
-        
-        for list_id in list_ids:
-            # Automatically detect list type
-            if list_id.startswith(('ls', 'ur')):
-                list_type = "imdb"
-                confirmation_message = f"Are you sure the IMDb list ID '{list_id}' is correct?"
-            elif list_id.isdigit():
-                list_type = "trakt"
-                confirmation_message = f"Are you sure the Trakt list ID '{list_id}' is correct?"
-            else:
-                print(color_gradient(f"\n❌  Invalid list ID format for '{list_id}'. Skipping this ID.", "#ff0000", "#aa0000"))
-                continue
-
-            add_to_sync = custom_input(color_gradient(f"\n🚨  {confirmation_message} (y/n): ", "#ffaa00", "#ff5500")).lower()
-            if add_to_sync == "y":
-                save_list_id(list_id, list_type)
-
-        more_lists = custom_input(color_gradient("\n🏁  Do you want to import any other lists? (y/n): ", "#ffaa00", "#ff5500")).lower()
-        if more_lists != "y":
-            add_new_list = False
-
-    # Start sync immediately after adding new lists
-    overseerr_url, api_key, requester_user_id = load_config()
-    if overseerr_url and api_key:
-        start_sync(overseerr_url, api_key, requester_user_id, setup_logging())
-
 def one_time_list_sync(overseerr_url, api_key, requester_user_id, added_logger):
     list_ids = custom_input(color_gradient("\n🎬  Enter List ID(s) for one-time sync (comma-separated for multiple): ", "#ffaa00", "#ff5500"))
     list_ids = [id.strip() for id in list_ids.split(',')]
@@ -1041,8 +1026,17 @@ def one_time_list_sync(overseerr_url, api_key, requester_user_id, added_logger):
     media_items = []
     for list_id in list_ids:
         try:
-            if list_id.startswith(('ls', 'ur')):
+            # Check for IMDb URLs or chart IDs
+            if list_id.startswith(('http://', 'https://')) and 'imdb.com' in list_id:
                 media_items.extend(fetch_imdb_list(list_id))
+            elif list_id in ['top', 'boxoffice', 'moviemeter', 'tvmeter']:
+                media_items.extend(fetch_imdb_list(list_id))
+            # Check for IMDb list IDs
+            elif list_id.startswith(('ls', 'ur')):
+                media_items.extend(fetch_imdb_list(list_id))
+            # Check for Trakt URLs or IDs
+            elif list_id.startswith(('http://', 'https://')) and 'trakt.tv' in list_id:
+                media_items.extend(fetch_trakt_list(list_id))
             elif list_id.isdigit():
                 media_items.extend(fetch_trakt_list(list_id))
             else:
@@ -1055,6 +1049,48 @@ def one_time_list_sync(overseerr_url, api_key, requester_user_id, added_logger):
         process_media(media_items, overseerr_url, api_key, requester_user_id)
     else:
         print(color_gradient("\n❌  No valid lists were processed.", "#ff0000", "#aa0000"))
+
+def add_new_lists():
+    add_new_list = True
+    while add_new_list:
+        list_ids = custom_input(color_gradient("\n🎬  Enter List ID(s) (comma-separated for multiple): ", "#ffaa00", "#ff5500"))
+        list_ids = [id.strip() for id in list_ids.split(',')]
+        
+        for list_id in list_ids:
+            try:
+                # Determine list type and validate
+                if list_id.startswith(('http://', 'https://')):
+                    if 'imdb.com' in list_id:
+                        list_type = "imdb"
+                    elif 'trakt.tv' in list_id:
+                        list_type = "trakt"
+                    else:
+                        raise ValueError("Invalid URL - must be IMDb or Trakt")
+                elif list_id in ['top', 'boxoffice', 'moviemeter', 'tvmeter']:
+                    list_type = "imdb"
+                elif list_id.startswith(('ls', 'ur')):
+                    list_type = "imdb"
+                elif list_id.isdigit():
+                    list_type = "trakt"
+                else:
+                    raise ValueError("Invalid list ID format")
+
+                confirmation_message = f"Are you sure this {list_type.upper()} list is correct? (ID/URL: {list_id})"
+                add_to_sync = custom_input(color_gradient(f"\n🚨  {confirmation_message} (y/n): ", "#ffaa00", "#ff5500")).lower()
+                if add_to_sync == "y":
+                    save_list_id(list_id, list_type)
+            except ValueError as e:
+                print(color_gradient(f"\n❌  Invalid list ID format for '{list_id}'. {str(e)}", "#ff0000", "#aa0000"))
+                continue
+
+        more_lists = custom_input(color_gradient("\n🏁  Do you want to import any other lists? (y/n): ", "#ffaa00", "#ff5500")).lower()
+        if more_lists != "y":
+            add_new_list = False
+
+    # Start sync immediately after adding new lists
+    overseerr_url, api_key, requester_user_id = load_config()
+    if overseerr_url and api_key:
+        start_sync(overseerr_url, api_key, requester_user_id, setup_logging())
 
 def manage_lists():
     while True:
