@@ -251,75 +251,79 @@ def fetch_imdb_list(list_id):
     
     try:
         with SB(uc=True, headless=True) as sb:
-            if list_id.startswith("ls"):
-                url = f"https://www.imdb.com/list/{list_id}"
-            elif list_id.startswith("ur"):
-                url = f"https://www.imdb.com/user/{list_id}/watchlist"
+            # Handle full URLs vs list IDs
+            if list_id.startswith(('http://', 'https://')):
+                url = list_id.rstrip('/')  # Use the provided URL directly
+                if '/chart/' in url:
+                    is_chart = True
+                elif '/list/' in url or '/user/' in url:
+                    is_chart = False
+                else:
+                    raise ValueError("Invalid IMDb URL format")
             else:
-                raise ValueError("Invalid IMDb list ID format")
+                # Existing logic for list IDs
+                if list_id in ['top', 'boxoffice', 'moviemeter', 'tvmeter']:
+                    url = f"https://www.imdb.com/chart/{list_id}"
+                    is_chart = True
+                elif list_id.startswith("ls"):
+                    url = f"https://www.imdb.com/list/{list_id}"
+                    is_chart = False
+                elif list_id.startswith("ur"):
+                    url = f"https://www.imdb.com/user/{list_id}/watchlist"
+                    is_chart = False
+                else:
+                    raise ValueError("Invalid IMDb list ID format")
             
             logging.info(f"Attempting to load URL: {url}")
             sb.open(url)
             
-            # Wait for list content to load
-            sb.wait_for_element_present('[data-testid="list-page-mc-list-content"]', timeout=20)
-            
-            # Get total number of items
-            try:
-                total_element = sb.find_element('[data-testid="list-page-mc-total-items"]')
-                total_text = total_element.text
-                total_items = int(re.search(r'(\d+)\s+titles?', total_text).group(1))
-                logging.info(f"Total items in list: {total_items}")
-                expected_pages = (total_items + 249) // 250  # Round up division by 250
-                logging.info(f"Expected number of pages: {expected_pages}")
-            except Exception as e:
-                logging.warning(f"Could not determine total items: {str(e)}")
-                total_items = None
-                expected_pages = None
-            
-            current_page = 1
-            
-            # Process items on the page
-            while True:
-                items = sb.find_elements(".sc-2bfd043a-3.jpWwpQ")
-                logging.info(f"Processing page {current_page}: Found {len(items)} items")
+            if is_chart:
+                # Wait for chart content to load
+                sb.wait_for_element_present('.ipc-metadata-list.ipc-metadata-list--dividers-between', timeout=20)
+                
+                # Get total number of items
+                try:
+                    total_element = sb.find_element('[data-testid="chart-layout-total-items"]')
+                    total_text = total_element.text
+                    total_items = int(re.search(r'(\d+)\s+Titles?', total_text).group(1))
+                    logging.info(f"Total items in chart: {total_items}")
+                except Exception as e:
+                    logging.warning(f"Could not determine total items: {str(e)}")
+                    total_items = None
+                
+                # Process items in the chart
+                items = sb.find_elements(".ipc-metadata-list-summary-item__tc")
+                logging.info(f"Found {len(items)} items in chart")
                 
                 for item in items:
                     try:
                         # Get title element
                         title_element = item.find_element("css selector", ".ipc-title__text")
                         full_title = title_element.text
-                        title = full_title.split(". ", 1)[1] if ". " in full_title else full_title
+                        # Remove ranking number if present (e.g., "1. The Shawshank Redemption" -> "The Shawshank Redemption")
+                        title = re.sub(r'^\d+\.\s*', '', full_title)
                         
                         # Get year from metadata
                         year = None
                         try:
-                            metadata = item.find_element("css selector", ".dli-title-metadata")
-                            metadata_text = metadata.text
-                            # Extract year from formats like "2008–2013" or "2024"
-                            year_match = re.search(r'(\d{4})', metadata_text)
-                            if year_match:
-                                year = int(year_match.group(1))
+                            metadata = item.find_element("css selector", ".cli-title-metadata")
+                            year_element = metadata.find_element("css selector", ".cli-title-metadata-item")
+                            year = int(year_element.text)
                             logging.debug(f"Extracted year for {title}: {year}")
                         except Exception as e:
                             logging.warning(f"Could not extract year for {title}: {str(e)}")
                         
-                        # More robust media type detection
-                        media_type = "movie"  # default
-                        try:
-                            type_element = item.find_element("css selector", ".dli-title-type-data")
-                            if "TV Series" in type_element.text or "TV Mini Series" in type_element.text:
-                                media_type = "tv"
-                        except Exception:
-                            try:
-                                if "eps" in metadata_text or "episodes" in metadata_text.lower():
-                                    media_type = "tv"
-                            except Exception:
-                                logging.warning(f"Could not determine media type from metadata for {title}")
-                        
                         # Get IMDB ID from the title link
                         title_link = item.find_element("css selector", "a.ipc-title-link-wrapper")
                         imdb_id = title_link.get_attribute("href").split("/")[4]
+                        
+                        # For charts, all items are movies unless explicitly marked as TV
+                        media_type = "movie"
+                        try:
+                            if "TV" in metadata.text:
+                                media_type = "tv"
+                        except Exception:
+                            pass
                         
                         media_items.append({
                             "title": title.strip(),
@@ -330,64 +334,137 @@ def fetch_imdb_list(list_id):
                         logging.info(f"Added {media_type}: {title} ({year}) (IMDB ID: {imdb_id})")
                         
                     except Exception as e:
-                        logging.warning(f"Failed to parse IMDb item: {str(e)}")
+                        logging.warning(f"Failed to parse IMDb chart item: {str(e)}")
                         continue
                 
-                # Check if we've processed all expected pages
-                if expected_pages and current_page >= expected_pages:
-                    logging.info(f"Reached final page {current_page} of {expected_pages}")
-                    break
+            else:
+                # Wait for list content to load
+                sb.wait_for_element_present('[data-testid="list-page-mc-list-content"]', timeout=20)
                 
-                # Try to navigate to next page
+                # Get total number of items
                 try:
-                    # First try clicking the button using a more specific selector
-                    try:
-                        next_button = sb.find_element(
-                            "css selector", 
-                            "button.ipc-responsive-button[aria-label='Next']:not([disabled])"
-                        )
-                        if next_button:
-                            sb.execute_script("arguments[0].scrollIntoView(true);", next_button)
-                            sb.sleep(1)  # Give time for scrolling
-                            next_button.click()
-                            
-                            # Wait for loading spinner to disappear and content to load
-                            sb.wait_for_element_present('[data-testid="list-page-mc-list-content"]', timeout=10)
-                            sb.sleep(3)  # Additional wait for content to fully render
-                            
-                            # Verify we have items on the page
-                            new_items = sb.find_elements(".sc-2bfd043a-3.jpWwpQ")
-                            if not new_items:
-                                logging.warning(f"No items found after navigation to page {current_page + 1}, retrying...")
-                                # Fall back to direct URL navigation
-                                next_page = current_page + 1
-                                next_url = f"{url}/?page={next_page}"
-                                sb.open(next_url)
-                                sb.wait_for_element_present('[data-testid="list-page-mc-list-content"]', timeout=10)
-                                sb.sleep(3)
-                    except Exception as e:
-                        logging.info(f"Could not click next button: {str(e)}")
-                        # Fall back to direct URL navigation
-                        next_page = current_page + 1
-                        next_url = f"{url}/?page={next_page}"
-                        logging.info(f"Attempting to navigate directly to page {next_page}: {next_url}")
-                        sb.open(next_url)
-                        sb.wait_for_element_present('[data-testid="list-page-mc-list-content"]', timeout=10)
-                        sb.sleep(3)
-                    
-                    current_page += 1
-                    sb.sleep(2)
+                    total_element = sb.find_element('[data-testid="list-page-mc-total-items"]')
+                    total_text = total_element.text
+                    total_items = int(re.search(r'(\d+)\s+titles?', total_text).group(1))
+                    logging.info(f"Total items in list: {total_items}")
+                    expected_pages = (total_items + 249) // 250  # Round up division by 250
+                    logging.info(f"Expected number of pages: {expected_pages}")
                 except Exception as e:
-                    logging.info(f"No more pages available: {str(e)}")
-                    break
-            
-            # Validate total items found
-            if total_items and len(media_items) < total_items:
-                logging.warning(f"Only found {len(media_items)} items out of {total_items} total")
-            
-            print(color_gradient(f"✨  Found {len(media_items)} items from IMDB list {list_id}!", "#00ff00", "#00aa00"))
-            logging.info(f"IMDB list {list_id} fetched successfully. Found {len(media_items)} items.")
-            return media_items
+                    logging.warning(f"Could not determine total items: {str(e)}")
+                    total_items = None
+                    expected_pages = None
+                
+                current_page = 1
+                
+                # Process items on the page
+                while True:
+                    items = sb.find_elements(".sc-2bfd043a-3.jpWwpQ")
+                    logging.info(f"Processing page {current_page}: Found {len(items)} items")
+                    
+                    for item in items:
+                        try:
+                            # Get title element
+                            title_element = item.find_element("css selector", ".ipc-title__text")
+                            full_title = title_element.text
+                            title = full_title.split(". ", 1)[1] if ". " in full_title else full_title
+                            
+                            # Get year from metadata
+                            year = None
+                            try:
+                                metadata = item.find_element("css selector", ".dli-title-metadata")
+                                metadata_text = metadata.text
+                                # Extract year from formats like "2008–2013" or "2024"
+                                year_match = re.search(r'(\d{4})', metadata_text)
+                                if year_match:
+                                    year = int(year_match.group(1))
+                                logging.debug(f"Extracted year for {title}: {year}")
+                            except Exception as e:
+                                logging.warning(f"Could not extract year for {title}: {str(e)}")
+                            
+                            # More robust media type detection
+                            media_type = "movie"  # default
+                            try:
+                                type_element = item.find_element("css selector", ".dli-title-type-data")
+                                if "TV Series" in type_element.text or "TV Mini Series" in type_element.text:
+                                    media_type = "tv"
+                            except Exception:
+                                try:
+                                    if "eps" in metadata_text or "episodes" in metadata_text.lower():
+                                        media_type = "tv"
+                                except Exception:
+                                    logging.warning(f"Could not determine media type from metadata for {title}")
+                            
+                            # Get IMDB ID from the title link
+                            title_link = item.find_element("css selector", "a.ipc-title-link-wrapper")
+                            imdb_id = title_link.get_attribute("href").split("/")[4]
+                            
+                            media_items.append({
+                                "title": title.strip(),
+                                "imdb_id": imdb_id,
+                                "media_type": media_type,
+                                "year": year
+                            })
+                            logging.info(f"Added {media_type}: {title} ({year}) (IMDB ID: {imdb_id})")
+                            
+                        except Exception as e:
+                            logging.warning(f"Failed to parse IMDb item: {str(e)}")
+                            continue
+                    
+                    # Check if we've processed all expected pages
+                    if expected_pages and current_page >= expected_pages:
+                        logging.info(f"Reached final page {current_page} of {expected_pages}")
+                        break
+                    
+                    # Try to navigate to next page
+                    try:
+                        # First try clicking the button using a more specific selector
+                        try:
+                            next_button = sb.find_element(
+                                "css selector", 
+                                "button.ipc-responsive-button[aria-label='Next']:not([disabled])"
+                            )
+                            if next_button:
+                                sb.execute_script("arguments[0].scrollIntoView(true);", next_button)
+                                sb.sleep(1)  # Give time for scrolling
+                                next_button.click()
+                                
+                                # Wait for loading spinner to disappear and content to load
+                                sb.wait_for_element_present('[data-testid="list-page-mc-list-content"]', timeout=10)
+                                sb.sleep(3)  # Additional wait for content to fully render
+                                
+                                # Verify we have items on the page
+                                new_items = sb.find_elements(".sc-2bfd043a-3.jpWwpQ")
+                                if not new_items:
+                                    logging.warning(f"No items found after navigation to page {current_page + 1}, retrying...")
+                                    # Fall back to direct URL navigation
+                                    next_page = current_page + 1
+                                    next_url = f"{url}/?page={next_page}"
+                                    sb.open(next_url)
+                                    sb.wait_for_element_present('[data-testid="list-page-mc-list-content"]', timeout=10)
+                                    sb.sleep(3)
+                        except Exception as e:
+                            logging.info(f"Could not click next button: {str(e)}")
+                            # Fall back to direct URL navigation
+                            next_page = current_page + 1
+                            next_url = f"{url}/?page={next_page}"
+                            logging.info(f"Attempting to navigate directly to page {next_page}: {next_url}")
+                            sb.open(next_url)
+                            sb.wait_for_element_present('[data-testid="list-page-mc-list-content"]', timeout=10)
+                            sb.sleep(3)
+                        
+                        current_page += 1
+                        sb.sleep(2)
+                    except Exception as e:
+                        logging.info(f"No more pages available: {str(e)}")
+                        break
+                
+                # Validate total items found
+                if total_items and len(media_items) < total_items:
+                    logging.warning(f"Only found {len(media_items)} items out of {total_items} total")
+                
+                print(color_gradient(f"✨  Found {len(media_items)} items from IMDB list {list_id}!", "#00ff00", "#00aa00"))
+                logging.info(f"IMDB list {list_id} fetched successfully. Found {len(media_items)} items.")
+                return media_items
         
     except Exception as e:
         print(color_gradient(f"💥  Failed to fetch IMDB list {list_id}. Error: {str(e)}", "#ff0000", "#aa0000"))
@@ -401,8 +478,19 @@ def fetch_trakt_list(list_id):
     
     try:
         with SB(uc=True, headless=True) as sb:
-            base_url = f"https://trakt.tv/lists/{list_id}"
-            sb.open(base_url)
+            # Handle full URLs vs list IDs
+            if list_id.startswith(('http://', 'https://')):
+                url = list_id.rstrip('/')  # Use the provided URL directly
+                if not ('trakt.tv/lists/' in url or 'trakt.tv/users/' in url):
+                    raise ValueError("Invalid Trakt URL format")
+            else:
+                # Existing logic for numeric list IDs
+                if not list_id.isdigit():
+                    raise ValueError("Invalid Trakt list ID format - must be numeric")
+                url = f"https://trakt.tv/lists/{list_id}"
+            
+            logging.info(f"Attempting to load URL: {url}")
+            sb.open(url)
             
             # Wait for container to load
             sb.wait_for_element_present(".container", timeout=10)
