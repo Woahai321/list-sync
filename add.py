@@ -35,13 +35,10 @@ DATA_DIR = "./data"
 CONFIG_FILE = os.path.join(DATA_DIR, "config.enc")
 DB_FILE = os.path.join(DATA_DIR, "list_sync.db")
 
-<<<<<<< Updated upstream
-=======
 # Load environment variables if .env exists
 if os.path.exists('.env'):
     load_dotenv()
 
->>>>>>> Stashed changes
 class SyncResults:
     def __init__(self):
         self.start_time = time.time()
@@ -194,19 +191,11 @@ def display_ascii_art():
 def display_banner():
     """Display the banner."""
     banner = """
-<<<<<<< Updated upstream
-    ==============================================================
-             Soluify - {servarr-tools_list-sync_v0.5.4}
-    ==============================================================
-    """
-    print(color_gradient(banner, "#aa00aa", "#00aa00") + Style.RESET_ALL)
-=======
 ==============================================================
 Soluify - {servarr-tools_list-sync_v0.5.4}
 ==============================================================
 """
     print(color_gradient(banner, "#00aaff", "#00ffaa"))
->>>>>>> Stashed changes
 
 def encrypt_config(data, password):
     key = base64.urlsafe_b64encode(password.encode().ljust(32)[:32])
@@ -680,8 +669,6 @@ def normalize_title(title: str) -> str:
     # Convert to lowercase and remove extra spaces
     normalized = ' '.join(normalized.lower().split())
     return normalized
-<<<<<<< Updated upstream
-=======
 
 def calculate_title_similarity(title1: str, title2: str) -> float:
     """Calculate fuzzy match similarity between two titles."""
@@ -715,7 +702,6 @@ def calculate_title_similarity(title1: str, title2: str) -> float:
     # Convert distance to similarity score (0 to 1)
     similarity = 1 - (distance / max_length)
     return similarity
->>>>>>> Stashed changes
 
 def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type, release_year=None):
     headers = {"X-Api-Key": api_key}
@@ -731,17 +717,10 @@ def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type, r
     
     while True:
         try:
-<<<<<<< Updated upstream
-            encoded_query = requests.utils.quote(media_title)
-            url = f"{search_url}?query={encoded_query}&page={page}&language=en"
-            
-            logging.debug(f"Searching for '{media_title}' (normalized: '{search_title_normalized}')")
-=======
             encoded_query = requests.utils.quote(search_title)
             url = f"{search_url}?query={encoded_query}&page={page}&language=en"
             
             logging.debug(f"Searching for '{search_title}' (Year: {release_year})")
->>>>>>> Stashed changes
             response = requests.get(url, headers=headers, timeout=10)
             
             if response.status_code == 429:
@@ -764,41 +743,6 @@ def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type, r
                 result_title = result.get("title") if media_type == "movie" else result.get("name")
                 if not result_title:
                     continue
-<<<<<<< Updated upstream
-                
-                result_title_normalized = normalize_title(result_title)
-                
-                # Log all potential matches for debugging
-                logging.debug(f"Comparing '{result_title}' (normalized: '{result_title_normalized}')")
-                
-                # Check for exact title match first
-                if result_title_normalized == search_title_normalized:
-                    logging.info(f"Found exact title match: '{result_title}'")
-                    
-                    # Get year if available
-                    result_year = None
-                    try:
-                        if media_type == "movie" and "releaseDate" in result:
-                            result_year = int(result["releaseDate"][:4])
-                        elif media_type == "tv" and "firstAirDate" in result:
-                            result_year = int(result["firstAirDate"][:4])
-                    except (ValueError, TypeError):
-                        pass
-                    
-                    # If we have a year to match against
-                    if release_year and result_year:
-                        year_diff = abs(result_year - release_year)
-                        if year_diff < closest_year_diff:
-                            closest_year_diff = year_diff
-                            best_match = result
-                            logging.info(f"Updated best match due to closer year: {result_title} ({result_year})")
-                    elif not best_match:  # If no year to match against, take the first exact title match
-                        best_match = result
-                        logging.info(f"Taking first exact match: {result_title}")
-                        break  # We found an exact title match, no need to keep searching
-            
-            if best_match or page >= search_results.get("totalPages", 1):
-=======
                 
                 # Get year
                 result_year = None
@@ -838,17 +782,12 @@ def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type, r
             
             # Only continue to next page if we haven't found a good match
             if best_score > 1.5 or page >= search_results.get("totalPages", 1):
->>>>>>> Stashed changes
                 break
             
             page += 1
             
         except requests.exceptions.RequestException as e:
-<<<<<<< Updated upstream
-            logging.error(f'Error searching for "{media_title}": {str(e)}')
-=======
             logging.error(f'Error searching for "{search_title}": {str(e)}')
->>>>>>> Stashed changes
             if "429" in str(e):
                 time.sleep(5)
                 continue
@@ -865,11 +804,7 @@ def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type, r
         except (ValueError, TypeError):
             pass
         
-<<<<<<< Updated upstream
-        logging.info(f"Final match for '{media_title}': '{result_title}' ({result_year})")
-=======
         logging.info(f"Final match for '{media_title}' ({release_year}): '{result_title}' ({result_year}) - Score: {best_score}")
->>>>>>> Stashed changes
         return {
             "id": best_match["id"],
             "mediaType": best_match["mediaType"],
@@ -1079,18 +1014,12 @@ def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, r
     media_type = item.get('media_type', 'unknown')
     year = item.get('year')
     
-<<<<<<< Updated upstream
-    # Add year and media_type to the return data
-    result = {
-        "title": title,
-=======
     # Strip any year from the title (e.g., "Cinderella 1997" -> "Cinderella")
     search_title = re.sub(r'\s*\(?(?:19|20)\d{2}\)?$', '', title).strip()
     
     # Add year and media_type to the return data
     result = {
         "title": title,  # Keep original title for display
->>>>>>> Stashed changes
         "year": year,
         "media_type": media_type,
         "error_message": None
@@ -1113,26 +1042,16 @@ def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, r
             
             # Check if we should skip this item based on last sync time
             if not should_sync_item(overseerr_id):
-<<<<<<< Updated upstream
-=======
                 save_sync_result(title, media_type, None, overseerr_id, "skipped")
->>>>>>> Stashed changes
                 return {"title": title, "status": "skipped", "year": year, "media_type": media_type}
 
             is_available, is_requested, number_of_seasons = confirm_media_status(overseerr_url, api_key, overseerr_id, search_result["mediaType"])
             
             if is_available:
-<<<<<<< Updated upstream
-                save_sync_result(title, media_type, None, None, "already_available")
-                return {"title": title, "status": "already_available", "year": year, "media_type": media_type}
-            elif is_requested:
-                save_sync_result(title, media_type, None, None, "already_requested")
-=======
                 save_sync_result(title, media_type, None, overseerr_id, "already_available")
                 return {"title": title, "status": "already_available", "year": year, "media_type": media_type}
             elif is_requested:
                 save_sync_result(title, media_type, None, overseerr_id, "already_requested")
->>>>>>> Stashed changes
                 return {"title": title, "status": "already_requested", "year": year, "media_type": media_type}
             else:
                 if search_result["mediaType"] == 'tv':
@@ -1141,17 +1060,10 @@ def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, r
                     request_status = request_media_in_overseerr(overseerr_url, api_key, requester_user_id, overseerr_id, search_result["mediaType"])
                 
                 if request_status == "success":
-<<<<<<< Updated upstream
-                    save_sync_result(title, media_type, None, None, "requested")
-                    return {"title": title, "status": "requested", "year": year, "media_type": media_type}
-                else:
-                    save_sync_result(title, media_type, None, None, "request_failed")
-=======
                     save_sync_result(title, media_type, None, overseerr_id, "requested")
                     return {"title": title, "status": "requested", "year": year, "media_type": media_type}
                 else:
                     save_sync_result(title, media_type, None, overseerr_id, "request_failed")
->>>>>>> Stashed changes
                     return {"title": title, "status": "request_failed", "year": year, "media_type": media_type}
         else:
             save_sync_result(title, media_type, None, None, "not_found")
@@ -1161,9 +1073,6 @@ def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, r
         result["error_message"] = str(e)
         return result
 
-<<<<<<< Updated upstream
-    return result
-=======
 def sleep_with_countdown(seconds, overseerr_url, api_key, requester_user_id, setup_logging):
     """Sleep with countdown and handle keyboard interrupts for exit or sync."""
     import select
@@ -1240,7 +1149,6 @@ def sleep_with_countdown(seconds, overseerr_url, api_key, requester_user_id, set
     finally:
         # Restore terminal settings
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
->>>>>>> Stashed changes
 
 def process_media(media_items: List[Dict[str, Any]], overseerr_url: str, api_key: str, requester_user_id: str, dry_run: bool = False):
     sync_results = SyncResults()
@@ -1261,11 +1169,6 @@ def process_media(media_items: List[Dict[str, Any]], overseerr_url: str, api_key
                 
                 # Track additional information
                 if status == "not_found":
-<<<<<<< Updated upstream
-                    sync_results.not_found_items.append({
-                        "title": result["title"],
-                        "year": result["year"]
-=======
                     # Ensure consistent title (year) format
                     title = result["title"].strip()
                     year = result["year"]
@@ -1277,7 +1180,6 @@ def process_media(media_items: List[Dict[str, Any]], overseerr_url: str, api_key
                     sync_results.not_found_items.append({
                         "title": title_with_year,
                         "year": year
->>>>>>> Stashed changes
                     })
                 elif status == "error":
                     sync_results.error_items.append({
@@ -1329,108 +1231,6 @@ def process_media(media_items: List[Dict[str, Any]], overseerr_url: str, api_key
         display_summary(sync_results)
 
 def display_summary(sync_results: SyncResults):
-<<<<<<< Updated upstream
-    processing_time = time.time() - sync_results.start_time
-    total_items = sync_results.total_items or 1
-    avg_time = processing_time / total_items if total_items > 0 else 0
-    
-    # Create box-drawing characters
-    TOP_LEFT = "╔"
-    TOP_RIGHT = "╗"
-    BOTTOM_LEFT = "╚"
-    BOTTOM_RIGHT = "╝"
-    HORIZONTAL = "═"
-    VERTICAL = "║"
-    
-    def create_box(title: str, content: str, width: int) -> List[str]:
-        lines = []
-        lines.append(f"{TOP_LEFT}{HORIZONTAL * 2} {title} {HORIZONTAL * (width - len(title) - 4)}{TOP_RIGHT}")
-        content_lines = [line.strip() for line in content.split('\n') if line.strip()]
-        for line in content_lines:
-            lines.append(f"{VERTICAL} {line:<{width-2}} {VERTICAL}")
-        lines.append(f"{BOTTOM_LEFT}{HORIZONTAL * width}{BOTTOM_RIGHT}")
-        return lines
-
-    # Create header
-    summary = "\n" + "─" * 50 + "\n"
-    summary += "                 Sync Summary\n"
-    summary += "─" * 50 + "\n\n"
-
-    # Create boxes for different sections
-    stats_box = create_box("Processing Stats", f"""
-Total Items: {sync_results.total_items}
-Total Time: {int(processing_time // 60)}m {int(processing_time % 60)}s
-Avg Time: {avg_time:.1f}s/item""", 35)
-
-    status_box = create_box("Status Summary", f"""
-✅ Requested: {sync_results.results['requested']}
-☑️  Available: {sync_results.results['already_available']}
-📌 Already Requested: {sync_results.results['already_requested']}
-⏭️  Skipped: {sync_results.results['skipped']}""", 35)
-
-    media_box = create_box("Media Types", f"""
-Movies: {sync_results.media_type_counts['movie']} ({sync_results.media_type_counts['movie']/total_items*100:.1f}%)
-TV Shows: {sync_results.media_type_counts['tv']} ({sync_results.media_type_counts['tv']/total_items*100:.1f}%)""", 35)
-
-    year_box = create_box("Year Distribution", f"""
-Pre-1980: {sync_results.year_distribution['pre-1980']}
-1980-1999: {sync_results.year_distribution['1980-1999']}
-2000-2019: {sync_results.year_distribution['2000-2019']}
-2020+: {sync_results.year_distribution['2020+']}""", 35)
-
-    # Create not found items box with consistent year formatting
-    not_found_items = []
-    for item in sync_results.not_found_items:
-        title = item['title']
-        year = item.get('year')
-        not_found_items.append(f"• {title}" + (f" ({year})" if year else ""))
-    
-    not_found_box = create_box(f"Not Found Items ({len(sync_results.not_found_items)})", 
-                              "\n".join(not_found_items), 72)
-
-    # Create error items box if there are any
-    if sync_results.error_items:
-        error_box = create_box("Errors", "\n".join(
-            f"• {item['title']}: {item['error']}"
-            for item in sync_results.error_items
-        ), 72)
-    else:
-        error_box = []
-
-    # Combine boxes horizontally and vertically
-    # First row: Stats and Status
-    max_lines = max(len(stats_box), len(status_box))
-    while len(stats_box) < max_lines:
-        stats_box.insert(-1, f"{VERTICAL} {' ' * 33} {VERTICAL}")
-    while len(status_box) < max_lines:
-        status_box.insert(-1, f"{VERTICAL} {' ' * 33} {VERTICAL}")
-
-    for i in range(max_lines):
-        summary += f"{stats_box[i]}  {status_box[i]}\n"
-    summary += "\n"
-
-    # Second row: Media Types and Year Distribution
-    max_lines = max(len(media_box), len(year_box))
-    while len(media_box) < max_lines:
-        media_box.insert(-1, f"{VERTICAL} {' ' * 33} {VERTICAL}")
-    while len(year_box) < max_lines:
-        year_box.insert(-1, f"{VERTICAL} {' ' * 33} {VERTICAL}")
-
-    for i in range(max_lines):
-        summary += f"{media_box[i]}  {year_box[i]}\n"
-    summary += "\n"
-
-    # Third row: Not Found Items
-    for line in not_found_box:
-        summary += f"{line}\n"
-
-    # Fourth row: Errors (if any)
-    if error_box:
-        for line in error_box:
-            summary += f"{line}\n"
-
-    print(color_gradient(summary, "#00aaff", "#00ffaa") + Style.RESET_ALL)
-=======
     """Display sync results in a simple vertical format."""
     processing_time = time.time() - sync_results.start_time
     total_items = sync_results.total_items or 1
@@ -1470,7 +1270,6 @@ Pre-1980: {sync_results.year_distribution['pre-1980']}
             summary += f"• {item['title']}\n"
 
     print(color_gradient(summary, "#9400D3", "#00FF00") + Style.RESET_ALL)
->>>>>>> Stashed changes
 
 def display_menu():
     menu = """
@@ -1556,71 +1355,7 @@ def one_time_list_sync(overseerr_url, api_key, requester_user_id, added_logger):
 def add_new_lists():
     add_new_list = True
     while add_new_list:
-<<<<<<< Updated upstream
-        list_ids = custom_input(color_gradient("\n🎬  Enter List ID(s) (comma-separated for multiple): ", "#ffaa00", "#ff5500"))
-        
-        # Split by comma but preserve commas in URLs
-        def smart_split(input_str):
-            parts = []
-            current = []
-            in_url = False
-            
-            for char in input_str:
-                if char == ',' and not in_url:
-                    if current:
-                        parts.append(''.join(current).strip())
-                        current = []
-                else:
-                    if char == '?' or 'trakt.tv' in ''.join(current):
-                        in_url = True
-                    current.append(char)
-            
-            if current:
-                parts.append(''.join(current).strip())
-            
-            return parts
-        
-        list_ids = smart_split(list_ids)
-        
-        for list_id in list_ids:
-            try:
-                # Determine list type and validate
-                if list_id.startswith(('http://', 'https://')):
-                    if 'imdb.com' in list_id:
-                        list_type = "imdb"
-                    elif 'trakt.tv' in list_id:
-                        list_type = "trakt"
-                        # Don't strip query parameters from Trakt URLs
-                        list_id = list_id.strip()
-                    elif 'letterboxd.com' in list_id and '/list/' in list_id:
-                        list_type = "letterboxd"
-                        list_id = list_id.rstrip('/')
-                    else:
-                        raise ValueError("Invalid URL - must be IMDb, Trakt, or Letterboxd")
-                elif list_id in ['top', 'boxoffice', 'moviemeter', 'tvmeter']:
-                    # Verify the list works before saving
-                    test_items = fetch_imdb_list(list_id)  # Add this test
-                    if not test_items:  # Add this check
-                        raise ValueError("Failed to fetch items from list")
-                    list_type = "imdb"
-                elif list_id.startswith(('ls', 'ur')):
-                    list_type = "imdb"
-                elif list_id.isdigit():
-                    list_type = "trakt"
-                else:
-                    raise ValueError("Invalid list ID format")
-
-                confirmation_message = f"Are you sure this {list_type.upper()} list is correct? (ID/URL: {list_id})"
-                add_to_sync = custom_input(color_gradient(f"\n🚨  {confirmation_message} (y/n): ", "#ffaa00", "#ff5500")).lower()
-                if add_to_sync == "y":
-                    save_list_id(list_id, list_type)
-            except ValueError as e:
-                print(color_gradient(f"\n❌  Invalid list ID format for '{list_id}'. {str(e)}", "#ff0000", "#aa0000"))
-                continue
-
-=======
         add_list_to_sync()
->>>>>>> Stashed changes
         more_lists = custom_input(color_gradient("\n🏁  Do you want to import any other lists? (y/n): ", "#ffaa00", "#ff5500")).lower()
         if more_lists != "y":
             add_new_list = False
