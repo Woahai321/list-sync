@@ -613,7 +613,7 @@ def fetch_letterboxd_list(list_id):
                             sb.sleep(2)  # Wait for next page to load
                         else:
                             break
-                    except Exception as e:
+                    except Exception:  # Removed unused 'e' variable
                         logging.info("No next page found, ending pagination")
                         break
                         
