@@ -1252,9 +1252,9 @@ def display_summary(sync_results: SyncResults):
     summary += "Status Summary\n"
     summary += "─────────────\n"
     summary += f"✅ Requested: {sync_results.results['requested']}\n"
-    summary += f"☑️ Available: {sync_results.results['already_available']}\n"
+    summary += f"☑️  Available: {sync_results.results['already_available']}\n"
     summary += f"📌 Already Requested: {sync_results.results['already_requested']}\n"
-    summary += f"⏭️ Skipped: {sync_results.results['skipped']}\n\n"
+    summary += f"⏭️  Skipped: {sync_results.results['skipped']}\n\n"
 
     # Media Types
     summary += "Media Types\n"
