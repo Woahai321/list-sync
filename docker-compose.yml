@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   listsync:
@@ -16,4 +16,4 @@ services:
       - LETTERBOXD_LISTS=${LETTERBOXD_LISTS}
     volumes:
       - ./data:/usr/src/app/data
-    restart: unless-stopped 
+    restart: unless-stopped

@@ -1,5 +1,5 @@
 # =============================================================================
-# Soluify  |  Your #1 IT Problem Solver  |  {list-sync v0.5.4}
+# Soluify  |  Your #1 IT Problem Solver  |  {list-sync v0.5.5}
 # =============================================================================
 #  __         _
 # (_  _ |   .(_
@@ -191,7 +191,7 @@ def display_banner():
     """Display the banner."""
     banner = """
 ==============================================================
-Soluify - {servarr-tools_list-sync_v0.5.4}
+Soluify - {servarr-tools_list-sync_v0.5.5}
 ==============================================================
 """
     print(color_gradient(banner, "#00aaff", "#00ffaa"))
@@ -1574,5 +1574,5 @@ if __name__ == "__main__":
     main()
 
 # =======================================================================================================
-# Soluify  |  You actually read it? Nice work, stay safe out there people!  |  {list-sync v0.5.4}
+# Soluify  |  You actually read it? Nice work, stay safe out there people!  |  {list-sync v0.5.5}
 # =======================================================================================================
