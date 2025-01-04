@@ -1075,80 +1075,30 @@ def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, r
 
 def sleep_with_countdown(seconds, overseerr_url, api_key, requester_user_id, setup_logging):
     """Sleep with countdown and handle keyboard interrupts for exit or sync."""
-    import select
-    import termios
-    import tty
+    import sys
+    import time
     
-    def is_data():
-        """Check if there's data waiting on stdin."""
-        return select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], [])
-    
-    def show_controls():
-        """Display the available controls."""
-        print(color_gradient("\n⌨️  Controls:", "#00aaff", "#00ffaa"))
-        print(color_gradient("• Press Ctrl+C to exit", "#ffaa00", "#ff5500"))
-        print(color_gradient("• Press 's' to sync now", "#ffaa00", "#ff5500"))
-        print(color_gradient("• Press 'e' to edit lists", "#ffaa00", "#ff5500"))
-    
-    start_time = time.time()
-    end_time = start_time + seconds
-    
-    # Show initial controls
-    show_controls()
-    
-    # Save terminal settings
-    old_settings = termios.tcgetattr(sys.stdin)
+    # Non-interactive mode (e.g., Docker container)
     try:
-        # Set terminal to raw mode
-        tty.setraw(sys.stdin.fileno())
+        start_time = time.time()
+        end_time = start_time + seconds
         
         while time.time() < end_time:
             remaining = end_time - time.time()
-            print(f'\r{color_gradient(f"😴  Next sync in: {format_time_remaining(remaining)}", "#00aaff", "#00ffaa")}', end='', flush=True)
+            hours = int(remaining // 3600)
+            minutes = int((remaining % 3600) // 60)
+            print(f'Next sync in: {hours}h {minutes}m', flush=True)
             
             # Check for interrupt.txt
             if os.path.exists(f"{DATA_DIR}/interrupt.txt"):
                 os.remove(f"{DATA_DIR}/interrupt.txt")
                 raise KeyboardInterrupt()
-            
-            # Check for keyboard input
-            if is_data():
-                c = sys.stdin.read(1)
-                if c == 's':
-                    # Restore terminal settings before printing
-                    termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
-                    print(color_gradient("\n\n🔄 Running manual sync...", "#00ff00", "#00aa00"))
-                    start_sync(overseerr_url, api_key, requester_user_id, setup_logging())
-                    # Reset the timer
-                    start_time = time.time()
-                    end_time = start_time + seconds
-                    # Show controls again after sync
-                    show_controls()
-                    # Set terminal back to raw mode
-                    tty.setraw(sys.stdin.fileno())
-                elif c == 'e':
-                    # Restore terminal settings before editing
-                    termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
-                    print(color_gradient("\n\n📝 Editing lists...", "#00ff00", "#00aa00"))
-                    manage_lists()
-                    # Reset the timer
-                    start_time = time.time()
-                    end_time = start_time + seconds
-                    # Show controls again after editing
-                    show_controls()
-                    # Set terminal back to raw mode
-                    tty.setraw(sys.stdin.fileno())
-                elif c == '\x03':  # Ctrl+C
-                    raise KeyboardInterrupt()
-            
-            time.sleep(0.1)
+                
+            time.sleep(60)  # Sleep for 1 minute between updates
             
     except KeyboardInterrupt:
-        print(color_gradient("\n\n👋 Exiting automated sync mode...", "#ffaa00", "#ff5500"))
+        print("\nExiting automated sync mode...")
         raise
-    finally:
-        # Restore terminal settings
-        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
 
 def process_media(media_items: List[Dict[str, Any]], overseerr_url: str, api_key: str, requester_user_id: str, dry_run: bool = False):
     sync_results = SyncResults()
