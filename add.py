@@ -18,12 +18,14 @@ import readline
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
 import re
+import sys
 
 import requests
 from colorama import Style, init
 from cryptography.fernet import Fernet
 from halo import Halo
 from seleniumbase import SB
+from dotenv import load_dotenv
 
 # Initialize colorama for cross-platform colored terminal output
 init(autoreset=True)
@@ -33,6 +35,13 @@ DATA_DIR = "./data"
 CONFIG_FILE = os.path.join(DATA_DIR, "config.enc")
 DB_FILE = os.path.join(DATA_DIR, "list_sync.db")
 
+<<<<<<< Updated upstream
+=======
+# Load environment variables if .env exists
+if os.path.exists('.env'):
+    load_dotenv()
+
+>>>>>>> Stashed changes
 class SyncResults:
     def __init__(self):
         self.start_time = time.time()
@@ -183,12 +192,21 @@ def display_ascii_art():
     print(Style.RESET_ALL)
 
 def display_banner():
+    """Display the banner."""
     banner = """
+<<<<<<< Updated upstream
     ==============================================================
              Soluify - {servarr-tools_list-sync_v0.5.4}
     ==============================================================
     """
     print(color_gradient(banner, "#aa00aa", "#00aa00") + Style.RESET_ALL)
+=======
+==============================================================
+Soluify - {servarr-tools_list-sync_v0.5.4}
+==============================================================
+"""
+    print(color_gradient(banner, "#00aaff", "#00ffaa"))
+>>>>>>> Stashed changes
 
 def encrypt_config(data, password):
     key = base64.urlsafe_b64encode(password.encode().ljust(32)[:32])
@@ -662,23 +680,68 @@ def normalize_title(title: str) -> str:
     # Convert to lowercase and remove extra spaces
     normalized = ' '.join(normalized.lower().split())
     return normalized
+<<<<<<< Updated upstream
+=======
+
+def calculate_title_similarity(title1: str, title2: str) -> float:
+    """Calculate fuzzy match similarity between two titles."""
+    # Convert to lowercase for comparison but keep articles
+    t1 = title1.lower()
+    t2 = title2.lower()
+    
+    # Calculate Levenshtein distance
+    def levenshtein(s1, s2):
+        if len(s1) < len(s2):
+            return levenshtein(s2, s1)
+        if len(s2) == 0:
+            return len(s1)
+        
+        previous_row = range(len(s2) + 1)
+        for i, c1 in enumerate(s1):
+            current_row = [i + 1]
+            for j, c2 in enumerate(s2):
+                insertions = previous_row[j + 1] + 1
+                deletions = current_row[j] + 1
+                substitutions = previous_row[j] + (c1 != c2)
+                current_row.append(min(insertions, deletions, substitutions))
+            previous_row = current_row
+        
+        return previous_row[-1]
+    
+    # Get the Levenshtein distance
+    distance = levenshtein(t1, t2)
+    max_length = max(len(t1), len(t2))
+    
+    # Convert distance to similarity score (0 to 1)
+    similarity = 1 - (distance / max_length)
+    return similarity
+>>>>>>> Stashed changes
 
 def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type, release_year=None):
     headers = {"X-Api-Key": api_key}
     overseerr_url = overseerr_url.rstrip('/')
     search_url = f"{overseerr_url}/api/v1/search"
     
+    # Always search with just the title
+    search_title = media_title
+    
     page = 1
     best_match = None
-    closest_year_diff = float('inf')
-    search_title_normalized = normalize_title(media_title)
+    best_score = 0
     
     while True:
         try:
+<<<<<<< Updated upstream
             encoded_query = requests.utils.quote(media_title)
             url = f"{search_url}?query={encoded_query}&page={page}&language=en"
             
             logging.debug(f"Searching for '{media_title}' (normalized: '{search_title_normalized}')")
+=======
+            encoded_query = requests.utils.quote(search_title)
+            url = f"{search_url}?query={encoded_query}&page={page}&language=en"
+            
+            logging.debug(f"Searching for '{search_title}' (Year: {release_year})")
+>>>>>>> Stashed changes
             response = requests.get(url, headers=headers, timeout=10)
             
             if response.status_code == 429:
@@ -701,6 +764,7 @@ def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type, r
                 result_title = result.get("title") if media_type == "movie" else result.get("name")
                 if not result_title:
                     continue
+<<<<<<< Updated upstream
                 
                 result_title_normalized = normalize_title(result_title)
                 
@@ -734,12 +798,57 @@ def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type, r
                         break  # We found an exact title match, no need to keep searching
             
             if best_match or page >= search_results.get("totalPages", 1):
+=======
+                
+                # Get year
+                result_year = None
+                try:
+                    if media_type == "movie" and "releaseDate" in result:
+                        result_year = int(result["releaseDate"][:4])
+                    elif media_type == "tv" and "firstAirDate" in result:
+                        result_year = int(result["firstAirDate"][:4])
+                except (ValueError, TypeError):
+                    pass
+                
+                # Calculate title similarity
+                similarity = calculate_title_similarity(search_title, result_title)
+                
+                # Calculate final score
+                score = similarity
+                
+                # Year matching
+                if release_year and result_year:
+                    if release_year == result_year:
+                        score *= 2  # Double score for exact year match
+                        logging.debug(f"Exact year match for '{result_title}' ({result_year}) - Base similarity: {similarity}")
+                    elif abs(release_year - result_year) <= 1:
+                        score *= 1.5  # 1.5x score for off-by-one year
+                        logging.debug(f"Close year match for '{result_title}' ({result_year}) - Base similarity: {similarity}")
+                
+                logging.debug(f"Match candidate: '{result_title}' ({result_year}) - Score: {score}")
+                
+                # Update best match if we have a better score
+                # For exact year matches, require a lower similarity threshold
+                min_similarity = 0.5 if (release_year and result_year and release_year == result_year) else 0.7
+                
+                if score > best_score and similarity >= min_similarity:
+                    best_score = score
+                    best_match = result
+                    logging.info(f"New best match: '{result_title}' ({result_year}) - Score: {score}")
+            
+            # Only continue to next page if we haven't found a good match
+            if best_score > 1.5 or page >= search_results.get("totalPages", 1):
+>>>>>>> Stashed changes
                 break
             
             page += 1
             
         except requests.exceptions.RequestException as e:
+<<<<<<< Updated upstream
             logging.error(f'Error searching for "{media_title}": {str(e)}')
+=======
+            logging.error(f'Error searching for "{search_title}": {str(e)}')
+>>>>>>> Stashed changes
             if "429" in str(e):
                 time.sleep(5)
                 continue
@@ -756,7 +865,11 @@ def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type, r
         except (ValueError, TypeError):
             pass
         
+<<<<<<< Updated upstream
         logging.info(f"Final match for '{media_title}': '{result_title}' ({result_year})")
+=======
+        logging.info(f"Final match for '{media_title}' ({release_year}): '{result_title}' ({result_year}) - Score: {best_score}")
+>>>>>>> Stashed changes
         return {
             "id": best_match["id"],
             "mediaType": best_match["mediaType"],
@@ -962,13 +1075,22 @@ def save_sync_result(title, media_type, imdb_id, overseerr_id, status):
         conn.commit()
 
 def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, requester_user_id: str, dry_run: bool) -> Dict[str, Any]:
-    title = item.get('title', 'Unknown Title')
+    title = item.get('title', 'Unknown Title').strip()
     media_type = item.get('media_type', 'unknown')
     year = item.get('year')
     
+<<<<<<< Updated upstream
     # Add year and media_type to the return data
     result = {
         "title": title,
+=======
+    # Strip any year from the title (e.g., "Cinderella 1997" -> "Cinderella")
+    search_title = re.sub(r'\s*\(?(?:19|20)\d{2}\)?$', '', title).strip()
+    
+    # Add year and media_type to the return data
+    result = {
+        "title": title,  # Keep original title for display
+>>>>>>> Stashed changes
         "year": year,
         "media_type": media_type,
         "error_message": None
@@ -982,22 +1104,35 @@ def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, r
         search_result = search_media_in_overseerr(
             overseerr_url, 
             api_key, 
-            title, 
+            search_title,  # Use cleaned title for search
             media_type,
-            year  # Pass year as is - it can be None
+            year
         )
         if search_result:
             overseerr_id = search_result["id"]
+            
+            # Check if we should skip this item based on last sync time
             if not should_sync_item(overseerr_id):
+<<<<<<< Updated upstream
+=======
+                save_sync_result(title, media_type, None, overseerr_id, "skipped")
+>>>>>>> Stashed changes
                 return {"title": title, "status": "skipped", "year": year, "media_type": media_type}
 
             is_available, is_requested, number_of_seasons = confirm_media_status(overseerr_url, api_key, overseerr_id, search_result["mediaType"])
             
             if is_available:
+<<<<<<< Updated upstream
                 save_sync_result(title, media_type, None, None, "already_available")
                 return {"title": title, "status": "already_available", "year": year, "media_type": media_type}
             elif is_requested:
                 save_sync_result(title, media_type, None, None, "already_requested")
+=======
+                save_sync_result(title, media_type, None, overseerr_id, "already_available")
+                return {"title": title, "status": "already_available", "year": year, "media_type": media_type}
+            elif is_requested:
+                save_sync_result(title, media_type, None, overseerr_id, "already_requested")
+>>>>>>> Stashed changes
                 return {"title": title, "status": "already_requested", "year": year, "media_type": media_type}
             else:
                 if search_result["mediaType"] == 'tv':
@@ -1006,10 +1141,17 @@ def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, r
                     request_status = request_media_in_overseerr(overseerr_url, api_key, requester_user_id, overseerr_id, search_result["mediaType"])
                 
                 if request_status == "success":
+<<<<<<< Updated upstream
                     save_sync_result(title, media_type, None, None, "requested")
                     return {"title": title, "status": "requested", "year": year, "media_type": media_type}
                 else:
                     save_sync_result(title, media_type, None, None, "request_failed")
+=======
+                    save_sync_result(title, media_type, None, overseerr_id, "requested")
+                    return {"title": title, "status": "requested", "year": year, "media_type": media_type}
+                else:
+                    save_sync_result(title, media_type, None, overseerr_id, "request_failed")
+>>>>>>> Stashed changes
                     return {"title": title, "status": "request_failed", "year": year, "media_type": media_type}
         else:
             save_sync_result(title, media_type, None, None, "not_found")
@@ -1019,7 +1161,86 @@ def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, r
         result["error_message"] = str(e)
         return result
 
+<<<<<<< Updated upstream
     return result
+=======
+def sleep_with_countdown(seconds, overseerr_url, api_key, requester_user_id, setup_logging):
+    """Sleep with countdown and handle keyboard interrupts for exit or sync."""
+    import select
+    import termios
+    import tty
+    
+    def is_data():
+        """Check if there's data waiting on stdin."""
+        return select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], [])
+    
+    def show_controls():
+        """Display the available controls."""
+        print(color_gradient("\n⌨️  Controls:", "#00aaff", "#00ffaa"))
+        print(color_gradient("• Press Ctrl+C to exit", "#ffaa00", "#ff5500"))
+        print(color_gradient("• Press 's' to sync now", "#ffaa00", "#ff5500"))
+        print(color_gradient("• Press 'e' to edit lists", "#ffaa00", "#ff5500"))
+    
+    start_time = time.time()
+    end_time = start_time + seconds
+    
+    # Show initial controls
+    show_controls()
+    
+    # Save terminal settings
+    old_settings = termios.tcgetattr(sys.stdin)
+    try:
+        # Set terminal to raw mode
+        tty.setraw(sys.stdin.fileno())
+        
+        while time.time() < end_time:
+            remaining = end_time - time.time()
+            print(f'\r{color_gradient(f"😴  Next sync in: {format_time_remaining(remaining)}", "#00aaff", "#00ffaa")}', end='', flush=True)
+            
+            # Check for interrupt.txt
+            if os.path.exists(f"{DATA_DIR}/interrupt.txt"):
+                os.remove(f"{DATA_DIR}/interrupt.txt")
+                raise KeyboardInterrupt()
+            
+            # Check for keyboard input
+            if is_data():
+                c = sys.stdin.read(1)
+                if c == 's':
+                    # Restore terminal settings before printing
+                    termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+                    print(color_gradient("\n\n🔄 Running manual sync...", "#00ff00", "#00aa00"))
+                    start_sync(overseerr_url, api_key, requester_user_id, setup_logging())
+                    # Reset the timer
+                    start_time = time.time()
+                    end_time = start_time + seconds
+                    # Show controls again after sync
+                    show_controls()
+                    # Set terminal back to raw mode
+                    tty.setraw(sys.stdin.fileno())
+                elif c == 'e':
+                    # Restore terminal settings before editing
+                    termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+                    print(color_gradient("\n\n📝 Editing lists...", "#00ff00", "#00aa00"))
+                    manage_lists()
+                    # Reset the timer
+                    start_time = time.time()
+                    end_time = start_time + seconds
+                    # Show controls again after editing
+                    show_controls()
+                    # Set terminal back to raw mode
+                    tty.setraw(sys.stdin.fileno())
+                elif c == '\x03':  # Ctrl+C
+                    raise KeyboardInterrupt()
+            
+            time.sleep(0.1)
+            
+    except KeyboardInterrupt:
+        print(color_gradient("\n\n👋 Exiting automated sync mode...", "#ffaa00", "#ff5500"))
+        raise
+    finally:
+        # Restore terminal settings
+        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+>>>>>>> Stashed changes
 
 def process_media(media_items: List[Dict[str, Any]], overseerr_url: str, api_key: str, requester_user_id: str, dry_run: bool = False):
     sync_results = SyncResults()
@@ -1040,9 +1261,23 @@ def process_media(media_items: List[Dict[str, Any]], overseerr_url: str, api_key
                 
                 # Track additional information
                 if status == "not_found":
+<<<<<<< Updated upstream
                     sync_results.not_found_items.append({
                         "title": result["title"],
                         "year": result["year"]
+=======
+                    # Ensure consistent title (year) format
+                    title = result["title"].strip()
+                    year = result["year"]
+                    # Remove any existing year format first
+                    if year:
+                        title_with_year = f"{title} ({year})"
+                    else:
+                        title_with_year = title
+                    sync_results.not_found_items.append({
+                        "title": title_with_year,
+                        "year": year
+>>>>>>> Stashed changes
                     })
                 elif status == "error":
                     sync_results.error_items.append({
@@ -1094,6 +1329,7 @@ def process_media(media_items: List[Dict[str, Any]], overseerr_url: str, api_key
         display_summary(sync_results)
 
 def display_summary(sync_results: SyncResults):
+<<<<<<< Updated upstream
     processing_time = time.time() - sync_results.start_time
     total_items = sync_results.total_items or 1
     avg_time = processing_time / total_items if total_items > 0 else 0
@@ -1194,6 +1430,47 @@ Pre-1980: {sync_results.year_distribution['pre-1980']}
             summary += f"{line}\n"
 
     print(color_gradient(summary, "#00aaff", "#00ffaa") + Style.RESET_ALL)
+=======
+    """Display sync results in a simple vertical format."""
+    processing_time = time.time() - sync_results.start_time
+    total_items = sync_results.total_items or 1
+    avg_time_ms = (processing_time / total_items) * 1000  # Convert to milliseconds
+
+    # Create header
+    summary = "\n" + "-" * 62 + "\n"
+    summary += "Soluify - List Sync Summary\n"
+    summary += "-" * 62 + "\n\n"
+
+    # Processing Stats
+    summary += "Processing Stats\n"
+    summary += "───────────────\n"
+    summary += f"Total Items: {sync_results.total_items}\n"
+    summary += f"Total Time: {int(processing_time // 60)}m {int(processing_time % 60)}s\n"
+    summary += f"Avg Time: {avg_time_ms:.1f}ms/item\n\n"
+
+    # Status Summary
+    summary += "Status Summary\n"
+    summary += "─────────────\n"
+    summary += f"✅ Requested: {sync_results.results['requested']}\n"
+    summary += f"☑️ Available: {sync_results.results['already_available']}\n"
+    summary += f"📌 Already Requested: {sync_results.results['already_requested']}\n"
+    summary += f"⏭️ Skipped: {sync_results.results['skipped']}\n\n"
+
+    # Media Types
+    summary += "Media Types\n"
+    summary += "──────────\n"
+    summary += f"Movies: {sync_results.media_type_counts['movie']} ({sync_results.media_type_counts['movie']/total_items*100:.1f}%)\n"
+    summary += f"TV Shows: {sync_results.media_type_counts['tv']} ({sync_results.media_type_counts['tv']/total_items*100:.1f}%)\n\n"
+
+    # Not Found Items (if any)
+    if sync_results.not_found_items:
+        summary += f"\nNot Found Items ({len(sync_results.not_found_items)})\n"
+        summary += "───────────────\n"
+        for item in sync_results.not_found_items:
+            summary += f"• {item['title']}\n"
+
+    print(color_gradient(summary, "#9400D3", "#00FF00") + Style.RESET_ALL)
+>>>>>>> Stashed changes
 
 def display_menu():
     menu = """
@@ -1279,6 +1556,7 @@ def one_time_list_sync(overseerr_url, api_key, requester_user_id, added_logger):
 def add_new_lists():
     add_new_list = True
     while add_new_list:
+<<<<<<< Updated upstream
         list_ids = custom_input(color_gradient("\n🎬  Enter List ID(s) (comma-separated for multiple): ", "#ffaa00", "#ff5500"))
         
         # Split by comma but preserve commas in URLs
@@ -1340,6 +1618,9 @@ def add_new_lists():
                 print(color_gradient(f"\n❌  Invalid list ID format for '{list_id}'. {str(e)}", "#ff0000", "#aa0000"))
                 continue
 
+=======
+        add_list_to_sync()
+>>>>>>> Stashed changes
         more_lists = custom_input(color_gradient("\n🏁  Do you want to import any other lists? (y/n): ", "#ffaa00", "#ff5500")).lower()
         if more_lists != "y":
             add_new_list = False
@@ -1353,22 +1634,60 @@ def manage_lists():
     while True:
         print(color_gradient("\n📋 Manage Lists:", "#00aaff", "#00ffaa"))
         print(color_gradient("1. View Lists", "#ffaa00", "#ff5500"))
-        print(color_gradient("2. Delete a List", "#ffaa00", "#ff5500"))
-        print(color_gradient("3. Edit Lists", "#ffaa00", "#ff5500"))
-        print(color_gradient("4. Return to Main Menu", "#ffaa00", "#ff5500"))
+        print(color_gradient("2. Add New List", "#ffaa00", "#ff5500"))
+        print(color_gradient("3. Delete a List", "#ffaa00", "#ff5500"))
+        print(color_gradient("4. Edit Lists", "#ffaa00", "#ff5500"))
+        print(color_gradient("5. Return to Previous Menu", "#ffaa00", "#ff5500"))
         
         choice = custom_input(color_gradient("\nEnter your choice: ", "#ffaa00", "#ff5500"))
         
         if choice == "1":
             display_lists()
         elif choice == "2":
-            delete_list()
+            add_list_to_sync()
         elif choice == "3":
-            edit_lists()
+            delete_list()
         elif choice == "4":
+            edit_lists()
+        elif choice == "5":
             break
         else:
             print(color_gradient("\n❌ Invalid choice. Please try again.", "#ff0000", "#aa0000"))
+
+def add_list_to_sync():
+    """Add a single list to sync."""
+    list_id = custom_input(color_gradient("\n🎬  Enter List ID or URL: ", "#ffaa00", "#ff5500")).strip()
+    
+    try:
+        # Check for IMDb URLs or chart IDs
+        if list_id.startswith(('http://', 'https://')):
+            if 'imdb.com' in list_id:
+                list_type = "imdb"
+            elif 'trakt.tv' in list_id:
+                list_type = "trakt"
+            elif 'letterboxd.com' in list_id and '/list/' in list_id:
+                list_type = "letterboxd"
+            else:
+                print(color_gradient("\n❌  Invalid URL format. Must be IMDb, Trakt, or Letterboxd URL.", "#ff0000", "#aa0000"))
+                return
+        elif list_id in ['top', 'boxoffice', 'moviemeter', 'tvmeter']:
+            list_type = "imdb"
+        elif list_id.startswith(('ls', 'ur')):
+            list_type = "imdb"
+        elif list_id.isdigit():
+            list_type = "trakt"
+        else:
+            print(color_gradient(f"\n❌  Invalid list ID format for '{list_id}'.", "#ff0000", "#aa0000"))
+            return
+
+        # Confirm with user
+        confirmation_message = f"Are you sure this {list_type.upper()} list is correct? (ID/URL: {list_id})"
+        add_to_sync = custom_input(color_gradient(f"\n🚨  {confirmation_message} (y/n): ", "#ffaa00", "#ff5500")).lower()
+        if add_to_sync == "y":
+            save_list_id(list_id, list_type)
+            print(color_gradient(f"\n✅  Added {list_type.upper()} list: {list_id}", "#00ff00", "#00aa00"))
+    except Exception as e:
+        print(color_gradient(f"\n❌  Error adding list: {str(e)}", "#ff0000", "#aa0000"))
 
 def init_selenium_driver():
     logging.info("Initializing Selenium driver...")
@@ -1424,6 +1743,69 @@ def scrape_imdb_list():
         
     return all_items
 
+def load_env_config():
+    """Load configuration from environment variables."""
+    url = os.getenv('OVERSEERR_URL')
+    api_key = os.getenv('OVERSEERR_API_KEY')
+    user_id = os.getenv('OVERSEERR_USER_ID')
+    sync_interval = os.getenv('SYNC_INTERVAL')
+    
+    # Only return the config if all required variables are present
+    if url and api_key:
+        try:
+            # Test the API connection
+            test_overseerr_api(url, api_key)
+            # If user_id not specified, use default
+            if not user_id:
+                user_id = "1"
+            # If sync_interval not specified, default to 0 (interactive mode)
+            if not sync_interval:
+                sync_interval = "0"
+            return url, api_key, user_id, int(sync_interval)
+        except Exception as e:
+            logging.error(f"Error testing Overseerr API with environment variables: {e}")
+    return None, None, None, 0
+
+def load_env_lists():
+    """Load lists from environment variables."""
+    lists_added = False
+    
+    # Clear existing lists first
+    with sqlite3.connect(DB_FILE) as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM lists")
+        conn.commit()
+    
+    # Process IMDB lists
+    if imdb_lists := os.getenv('IMDB_LISTS'):
+        for list_id in imdb_lists.split(','):
+            if list_id.strip():
+                save_list_id(list_id.strip(), "imdb")
+                lists_added = True
+    
+    # Process Trakt lists
+    if trakt_lists := os.getenv('TRAKT_LISTS'):
+        for list_id in trakt_lists.split(','):
+            if list_id.strip():
+                save_list_id(list_id.strip(), "trakt")
+                lists_added = True
+    
+    # Process Letterboxd lists
+    if letterboxd_lists := os.getenv('LETTERBOXD_LISTS'):
+        for list_id in letterboxd_lists.split(','):
+            if list_id.strip():
+                save_list_id(list_id.strip(), "letterboxd")
+                lists_added = True
+    
+    return lists_added
+
+def format_time_remaining(seconds):
+    """Format seconds into hours, minutes, seconds."""
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    secs = seconds % 60
+    return f"{int(hours)}h {int(minutes)}m {int(secs)}s"
+
 def main():
     ensure_data_directory_exists()
     init_database()
@@ -1432,93 +1814,77 @@ def main():
     display_banner()
     display_ascii_art()
 
-    print(color_gradient("👋  Welcome to the List to Overseerr Sync Tool!", "#00aaff", "#00ffaa") + "\n")
-
-    overseerr_url, api_key, requester_user_id = load_config()
-    if not overseerr_url or not api_key or not requester_user_id:
-        while True:
-            if not overseerr_url or not api_key:
-                overseerr_url = custom_input(color_gradient("\n🌐  Enter your Overseerr URL: ", "#ffaa00", "#ff5500"))
-                api_key = custom_input(color_gradient("\n🔑  Enter your Overseerr API key: ", "#ffaa00", "#ff5500"))
-            if not requester_user_id:
+    # Try to load configuration from environment first
+    overseerr_url, api_key, requester_user_id, sync_interval = load_env_config()
+    
+    # If environment config exists and is valid
+    if overseerr_url and api_key and requester_user_id:
+        print(color_gradient("👋  Welcome to the List to Overseerr Sync Tool!", "#00aaff", "#00ffaa") + "\n")
+        print(color_gradient("📝 Using configuration from environment variables", "#00aaff", "#00ffaa"))
+        
+        # Load lists from environment if available
+        lists_loaded = load_env_lists()
+        if lists_loaded:
+            print(color_gradient("📋 Lists loaded from environment variables", "#00aaff", "#00ffaa"))
+        
+        # If sync interval is set, go straight to automated mode
+        if sync_interval > 0:
+            print(color_gradient(f"\n⚙️  Starting automated sync mode (interval: {sync_interval} hours)...", "#00aaff", "#00ffaa"))
+            while True:
                 try:
-                    test_overseerr_api(overseerr_url, api_key)
-
-                    requester_user_id = set_requester_user(overseerr_url, api_key)
-
-                    save_config(overseerr_url, api_key, requester_user_id)
-
-                    break
-                except Exception as e:
-                    print(color_gradient(f"\n❌  Error testing Overseerr API: {e}", "#ff0000", "#aa0000") + "\n")
-                    logging.error(f"Error testing Overseerr API: {e}")
+                    start_sync(overseerr_url, api_key, requester_user_id, setup_logging())
+                    sleep_with_countdown(sync_interval * 3600, overseerr_url, api_key, requester_user_id, setup_logging)
+                except KeyboardInterrupt:
+                    print(color_gradient("\n👋 Exiting automated sync mode...", "#ffaa00", "#ff5500"))
                     return
-
-    # Prompt for sync configuration
-    print(color_gradient("\n📋 Configure regular syncing:", "#00aaff", "#00ffaa"))
-    print(color_gradient("1. Yes, configure sync interval in hours", "#ffaa00", "#ff5500"))
-    print(color_gradient("2. No, run a one-time sync", "#ffaa00", "#ff5500"))
-    sync_choice = custom_input(color_gradient("\nEnter your choice: ", "#ffaa00", "#ff5500"))
-
-    if sync_choice == "1":
-        configure_sync_interval()
     else:
-        with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM sync_interval")
-            conn.commit()
-
-    sync_interval = load_sync_interval()
-
-    while True:
-        display_menu()
-        choice = custom_input(color_gradient("Please select an option: ", "#ffaa00", "#ff5500"))
-
-        if choice == "1":
-            # Add New Lists
-            add_new_lists()
-
-        elif choice == "2":
-            # Start Sync with Saved Lists
-            start_sync(overseerr_url, api_key, requester_user_id, setup_logging())
-
-        elif choice == "3":
-            # One-Time List Sync
-            one_time_list_sync(overseerr_url, api_key, requester_user_id, setup_logging())
-
-        elif choice == "4":
-            # Manage Existing Lists
-            manage_lists()
-
-        elif choice == "5":
-            # Configure Sync Interval
-            configure_sync_interval()
-            sync_interval = load_sync_interval()
-
-        elif choice == "6":
-            # Run Dry Sync
-            start_sync(overseerr_url, api_key, requester_user_id, setup_logging(), dry_run=True)
-
-        elif choice == "7":
-            # Exit
-            print(color_gradient("Exiting the application. Goodbye! 👋", "#00aaff", "#00ffaa"))
-            return
-
-        else:
-            print(color_gradient("\n❌  Invalid choice. Please select a valid option.", "#ff0000", "#aa0000"))
-
-        if sync_interval:
-            print(f'\n{color_gradient(f"😴  Sleeping for {sync_interval} hours. Press Ctrl + C to return to the main menu.", "#00aaff", "#00ffaa")}')
+        # Interactive setup and menu
+        print(color_gradient("👋  Welcome to the List to Overseerr Sync Tool!", "#00aaff", "#00ffaa") + "\n")
+        
+        # Load or create config
+        overseerr_url, api_key, requester_user_id = load_config()
+        if not all([overseerr_url, api_key, requester_user_id]):
+            print(color_gradient("\n🔧 First-time setup required", "#ffaa00", "#ff5500"))
+            overseerr_url = custom_input(color_gradient("\n🌐 Enter your Overseerr URL: ", "#ffaa00", "#ff5500"))
+            api_key = custom_input(color_gradient("🔑 Enter your API key: ", "#ffaa00", "#ff5500"))
+            requester_user_id = set_requester_user(overseerr_url, api_key)
+            save_config(overseerr_url, api_key, requester_user_id)
+        
+        while True:
+            display_menu()
+            choice = custom_input(color_gradient("\nEnter your choice: ", "#ffaa00", "#ff5500"))
+            
             try:
-                for _ in range(sync_interval * 3600):
-                    time.sleep(1)
-                    if os.path.exists(f"{DATA_DIR}/interrupt.txt"):
-                        os.remove(f"{DATA_DIR}/interrupt.txt")
-                        raise KeyboardInterrupt()
-                # Run sync after sleep
-                start_sync(overseerr_url, api_key, requester_user_id, setup_logging())
-            except KeyboardInterrupt:
-                print(color_gradient("\nReturning to the main menu...", "#00aaff", "#00ffaa"))
+                if choice == "1":
+                    add_new_lists()
+                elif choice == "2":
+                    start_sync(overseerr_url, api_key, requester_user_id, setup_logging())
+                elif choice == "3":
+                    one_time_list_sync(overseerr_url, api_key, requester_user_id, setup_logging())
+                elif choice == "4":
+                    manage_lists()
+                elif choice == "5":
+                    configure_sync_interval()
+                    interval = load_sync_interval()
+                    if interval > 0:
+                        print(color_gradient(f"\n⚙️  Starting automated sync mode (interval: {interval} hours)...", "#00aaff", "#00ffaa"))
+                        while True:
+                            try:
+                                start_sync(overseerr_url, api_key, requester_user_id, setup_logging())
+                                sleep_with_countdown(interval * 3600, overseerr_url, api_key, requester_user_id, setup_logging)
+                            except KeyboardInterrupt:
+                                print(color_gradient("\n👋 Exiting automated sync mode...", "#ffaa00", "#ff5500"))
+                                break
+                elif choice == "6":
+                    start_sync(overseerr_url, api_key, requester_user_id, setup_logging(), dry_run=True)
+                elif choice == "7":
+                    print(color_gradient("\n👋 Thanks for using ListSync!", "#00aaff", "#00ffaa"))
+                    break
+                else:
+                    print(color_gradient("\n❌ Invalid choice. Please try again.", "#ff0000", "#aa0000"))
+            except Exception as e:
+                print(color_gradient(f"\n❌ Error: {str(e)}", "#ff0000", "#aa0000"))
+                logging.error(f"Error in menu option {choice}: {str(e)}")
                 continue
 
 if __name__ == "__main__":

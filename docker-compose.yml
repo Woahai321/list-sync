@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  listsync:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: listsync
+    environment:
+      - OVERSEERR_URL=${OVERSEERR_URL}
+      - OVERSEERR_API_KEY=${OVERSEERR_API_KEY}
+      - OVERSEERR_USER_ID=${OVERSEERR_USER_ID:-1}
+      - SYNC_INTERVAL=${SYNC_INTERVAL:-6}
+      - IMDB_LISTS=${IMDB_LISTS}
+      - TRAKT_LISTS=${TRAKT_LISTS}
+      - LETTERBOXD_LISTS=${LETTERBOXD_LISTS}
+    volumes:
+      - ./data:/usr/src/app/data
+    restart: unless-stopped 
