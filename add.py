@@ -18,7 +18,6 @@ import readline
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
 import re
-import sys
 
 import requests
 from colorama import Style, init
@@ -1075,7 +1074,6 @@ def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, r
 
 def sleep_with_countdown(seconds, overseerr_url, api_key, requester_user_id, setup_logging):
     """Sleep with countdown and handle keyboard interrupts for exit or sync."""
-    import sys
     import time
     
     # Non-interactive mode (e.g., Docker container)
