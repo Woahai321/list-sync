@@ -589,7 +589,6 @@ def fetch_letterboxd_list(list_id):
                                 poster_div = item.find_element("css selector", "div.film-poster")
                                 title = poster_div.get_attribute("data-film-name")
                                 year_str = poster_div.get_attribute("data-film-release-year")
-                                link = poster_div.get_attribute("data-target-link")
                                 
                                 if title:
                                     movie = {
@@ -625,7 +624,8 @@ def fetch_letterboxd_list(list_id):
                                 try:
                                     year_elem = item.find_element("css selector", "small.metadata")
                                     year_str = year_elem.text
-                                except:
+                                except Exception as e:
+                                    logging.debug(f"Could not find year metadata: {str(e)}")
                                     year_str = None
                                 
                                 if title:
@@ -654,8 +654,8 @@ def fetch_letterboxd_list(list_id):
                             logging.info("No more pages to process")
                             break
                         page_number += 1
-                    except:
-                        logging.info("No next page button found")
+                    except Exception as e:
+                        logging.info(f"No next page button found: {str(e)}")
                         break
                         
                 except Exception as e:
