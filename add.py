@@ -108,7 +108,6 @@ def setup_logging():
     # Prevent added_logger from propagating to root logger
     added_logger.propagate = False
     
-    # Disable selenium logging to console
     selenium_logger = logging.getLogger('selenium')
     selenium_logger.setLevel(logging.INFO)
     selenium_logger.propagate = False
