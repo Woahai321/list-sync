@@ -571,13 +571,21 @@ def fetch_letterboxd_list(list_id):
             sb.wait_for_element_present(".js-list-entries", timeout=20)
             
             while True:
-                # Wait for items to load and be visible
-                sb.wait_for_element_present(".poster-container", timeout=20)
-                sb.sleep(2)  # Additional wait for all items to render
+                # Wait for initial items to load
+                sb.wait_for_element_present(".poster-container.numbered-list-item", timeout=20)
+                sb.sleep(2)  # Wait for initial render
+                
+                # Scroll to bottom to ensure all items load
+                sb.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                sb.sleep(2)  # Wait for any lazy-loaded content
+                
+                # Scroll back to top for next operations
+                sb.execute_script("window.scrollTo(0, 0);")
+                sb.sleep(1)
                 
                 try:
-                    # Get all items on current page
-                    items = sb.find_elements(".poster-container")
+                    # Get all items on current page with the specific class
+                    items = sb.find_elements(".poster-container.numbered-list-item")
                     logging.info(f"Found {len(items)} items on current page")
                     
                     for item in items:
@@ -606,19 +614,29 @@ def fetch_letterboxd_list(list_id):
                             logging.warning(f"Failed to parse Letterboxd item: {str(e)}")
                             continue
                     
-                    # Check for next page button (similar to Trakt implementation)
+                    # Check if pagination exists
+                    pagination = sb.find_elements(".pagination")
+                    if not pagination:
+                        logging.info("No pagination found - single page list")
+                        break
+                    
+                    # Check if we're on the last page by looking for the disabled next button
+                    if sb.find_elements(".pagination .paginate-nextprev.paginate-disabled .next"):
+                        logging.info("Found disabled next button - this is the last page")
+                        break
+                    
+                    # Find and click the next button
                     try:
-                        next_button = sb.find_element(".pagination .next:not(.paginate-disabled)")
-                        if not next_button:
-                            logging.info("No more pages to process")
+                        next_link = sb.find_element(".pagination .next")
+                        if not next_link:
+                            logging.info("No next link found")
                             break
-                        
-                        next_link = next_button.find_element("css selector", "a")
+                            
                         next_link.click()
-                        sb.sleep(2)  # Wait for new page to load
+                        sb.sleep(3)  # Wait for new page to load
                         
                     except Exception as e:
-                        logging.info(f"No more pages available: {str(e)}")
+                        logging.info(f"Error clicking next button: {str(e)}")
                         break
                         
                 except Exception as e:
