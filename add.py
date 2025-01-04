@@ -1122,7 +1122,7 @@ def one_time_list_sync(overseerr_url, api_key, requester_user_id, added_logger):
                 elif 'letterboxd.com' in list_id and '/list/' in list_id:
                     media_items.extend(fetch_letterboxd_list(list_id))
                 else:
-                    print(color_gradient(f"\n❌  Invalid URL format. Must be IMDb, Trakt, or Letterboxd URL.", "#ff0000", "#aa0000"))
+                    print(color_gradient("\n❌  Invalid URL format. Must be IMDb, Trakt, or Letterboxd URL.", "#ff0000", "#aa0000"))
             elif list_id in ['top', 'boxoffice', 'moviemeter', 'tvmeter']:
                 items = fetch_imdb_list(list_id)
                 if items:
