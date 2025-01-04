@@ -568,68 +568,61 @@ def fetch_letterboxd_list(list_id):
             sb.open(url)
             
             # Wait for container to load
-            sb.wait_for_element_present(".js-list-entries.poster-list.-p125.-grid.film-list", timeout=20)
+            sb.wait_for_element_present(".js-list-entries", timeout=20)
             
             while True:
                 # Wait for items to load and be visible
-                sb.wait_for_element_present("li.poster-container", timeout=20)
+                sb.wait_for_element_present(".poster-container", timeout=20)
                 sb.sleep(2)  # Additional wait for all items to render
                 
-                # Get all items on current page
-                items = sb.find_elements("li.poster-container")
-                logging.info(f"Found {len(items)} items on current page")
-                
-                for item in items:
-                    try:
-                        # Get the frame-title span which contains "Title (Year)"
-                        title_span = item.find_element("css selector", "span.frame-title")
-                        title_text = title_span.text
-                        
-                        # Extract title and year from "Title (Year)" format
-                        if '(' in title_text and ')' in title_text:
-                            title = title_text[:title_text.rindex('(')].strip()
-                            year_str = title_text[title_text.rindex('(')+1:title_text.rindex(')')]
+                try:
+                    # Get all items on current page
+                    items = sb.find_elements(".poster-container")
+                    logging.info(f"Found {len(items)} items on current page")
+                    
+                    for item in items:
+                        try:
+                            # Find the film poster div that contains the metadata
+                            poster_div = item.find_element("css selector", "div.film-poster")
+                            
+                            # Extract title and year from data attributes
+                            title = poster_div.get_attribute("data-film-name")
+                            year_str = poster_div.get_attribute("data-film-release-year")
+                            
                             try:
-                                year = int(year_str)
+                                year = int(year_str) if year_str else None
                             except (ValueError, TypeError):
                                 year = None
-                        else:
-                            title = title_text.strip()
-                            year = None
+                                
+                            if title:
+                                media_items.append({
+                                    "title": title.strip(),
+                                    "media_type": "movie",  # Default to movie as we can't reliably distinguish
+                                    "year": year
+                                })
+                                logging.info(f"Added movie: {title} ({year})")
                             
-                        if title:
-                            media_items.append({
-                                "title": title,
-                                "media_type": "movie",  # Default to movie as we can't reliably distinguish
-                                "year": year
-                            })
-                            logging.info(f"Added movie: {title} ({year})")
+                        except Exception as e:
+                            logging.warning(f"Failed to parse Letterboxd item: {str(e)}")
+                            continue
+                    
+                    # Check for next page button (similar to Trakt implementation)
+                    try:
+                        next_button = sb.find_element(".pagination .next:not(.paginate-disabled)")
+                        if not next_button:
+                            logging.info("No more pages to process")
+                            break
+                        
+                        next_link = next_button.find_element("css selector", "a")
+                        next_link.click()
+                        sb.sleep(2)  # Wait for new page to load
                         
                     except Exception as e:
-                        logging.warning(f"Failed to parse Letterboxd item: {str(e)}")
-                        continue
-                
-                # Check for next page button
-                try:
-                    # Look for the next button that's not disabled
-                    next_button = sb.find_element(".pagination .next:not(.paginate-disabled)")
-                    if not next_button:
-                        logging.info("No more pages to process")
+                        logging.info(f"No more pages available: {str(e)}")
                         break
-                    
-                    # Get the href attribute from the anchor tag
-                    next_link = next_button.find_element("css selector", "a")
-                    next_url = next_link.get_attribute("href")
-                    if not next_url:
-                        logging.info("No next page URL found")
-                        break
-                    
-                    # Navigate to next page
-                    sb.open(next_url)
-                    sb.sleep(3)  # Wait for new page to load
-                    
+                        
                 except Exception as e:
-                    logging.info(f"No more pages available: {str(e)}")
+                    logging.error(f"Error processing page: {str(e)}")
                     break
             
             print(color_gradient(f"✨  Found {len(media_items)} items from Letterboxd list {list_id}!", "#00ff00", "#00aa00"))
