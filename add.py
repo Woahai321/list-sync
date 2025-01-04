@@ -549,6 +549,89 @@ def fetch_trakt_list(list_id):
         logging.error(f"Error fetching Trakt list {list_id}: {str(e)}")
         raise
 
+def fetch_letterboxd_list(list_id):
+    """Fetch Letterboxd list using Selenium with pagination"""
+    media_items = []
+    print(color_gradient("📚  Fetching Letterboxd list...", "#ffaa00", "#ff5500"))
+    
+    try:
+        with SB(uc=True, headless=True) as sb:
+            # Handle full URLs vs list IDs
+            if list_id.startswith(('http://', 'https://')):
+                url = list_id.rstrip('/')  # Use the provided URL directly
+                if not ('letterboxd.com' in url and ('/list/' in url)):
+                    raise ValueError("Invalid Letterboxd URL format")
+            else:
+                raise ValueError("Letterboxd lists must be provided as full URLs")
+            
+            logging.info(f"Attempting to load URL: {url}")
+            sb.open(url)
+            
+            # Wait for container to load
+            sb.wait_for_element_present(".js-list-entries.poster-list.-p125.-grid.film-list", timeout=10)
+            
+            while True:
+                # Wait for items to load
+                sb.wait_for_element_present("li.poster-container", timeout=10)
+                
+                # Get all items on current page
+                items = sb.find_elements("li.poster-container")
+                logging.info(f"Found {len(items)} items on current page")
+                
+                for item in items:
+                    try:
+                        # Find the film poster div that contains the metadata
+                        poster_div = item.find_element("css selector", "div.film-poster")
+                        
+                        # Extract title and year from data attributes
+                        title = poster_div.get_attribute("data-film-name")
+                        year_str = poster_div.get_attribute("data-film-release-year")
+                        
+                        try:
+                            year = int(year_str) if year_str else None
+                        except (ValueError, TypeError):
+                            year = None
+                            
+                        if title:
+                            media_items.append({
+                                "title": title.strip(),
+                                "media_type": "movie",  # Default to movie as we can't reliably distinguish
+                                "year": year
+                            })
+                            logging.info(f"Added movie: {title} ({year})")
+                        
+                    except Exception as e:
+                        logging.warning(f"Failed to parse Letterboxd item: {str(e)}")
+                        continue
+                
+                # Check for next page button
+                try:
+                    next_button = sb.find_element(".pagination .next:not(.paginate-disabled)")
+                    if not next_button:
+                        logging.info("No more pages to process")
+                        break
+                    
+                    next_url = next_button.get_attribute("href")
+                    if not next_url:
+                        logging.info("No next page URL found")
+                        break
+                        
+                    sb.open(next_url)
+                    sb.sleep(3)  # Wait for new page to load
+                    
+                except Exception as e:
+                    logging.info(f"No more pages available: {str(e)}")
+                    break
+            
+            print(color_gradient(f"✨  Found {len(media_items)} items from Letterboxd list {list_id}!", "#00ff00", "#00aa00"))
+            logging.info(f"Letterboxd list {list_id} fetched successfully. Found {len(media_items)} items.")
+            return media_items
+        
+    except Exception as e:
+        print(color_gradient(f"💥  Failed to fetch Letterboxd list {list_id}. Error: {str(e)}", "#ff0000", "#aa0000"))
+        logging.error(f"Error fetching Letterboxd list {list_id}: {str(e)}")
+        raise
+
 def normalize_title(title: str) -> str:
     """Normalize a title for comparison by removing special characters and converting to lowercase."""
     # Remove special characters and convert to lowercase
@@ -1012,6 +1095,8 @@ def start_sync(overseerr_url, api_key, requester_user_id, added_logger, dry_run=
                 media_items.extend(fetch_imdb_list(list_info['id']))
             elif list_info['type'] == "trakt":
                 media_items.extend(fetch_trakt_list(list_info['id']))
+            elif list_info['type'] == "letterboxd":
+                media_items.extend(fetch_letterboxd_list(list_info['id']))
         except Exception as e:
             print(color_gradient(f"\n❌  Error fetching list: {e}", "#ff0000", "#aa0000") + "\n")
             logging.error(f"Error fetching list: {e}")
@@ -1027,20 +1112,25 @@ def one_time_list_sync(overseerr_url, api_key, requester_user_id, added_logger):
     for list_id in list_ids:
         try:
             # Check for IMDb URLs or chart IDs
-            if list_id.startswith(('http://', 'https://')) and 'imdb.com' in list_id:
-                items = fetch_imdb_list(list_id)  # Add items = here
-                if items:  # Add this check
-                    media_items.extend(items)
+            if list_id.startswith(('http://', 'https://')):
+                if 'imdb.com' in list_id:
+                    items = fetch_imdb_list(list_id)
+                    if items:
+                        media_items.extend(items)
+                elif 'trakt.tv' in list_id:
+                    media_items.extend(fetch_trakt_list(list_id))
+                elif 'letterboxd.com' in list_id and '/list/' in list_id:
+                    media_items.extend(fetch_letterboxd_list(list_id))
+                else:
+                    print(color_gradient(f"\n❌  Invalid URL format. Must be IMDb, Trakt, or Letterboxd URL.", "#ff0000", "#aa0000"))
             elif list_id in ['top', 'boxoffice', 'moviemeter', 'tvmeter']:
-                items = fetch_imdb_list(list_id)  # Add items = here
-                if items:  # Add this check
+                items = fetch_imdb_list(list_id)
+                if items:
                     media_items.extend(items)
             # Check for IMDb list IDs
             elif list_id.startswith(('ls', 'ur')):
                 media_items.extend(fetch_imdb_list(list_id))
-            # Check for Trakt URLs or IDs
-            elif list_id.startswith(('http://', 'https://')) and 'trakt.tv' in list_id:
-                media_items.extend(fetch_trakt_list(list_id))
+            # Check for Trakt IDs
             elif list_id.isdigit():
                 media_items.extend(fetch_trakt_list(list_id))
             else:
@@ -1069,8 +1159,10 @@ def add_new_lists():
                         list_type = "imdb"
                     elif 'trakt.tv' in list_id:
                         list_type = "trakt"
+                    elif 'letterboxd.com' in list_id and '/list/' in list_id:
+                        list_type = "letterboxd"
                     else:
-                        raise ValueError("Invalid URL - must be IMDb or Trakt")
+                        raise ValueError("Invalid URL - must be IMDb, Trakt, or Letterboxd")
                 elif list_id in ['top', 'boxoffice', 'moviemeter', 'tvmeter']:
                     # Verify the list works before saving
                     test_items = fetch_imdb_list(list_id)  # Add this test
