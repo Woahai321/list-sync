@@ -14,29 +14,27 @@
 
 ## 🚀 What is ListSync?
 
-ListSync is a powerful tool designed to bridge your watchlists from platforms like IMDb and Trakt with your media server (Overseerr or Jellyseerr). It automatically syncs your designated watchlists, ensuring that your media server is always up-to-date with the movies and TV shows you want to watch. ListSync eliminates the manual effort of adding items to your media server, filling a hole in the jellyfine pipeline, making it easier to manage your media library.
+ListSync is a powerful tool designed to bridge your watchlists from platforms like IMDb, Trakt and Letterboxd with your media server (Overseerr or Jellyseerr). It automatically syncs your designated watchlists, ensuring that your media server is always up-to-date with the movies and TV shows you want to watch. ListSync eliminates the manual effort of adding items to your media server, filling a hole in the jellyfine pipeline, making it easier to manage your media library.
 
 ### How Does It Work?  
 
 ListSync seamlessly syncs your watchlists with your media server in three simple steps:  
 
 #### 1. **Fetch Watchlists**  
-ListSync retrieves your watchlists from **IMDb** or **Trakt** using web scraping techniques:  
-- **IMDb Lists**: Supports list IDs (e.g., `ls123456789`), URLs, and charts like Top 250, Box Office, MovieMeter, and TVMeter.  
-- **Trakt Lists**: Fetches lists using IDs or URLs, ensuring all items are retrieved regardless of size.  
+ListSync retrieves your watchlists from **IMDb**, **Trakt** or **Letterboxd** using Selenium web scraping techniques. 
 
 #### 2. **Search Media on Media Server**  
 ListSync searches for each item on your media server (**Overseerr** or **Jellyseerr**) using its API. It handles edge cases like special characters or multiple results for accurate matches.  
 
 #### 3. **Request Media**  
 ListSync checks if the media is already available or requested. If not, it automatically requests the item:  
-- For **movies**, it requests the title.  
-- For **TV shows**, it requests all available seasons.  
+- For **Movies**, it requests the title.  
+- For **TV Shows**, it requests all available seasons.  
 
 ### Why Use ListSync?  
 - **Save Time**: Automates adding movies and TV shows to your media server.  
 - **Stay Organized**: Keeps your media server in sync with your watchlists.  
-- **Flexible**: Works with IMDb, Trakt, Overseerr, and Jellyseerr.  
+- **Flexible**: Works with IMDb, Trakt, Letterboxd, Overseerr, and Jellyseerr.  
 - **Customizable**: Set sync intervals to match your preferences.  
 
 ### Currently in Development for v0.6.0  
@@ -76,10 +74,10 @@ For detailed installation instructions, please refer to our [Installation Guide]
 | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :----------: | :------------------ |
 |  ![IMDB](https://img.shields.io/badge/IMDB-green?style=for-the-badge&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABKElEQVQ4jZXTMUoDQRQG4C+7YmFhYSHYWFgIHkAQPICFhYcQBEEQxGNYWHgIC0H0BsELWFhYWAQLC2GzxSzsLrOz2f0hMDDvzXvfzLz3ZkopKKMxxrjHJc7wjjd0UgpfZRYVgbM4P2AevZzEHlZwiU5KYa8QmMUNtnCMh5TCqCR0jgF6eEQfq1jHFfbRxHFKYVQQWMQIZxjGehObeEUH7ZTCJCcYx2Ub99jGEEtYwDnWsIk2LlIK/ZzALK7RwlKsPWMppfAc/m+0UwrTnKCBHt7iZnlp5/GCVkrhKyd4wg5WYv6NTkrhNSdoRd0b2Cg0z0dOcIj9uHnePG/+t/k3wR/kyUNUdQE+UAAAAABJRU5ErkJgg==)  | ✅ Supported | Currently supported |
 | ![Trakt](https://img.shields.io/badge/Trakt-green?style=for-the-badge&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABKElEQVQ4jZXTMUoDQRQG4C+7YmFhYSHYWFgIHkAQPICFhYcQBEEQxGNYWHgIC0H0BsELWFhYWAQLC2GzxSzsLrOz2f0hMDDvzXvfzLz3ZkopKKMxxrjHJc7wjjd0UgpfZRYVgbM4P2AevZzEHlZwiU5KYa8QmMUNtnCMh5TCqCR0jgF6eEQfq1jHFfbRxHFKYVQQWMQIZxjGehObeEUH7ZTCJCcYx2Ub99jGEEtYwDnWsIk2LlIK/ZzALK7RwlKsPWMppfAc/m+0UwrTnKCBHt7iZnlp5/GCVkrhKyd4wg5WYv6NTkrhNSdoRd0b2Cg0z0dOcIj9uHnePG/+t/k3wR/kyUNUdQE+UAAAAABJRU5ErkJgg==) | ✅ Supported | Currently supported |
-
+| ![Letterboxd](https://img.shields.io/badge/Letterboxd-green?style=for-the-badge&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABKElEQVQ4jZXTMUoDQRQG4C+7YmFhYSHYWFgIHkAQPICFhYcQBEEQxGNYWHgIC0H0BsELWFhYWAQLC2GzxSzsLrOz2f0hMDDvzXvfzLz3ZkopKKMxxrjHJc7wjjd0UgpfZRYVgbM4P2AevZzEHlZwiU5KYa8QmMUNtnCMh5TCqCR0jgF6eEQfq1jHFfbRxHFKYVQQWMQIZxjGehObeEUH7ZTCJCcYx2Ub99jGEEtYwDnWsIk2LlIK/ZzALK7RwlKsPWMppfAc/m+0UwrTnKCBHt7iZnlp5/GCVkrhKyd4wg5WYv6NTkrhNSdoRd0b2Cg0z0dOcIj9uHnePG/+t/k3wR/kyUNUdQE+UAAAAABJRU5ErkJgg==) | ✅ Supported | Currently supported |
 ## 🔍 Obtaining List IDs
 
-ListSync supports both IMDb and Trakt lists, and you can add them using either the raw URL or the list ID. This flexibility allows you to simply copy and paste from your browser’s URL bar or follow the instructions below to extract the list ID. Additionally, ListSync now supports IMDb charts, making it even easier to sync popular lists like the Top 250 or Box Office.
+ListSync supports IMDb, Trakt and Letterboxd lists, and you can add them using either the raw URL or the list ID. This flexibility allows you to simply copy and paste from your browser’s URL bar or follow the instructions below to extract the list ID. Additionally, ListSync now supports IMDb charts, making it even easier to sync popular lists like the Top 250 or Box Office.
 
 ### IMDb List ID or URL
 
@@ -120,8 +118,7 @@ You can add Trakt lists using either the raw URL or the list ID. Here’s how:
 
 1. Navigate to your Trakt list in your browser.
 2. Copy the URL from the address bar. It will look like one of the following:
-   - For public lists: `https://trakt.tv/lists/12345678`
-   - For user lists: `https://trakt.tv/users/username/lists/12345678`
+   - For user lists: `https://trakt.tv/users/username/lists/example-list`
 3. Paste the URL directly into ListSync.
 
 #### **Using the List ID**:
@@ -132,6 +129,15 @@ You can add Trakt lists using either the raw URL or the list ID. Here’s how:
 4. Hover over it, and it should say "**Copy Link**".
 5. The copied link will be in the format: `https://trakt.tv/lists/12345678` or `https://trakt.tv/users/username/lists/12345678`.
 6. The list ID is the number at the end. In this example, it would be `12345678`.
+
+### Letterboxd URL
+
+#### **Using the Raw URL**:
+
+1. Navigate to your Letterboxd list in your browser.
+2. Copy the URL from the address bar. It will look like one of the following:
+   - For user lists: `https://letterboxd.com/user/list/example-list/`
+3. Paste the URL directly into ListSync.
 
 ### Adding Multiple List IDs
 
