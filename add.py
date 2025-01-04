@@ -1,5 +1,5 @@
 # =============================================================================
-# Soluify  |  Your #1 IT Problem Solver  |  {list-sync v0.5.3}
+# Soluify  |  Your #1 IT Problem Solver  |  {list-sync v0.5.4}
 # =============================================================================
 #  __         _
 # (_  _ |   .(_
@@ -33,6 +33,27 @@ DATA_DIR = "./data"
 CONFIG_FILE = os.path.join(DATA_DIR, "config.enc")
 DB_FILE = os.path.join(DATA_DIR, "list_sync.db")
 
+class SyncResults:
+    def __init__(self):
+        self.start_time = time.time()
+        self.not_found_items = []  # For #1
+        self.error_items = []      # For #4
+        self.media_type_counts = {"movie": 0, "tv": 0}  # For #5
+        self.year_distribution = {
+            "pre-1980": 0,
+            "1980-1999": 0,
+            "2000-2019": 0,
+            "2020+": 0
+        }  # For #8
+        self.total_items = 0
+        self.results = {
+            "requested": 0,
+            "already_requested": 0,
+            "already_available": 0,
+            "not_found": 0,
+            "error": 0,
+            "skipped": 0
+        }
 
 def custom_input(prompt):
     readline.set_startup_hook(lambda: readline.insert_text(''))
@@ -49,7 +70,7 @@ def setup_logging():
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
     
     # Set up file handler for general logging (DEBUG and above)
-    file_handler = logging.FileHandler(os.path.join(DATA_DIR, "list_sync.log"))
+    file_handler = logging.FileHandler(os.path.join(DATA_DIR, "list_sync.log"), encoding='utf-8')
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
     
@@ -149,7 +170,7 @@ def color_gradient(text, start_color, end_color):
     return gradient_text + Style.RESET_ALL
 
 def display_ascii_art():
-    ascii_art = """
+    ascii_art = r"""
   _      _        _     ___                    
  | |    (_)  ___ | |_  / __|  _  _   _ _    __ 
  | |__  | | (_-< |  _| \__ \ | || | | ' \  / _|
@@ -165,7 +186,7 @@ def display_ascii_art():
 def display_banner():
     banner = """
     ==============================================================
-             Soluify - {servarr-tools_list-sync_v0.5.3}
+             Soluify - {servarr-tools_list-sync_v0.5.4}
     ==============================================================
     """
     print(color_gradient(banner, "#aa00aa", "#00aa00") + Style.RESET_ALL)
@@ -558,71 +579,76 @@ def fetch_letterboxd_list(list_id):
         with SB(uc=True, headless=True) as sb:
             # Handle full URLs vs list IDs
             if list_id.startswith(('http://', 'https://')):
-                url = list_id.rstrip('/')
+                base_url = list_id.rstrip('/')
             else:
-                url = f"https://letterboxd.com/{list_id}"
+                base_url = f"https://letterboxd.com/{list_id}"
             
-            logging.info(f"Loading URL: {url}")
-            sb.open(url)
-            
+            page = 1
             while True:
-                # Wait for the list container to load
-                sb.wait_for_element_present("ul.js-list-entries", timeout=20)
-                sb.sleep(2)  # Wait for items to render
+                # Construct page URL
+                current_url = base_url if page == 1 else f"{base_url}/page/{page}"
+                logging.info(f"Loading URL: {current_url}")
+                sb.open(current_url)
                 
-                try:
-                    # Get all movie items
-                    items = sb.find_elements("li.poster-container.numbered-list-item")
-                    logging.info(f"Found {len(items)} items on current page")
-                    
-                    for item in items:
-                        try:
-                            # Get the frame-title span which contains "Title (Year)"
-                            title_span = item.find_element("css selector", "span.frame-title")
-                            title_text = title_span.text.strip()
-                            
-                            # Parse title and year from "Title (Year)" format
-                            if '(' in title_text and ')' in title_text:
-                                title = title_text[:title_text.rindex('(')].strip()
-                                year_str = title_text[title_text.rindex('(')+1:title_text.rindex(')')]
-                                try:
-                                    year = int(year_str)
-                                except (ValueError, TypeError):
-                                    year = None
-                            else:
-                                title = title_text
-                                year = None
-                            
-                            if title:
-                                media_items.append({
-                                    "title": title,
-                                    "media_type": "movie",
-                                    "year": year
-                                })
-                                logging.info(f"Added movie: {title} ({year if year else 'year unknown'})")
-                            
-                        except Exception as e:
-                            logging.warning(f"Failed to parse movie item: {str(e)}")
-                            continue
-                    
-                    # Check for next page
+                # Wait for the list container to load
+                sb.wait_for_element_present("ul.poster-list", timeout=20)
+                logging.info(f"Processing page {page}")
+                
+                # Get all movie items on current page
+                items = sb.find_elements("li.poster-container")
+                items_count = len(items)
+                logging.info(f"Found {items_count} items on page {page}")
+                
+                # If we find 0 items, we've gone too far - break
+                if items_count == 0:
+                    logging.info(f"No items found on page {page}, ending pagination")
+                    break
+                
+                for item in items:
                     try:
-                        next_link = sb.find_element(".pagination .next a")
-                        if next_link:
-                            next_link.click()
-                            sb.sleep(2)  # Wait for next page to load
-                        else:
-                            break
-                    except Exception:  # Removed unused 'e' variable
-                        logging.info("No next page found, ending pagination")
-                        break
+                        # Get the film details link
+                        film_link = item.find_element("css selector", "div.film-poster")
                         
-                except Exception as e:
-                    logging.error(f"Error processing page: {str(e)}")
+                        # Extract title from data-film-slug
+                        film_slug = film_link.get_attribute("data-film-slug")
+                        if film_slug:
+                            # Convert slug to title (e.g., "the-matrix" -> "The Matrix")
+                            title = " ".join(word.capitalize() for word in film_slug.split("-"))
+                        else:
+                            # Fallback to alt text of poster image
+                            title = item.find_element("css selector", "img").get_attribute("alt")
+                        
+                        # Remove year from title if it exists
+                        if '(' in title and ')' in title and title.rstrip()[-1] == ')':
+                            title = title[:title.rindex('(')].strip()
+                        
+                        # Try to get year from data attribute
+                        try:
+                            year = int(film_link.get_attribute("data-film-release-year"))
+                        except (ValueError, TypeError, AttributeError):
+                            year = None
+                        
+                        media_items.append({
+                            "title": title.strip(),
+                            "media_type": "movie",
+                            "year": year
+                        })
+                        logging.info(f"Added movie: {title} ({year if year else 'year unknown'})")
+                        
+                    except Exception as e:
+                        logging.warning(f"Failed to parse movie item: {str(e)}")
+                        continue
+                
+                # If we found exactly 100 items, there might be more pages
+                if items_count == 100:
+                    page += 1
+                    logging.info(f"Found exactly 100 items, trying page {page}")
+                else:
+                    logging.info(f"Found {items_count} items (< 100), must be the last page")
                     break
             
             print(color_gradient(f"✨  Found {len(media_items)} items from Letterboxd list!", "#00ff00", "#00aa00"))
-            logging.info(f"Letterboxd list fetched successfully. Found {len(media_items)} items.")
+            logging.info(f"Letterboxd list fetched successfully. Found {len(media_items)} items across {page} pages.")
             return media_items
         
     except Exception as e:
@@ -632,13 +658,14 @@ def fetch_letterboxd_list(list_id):
 
 def normalize_title(title: str) -> str:
     """Normalize a title for comparison by removing special characters and converting to lowercase."""
-    # Remove special characters and convert to lowercase
-    return re.sub(r'[^a-zA-Z0-9\s]', '', title).lower().strip()
+    # Remove special characters, keeping only alphanumeric and spaces
+    normalized = re.sub(r'[^a-zA-Z0-9\s]', '', title)
+    # Convert to lowercase and remove extra spaces
+    normalized = ' '.join(normalized.lower().split())
+    return normalized
 
 def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type, release_year=None):
     headers = {"X-Api-Key": api_key}
-    
-    # Ensure overseerr_url doesn't end with a slash
     overseerr_url = overseerr_url.rstrip('/')
     search_url = f"{overseerr_url}/api/v1/search"
     
@@ -649,26 +676,11 @@ def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type, r
     
     while True:
         try:
-            # Properly encode the query parameter
             encoded_query = requests.utils.quote(media_title)
-            
-            # Build the URL manually to ensure proper encoding
             url = f"{search_url}?query={encoded_query}&page={page}&language=en"
             
-            # Log the exact URL being requested (for debugging)
-            logging.debug(f"Requesting URL: {url}")
-            logging.debug(f"Headers: {headers}")
-            
-            # Make the request
-            response = requests.get(
-                url,
-                headers=headers,
-                timeout=10
-            )
-            
-            # Log the response status and headers (for debugging)
-            logging.debug(f"Response status: {response.status_code}")
-            logging.debug(f"Response headers: {response.headers}")
+            logging.debug(f"Searching for '{media_title}' (normalized: '{search_title_normalized}')")
+            response = requests.get(url, headers=headers, timeout=10)
             
             if response.status_code == 429:
                 logging.warning("Rate limited, waiting 5 seconds...")
@@ -683,65 +695,69 @@ def search_media_in_overseerr(overseerr_url, api_key, media_title, media_type, r
                 
             for result in search_results["results"]:
                 result_type = result.get("mediaType")
-                
                 if result_type != media_type:
                     continue
-                    
+                
                 # Get the title based on media type
                 result_title = result.get("title") if media_type == "movie" else result.get("name")
                 if not result_title:
                     continue
-                    
+                
                 result_title_normalized = normalize_title(result_title)
                 
-                # Check for exact title match
-                if search_title_normalized != result_title_normalized:
-                    continue
-                    
-                # Get year based on media type
-                result_year = None
-                try:
-                    if media_type == "movie" and "releaseDate" in result and result["releaseDate"]:
-                        result_year = int(result["releaseDate"][:4])
-                    elif media_type == "tv" and "firstAirDate" in result and result["firstAirDate"]:
-                        result_year = int(result["firstAirDate"][:4])
-                except (ValueError, TypeError):
-                    pass
-                    
-                if release_year and result_year:
-                    year_diff = abs(result_year - release_year)
-                    if year_diff < closest_year_diff:
-                        closest_year_diff = year_diff
-                        best_match = result
-                        logging.debug(f"Found better year match for {media_title}: {result_title} ({result_year})")
-                elif best_match is None:
-                    best_match = result
-
-            if page >= search_results.get("totalPages", 1):
-                break
+                # Log all potential matches for debugging
+                logging.debug(f"Comparing '{result_title}' (normalized: '{result_title_normalized}')")
                 
+                # Check for exact title match first
+                if result_title_normalized == search_title_normalized:
+                    logging.info(f"Found exact title match: '{result_title}'")
+                    
+                    # Get year if available
+                    result_year = None
+                    try:
+                        if media_type == "movie" and "releaseDate" in result:
+                            result_year = int(result["releaseDate"][:4])
+                        elif media_type == "tv" and "firstAirDate" in result:
+                            result_year = int(result["firstAirDate"][:4])
+                    except (ValueError, TypeError):
+                        pass
+                    
+                    # If we have a year to match against
+                    if release_year and result_year:
+                        year_diff = abs(result_year - release_year)
+                        if year_diff < closest_year_diff:
+                            closest_year_diff = year_diff
+                            best_match = result
+                            logging.info(f"Updated best match due to closer year: {result_title} ({result_year})")
+                    elif not best_match:  # If no year to match against, take the first exact title match
+                        best_match = result
+                        logging.info(f"Taking first exact match: {result_title}")
+                        break  # We found an exact title match, no need to keep searching
+            
+            if best_match or page >= search_results.get("totalPages", 1):
+                break
+            
             page += 1
             
         except requests.exceptions.RequestException as e:
-            logging.error(f'Error searching page {page} for {media_type} "{media_title}": {str(e)}')
-            if "429" in str(e):  # Rate limited
+            logging.error(f'Error searching for "{media_title}": {str(e)}')
+            if "429" in str(e):
                 time.sleep(5)
                 continue
             raise
 
     if best_match:
+        result_title = best_match.get("title") if media_type == "movie" else best_match.get("name")
         result_year = None
         try:
-            if media_type == "movie" and "releaseDate" in best_match and best_match["releaseDate"]:
+            if media_type == "movie" and "releaseDate" in best_match:
                 result_year = best_match["releaseDate"][:4]
-            elif media_type == "tv" and "firstAirDate" in best_match and best_match["firstAirDate"]:
+            elif media_type == "tv" and "firstAirDate" in best_match:
                 result_year = best_match["firstAirDate"][:4]
         except (ValueError, TypeError):
             pass
-            
-        result_title = best_match.get("title") if media_type == "movie" else best_match.get("name")
-        logging.info(f"Best match for '{media_title}' ({release_year}): '{result_title}' ({result_year})")
         
+        logging.info(f"Final match for '{media_title}': '{result_title}' ({result_year})")
         return {
             "id": best_match["id"],
             "mediaType": best_match["mediaType"],
@@ -949,11 +965,19 @@ def save_sync_result(title, media_type, imdb_id, overseerr_id, status):
 def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, requester_user_id: str, dry_run: bool) -> Dict[str, Any]:
     title = item.get('title', 'Unknown Title')
     media_type = item.get('media_type', 'unknown')
-    imdb_id = item.get('imdb_id')
-    year = item.get('year')  # Make year optional
+    year = item.get('year')
+    
+    # Add year and media_type to the return data
+    result = {
+        "title": title,
+        "year": year,
+        "media_type": media_type,
+        "error_message": None
+    }
 
     if dry_run:
-        return {"title": title, "status": "would_be_synced"}
+        result["status"] = "would_be_synced"
+        return result
 
     try:
         search_result = search_media_in_overseerr(
@@ -966,16 +990,16 @@ def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, r
         if search_result:
             overseerr_id = search_result["id"]
             if not should_sync_item(overseerr_id):
-                return {"title": title, "status": "skipped"}
+                return {"title": title, "status": "skipped", "year": year, "media_type": media_type}
 
             is_available, is_requested, number_of_seasons = confirm_media_status(overseerr_url, api_key, overseerr_id, search_result["mediaType"])
             
             if is_available:
-                save_sync_result(title, media_type, imdb_id, overseerr_id, "already_available")
-                return {"title": title, "status": "already_available"}
+                save_sync_result(title, media_type, None, None, "already_available")
+                return {"title": title, "status": "already_available", "year": year, "media_type": media_type}
             elif is_requested:
-                save_sync_result(title, media_type, imdb_id, overseerr_id, "already_requested")
-                return {"title": title, "status": "already_requested"}
+                save_sync_result(title, media_type, None, None, "already_requested")
+                return {"title": title, "status": "already_requested", "year": year, "media_type": media_type}
             else:
                 if search_result["mediaType"] == 'tv':
                     request_status = request_tv_series_in_overseerr(overseerr_url, api_key, requester_user_id, overseerr_id, number_of_seasons)
@@ -983,83 +1007,193 @@ def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, r
                     request_status = request_media_in_overseerr(overseerr_url, api_key, requester_user_id, overseerr_id, search_result["mediaType"])
                 
                 if request_status == "success":
-                    save_sync_result(title, media_type, imdb_id, overseerr_id, "requested")
-                    return {"title": title, "status": "requested"}
+                    save_sync_result(title, media_type, None, None, "requested")
+                    return {"title": title, "status": "requested", "year": year, "media_type": media_type}
                 else:
-                    save_sync_result(title, media_type, imdb_id, overseerr_id, "request_failed")
-                    return {"title": title, "status": "request_failed"}
+                    save_sync_result(title, media_type, None, None, "request_failed")
+                    return {"title": title, "status": "request_failed", "year": year, "media_type": media_type}
         else:
-            save_sync_result(title, media_type, imdb_id, None, "not_found")
-            return {"title": title, "status": "not_found"}
+            save_sync_result(title, media_type, None, None, "not_found")
+            return {"title": title, "status": "not_found", "year": year, "media_type": media_type}
     except Exception as e:
-        logging.error(f'Error processing item {title}: {str(e)}')
-        return {"title": title, "status": "error"}
+        result["status"] = "error"
+        result["error_message"] = str(e)
+        return result
+
+    return result
 
 def process_media(media_items: List[Dict[str, Any]], overseerr_url: str, api_key: str, requester_user_id: str, dry_run: bool = False):
-    total_items = len(media_items)
-    results = {
-        "requested": 0,
-        "already_requested": 0,
-        "already_available": 0,
-        "not_found": 0,
-        "error": 0,
-        "skipped": 0
-    }
+    sync_results = SyncResults()
+    sync_results.total_items = len(media_items)
+    current_item = 0
 
-    print(color_gradient(f"\n🎬  Processing {total_items} media items...", "#00aaff", "#00ffaa") + "\n")
+    print(color_gradient(f"\n🎬  Processing {sync_results.total_items} media items...", "#00aaff", "#00ffaa") + "\n")
     
     with ThreadPoolExecutor(max_workers=10) as executor:
         future_to_item = {executor.submit(process_media_item, item, overseerr_url, api_key, requester_user_id, dry_run): item for item in media_items}
         for future in as_completed(future_to_item):
             item = future_to_item[future]
+            current_item += 1
             try:
                 result = future.result()
                 status = result["status"]
-                results[status] = results.get(status, 0) + 1
+                sync_results.results[status] += 1
                 
+                # Track additional information
+                if status == "not_found":
+                    sync_results.not_found_items.append({
+                        "title": result["title"],
+                        "year": result["year"]
+                    })
+                elif status == "error":
+                    sync_results.error_items.append({
+                        "title": result["title"],
+                        "error": result["error_message"]
+                    })
+                
+                # Track media type counts
+                if result["media_type"] in sync_results.media_type_counts:
+                    sync_results.media_type_counts[result["media_type"]] += 1
+                
+                # Track year distribution
+                if result["year"]:
+                    year = int(result["year"])
+                    if year < 1980:
+                        sync_results.year_distribution["pre-1980"] += 1
+                    elif year < 2000:
+                        sync_results.year_distribution["1980-1999"] += 1
+                    elif year < 2020:
+                        sync_results.year_distribution["2000-2019"] += 1
+                    else:
+                        sync_results.year_distribution["2020+"] += 1
+
+                # Add this status printing code:
                 if dry_run:
-                    print(color_gradient("🔍 {}: Would be synced".format(result['title']), "#ffaa00", "#ff5500") + "\n")
+                    print(color_gradient(f"🔍 {result['title']}: Would be synced ({current_item}/{sync_results.total_items})", "#ffaa00", "#ff5500") + "\n")
                 else:
                     status_info = {
-                    "requested": ("✅", "Successfully Requested", "#4CAF50", "#45a049"),
-                    "already_requested": ("📌", "Already Requested", "#2196F3", "#1E88E5"),
-                    "already_available": ("☑️ ", "Already Available", "#00BCD4", "#00ACC1"),
-                    "not_found": ("❓", "Not Found", "#FFC107", "#FFA000"),
-                    "error": ("❌", "Error", "#F44336", "#E53935"),
-                    "skipped": ("⏭️ ", "Skipped", "#9E9E9E", "#757575")
+                        "requested": ("✅", "Successfully Requested", "#4CAF50", "#45a049"),
+                        "already_requested": ("📌", "Already Requested", "#2196F3", "#1E88E5"),
+                        "already_available": ("☑️ ", "Already Available", "#00BCD4", "#00ACC1"),
+                        "not_found": ("❓", "Not Found", "#FFC107", "#FFA000"),
+                        "error": ("❌", "Error", "#F44336", "#E53935"),
+                        "skipped": ("⏭️ ", "Skipped", "#9E9E9E", "#757575")
                     }.get(status, ("➖", "Unknown Status", "#607D8B", "#546E7A"))
-
                     
                     emoji, status_text, start_color, end_color = status_info
-                    message = "{}: {}".format(result['title'], status_text)
-                    print("{} {}\n".format(emoji,  color_gradient(message, start_color, end_color)))
+                    message = f"{result['title']}: {status_text} ({current_item}/{sync_results.total_items})"
+                    print(f"{emoji} {color_gradient(message, start_color, end_color)}\n")
+
             except Exception as exc:
-                print(color_gradient("❌ {} generated an exception: {}".format(item['title'], exc), "#ff0000", "#aa0000") + "\n")
-                results["error"] += 1
+                sync_results.results["error"] += 1
+                sync_results.error_items.append({
+                    "title": item["title"],
+                    "error": str(exc)
+                })
 
     if not dry_run:
-        display_summary(total_items, results)
+        display_summary(sync_results)
 
-def display_summary(total_items: int, results: Dict[str, int]):
-    summary = f"""
-==============================================================
-                    All done! Here's the Summary!
-==============================================================
-🔁 Total Items Processed: {total_items}
+def display_summary(sync_results: SyncResults):
+    processing_time = time.time() - sync_results.start_time
+    total_items = sync_results.total_items or 1
+    avg_time = processing_time / total_items if total_items > 0 else 0
+    
+    # Create box-drawing characters
+    TOP_LEFT = "╔"
+    TOP_RIGHT = "╗"
+    BOTTOM_LEFT = "╚"
+    BOTTOM_RIGHT = "╝"
+    HORIZONTAL = "═"
+    VERTICAL = "║"
+    
+    def create_box(title: str, content: str, width: int) -> List[str]:
+        lines = []
+        lines.append(f"{TOP_LEFT}{HORIZONTAL * 2} {title} {HORIZONTAL * (width - len(title) - 4)}{TOP_RIGHT}")
+        content_lines = [line.strip() for line in content.split('\n') if line.strip()]
+        for line in content_lines:
+            lines.append(f"{VERTICAL} {line:<{width-2}} {VERTICAL}")
+        lines.append(f"{BOTTOM_LEFT}{HORIZONTAL * width}{BOTTOM_RIGHT}")
+        return lines
 
-☑️  Items Already Available: {results["already_available"]}
+    # Create header
+    summary = "\n" + "─" * 50 + "\n"
+    summary += "                 Sync Summary\n"
+    summary += "─" * 50 + "\n\n"
 
-✅ Items Successfully Requested: {results["requested"]}
+    # Create boxes for different sections
+    stats_box = create_box("Processing Stats", f"""
+Total Items: {sync_results.total_items}
+Total Time: {int(processing_time // 60)}m {int(processing_time % 60)}s
+Avg Time: {avg_time:.1f}s/item""", 35)
 
-📌 Items Already Requested: {results["already_requested"]}
+    status_box = create_box("Status Summary", f"""
+✅ Requested: {sync_results.results['requested']}
+☑️  Available: {sync_results.results['already_available']}
+📌 Already Requested: {sync_results.results['already_requested']}
+⏭️  Skipped: {sync_results.results['skipped']}""", 35)
 
-❓ Items Not Found: {results["not_found"]}
+    media_box = create_box("Media Types", f"""
+Movies: {sync_results.media_type_counts['movie']} ({sync_results.media_type_counts['movie']/total_items*100:.1f}%)
+TV Shows: {sync_results.media_type_counts['tv']} ({sync_results.media_type_counts['tv']/total_items*100:.1f}%)""", 35)
 
-⏭️  Items Skipped: {results["skipped"]}
+    year_box = create_box("Year Distribution", f"""
+Pre-1980: {sync_results.year_distribution['pre-1980']}
+1980-1999: {sync_results.year_distribution['1980-1999']}
+2000-2019: {sync_results.year_distribution['2000-2019']}
+2020+: {sync_results.year_distribution['2020+']}""", 35)
 
-❌ Items Failed: {results["error"]}
-==============================================================
-"""
+    # Create not found items box with consistent year formatting
+    not_found_items = []
+    for item in sync_results.not_found_items:
+        title = item['title']
+        year = item.get('year')
+        not_found_items.append(f"• {title}" + (f" ({year})" if year else ""))
+    
+    not_found_box = create_box(f"Not Found Items ({len(sync_results.not_found_items)})", 
+                              "\n".join(not_found_items), 72)
+
+    # Create error items box if there are any
+    if sync_results.error_items:
+        error_box = create_box("Errors", "\n".join(
+            f"• {item['title']}: {item['error']}"
+            for item in sync_results.error_items
+        ), 72)
+    else:
+        error_box = []
+
+    # Combine boxes horizontally and vertically
+    # First row: Stats and Status
+    max_lines = max(len(stats_box), len(status_box))
+    while len(stats_box) < max_lines:
+        stats_box.insert(-1, f"{VERTICAL} {' ' * 33} {VERTICAL}")
+    while len(status_box) < max_lines:
+        status_box.insert(-1, f"{VERTICAL} {' ' * 33} {VERTICAL}")
+
+    for i in range(max_lines):
+        summary += f"{stats_box[i]}  {status_box[i]}\n"
+    summary += "\n"
+
+    # Second row: Media Types and Year Distribution
+    max_lines = max(len(media_box), len(year_box))
+    while len(media_box) < max_lines:
+        media_box.insert(-1, f"{VERTICAL} {' ' * 33} {VERTICAL}")
+    while len(year_box) < max_lines:
+        year_box.insert(-1, f"{VERTICAL} {' ' * 33} {VERTICAL}")
+
+    for i in range(max_lines):
+        summary += f"{media_box[i]}  {year_box[i]}\n"
+    summary += "\n"
+
+    # Third row: Not Found Items
+    for line in not_found_box:
+        summary += f"{line}\n"
+
+    # Fourth row: Errors (if any)
+    if error_box:
+        for line in error_box:
+            summary += f"{line}\n"
+
     print(color_gradient(summary, "#00aaff", "#00ffaa") + Style.RESET_ALL)
 
 def display_menu():
@@ -1147,7 +1281,29 @@ def add_new_lists():
     add_new_list = True
     while add_new_list:
         list_ids = custom_input(color_gradient("\n🎬  Enter List ID(s) (comma-separated for multiple): ", "#ffaa00", "#ff5500"))
-        list_ids = [id.strip() for id in list_ids.split(',')]
+        
+        # Split by comma but preserve commas in URLs
+        def smart_split(input_str):
+            parts = []
+            current = []
+            in_url = False
+            
+            for char in input_str:
+                if char == ',' and not in_url:
+                    if current:
+                        parts.append(''.join(current).strip())
+                        current = []
+                else:
+                    if char == '?' or 'trakt.tv' in ''.join(current):
+                        in_url = True
+                    current.append(char)
+            
+            if current:
+                parts.append(''.join(current).strip())
+            
+            return parts
+        
+        list_ids = smart_split(list_ids)
         
         for list_id in list_ids:
             try:
@@ -1157,8 +1313,11 @@ def add_new_lists():
                         list_type = "imdb"
                     elif 'trakt.tv' in list_id:
                         list_type = "trakt"
+                        # Don't strip query parameters from Trakt URLs
+                        list_id = list_id.strip()
                     elif 'letterboxd.com' in list_id and '/list/' in list_id:
                         list_type = "letterboxd"
+                        list_id = list_id.rstrip('/')
                     else:
                         raise ValueError("Invalid URL - must be IMDb, Trakt, or Letterboxd")
                 elif list_id in ['top', 'boxoffice', 'moviemeter', 'tvmeter']:
@@ -1367,5 +1526,5 @@ if __name__ == "__main__":
     main()
 
 # =======================================================================================================
-# Soluify  |  You actually read it? Nice work, stay safe out there people!  |  {list-sync v0.5.3}
+# Soluify  |  You actually read it? Nice work, stay safe out there people!  |  {list-sync v0.5.4}
 # =======================================================================================================
