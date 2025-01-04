@@ -556,107 +556,69 @@ def fetch_letterboxd_list(list_id):
     
     try:
         with SB(uc=True, headless=True) as sb:
-            page_number = 1
-            
             # Handle full URLs vs list IDs
             if list_id.startswith(('http://', 'https://')):
-                # Extract the list_id part from the URL
-                list_id = list_id.replace('https://letterboxd.com/', '').replace('http://letterboxd.com/', '').rstrip('/')
+                url = list_id.rstrip('/')
+            else:
+                url = f"https://letterboxd.com/{list_id}"
             
-            # Check if it's a watchlist or likes list
-            watchlist = list_id.endswith("/watchlist")
-            likeslist = list_id.endswith("/likes/films")
-            maybe_detail = "" if watchlist or likeslist else "/detail"
+            logging.info(f"Loading URL: {url}")
+            sb.open(url)
             
             while True:
-                logging.info(f"Processing page {page_number}")
-                
-                # Construct and load the URL
-                url = f"https://letterboxd.com/{list_id}{maybe_detail}/page/{page_number}/"
-                logging.info(f"Loading URL: {url}")
-                sb.open(url)
-                
-                # Wait for initial content to load
-                sb.wait_for_element_present(".js-list-entries", timeout=20)
-                sb.sleep(3)  # Wait for initial render
-                
-                # Scroll to bottom to ensure all content loads
-                sb.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                sb.sleep(3)  # Wait for lazy-loaded content
-                
-                # Scroll back to top for next operations
-                sb.execute_script("window.scrollTo(0, 0);")
-                sb.sleep(1)
+                # Wait for the list container to load
+                sb.wait_for_element_present("ul.js-list-entries", timeout=20)
+                sb.sleep(2)  # Wait for items to render
                 
                 try:
-                    # Wait for items to load with more specific selector
-                    sb.wait_for_element_present(".poster-container.numbered-list-item", timeout=20)
-                    items = sb.find_elements(".poster-container.numbered-list-item")
-                    
-                    if not items:
-                        # Fallback to non-numbered items for watchlists/likes
-                        items = sb.find_elements(".poster-container")
-                    
+                    # Get all movie items
+                    items = sb.find_elements("li.poster-container.numbered-list-item")
                     logging.info(f"Found {len(items)} items on current page")
                     
                     for item in items:
                         try:
-                            # Find the film poster div that contains the metadata
-                            poster_div = item.find_element("css selector", "div.film-poster")
+                            # Get the frame-title span which contains "Title (Year)"
+                            title_span = item.find_element("css selector", "span.frame-title")
+                            title_text = title_span.text.strip()
                             
-                            # Extract title and year from data attributes
-                            title = poster_div.get_attribute("data-film-name")
-                            year_str = poster_div.get_attribute("data-film-release-year")
+                            # Parse title and year from "Title (Year)" format
+                            if '(' in title_text and ')' in title_text:
+                                title = title_text[:title_text.rindex('(')].strip()
+                                year_str = title_text[title_text.rindex('(')+1:title_text.rindex(')')]
+                                try:
+                                    year = int(year_str)
+                                except (ValueError, TypeError):
+                                    year = None
+                            else:
+                                title = title_text
+                                year = None
                             
                             if title:
-                                movie = {
-                                    "title": title.strip(),
-                                    "media_type": "movie"
-                                }
-                                
-                                if year_str:
-                                    try:
-                                        movie["year"] = int(year_str)
-                                    except (ValueError, TypeError):
-                                        pass
-                                        
-                                media_items.append(movie)
-                                logging.info(f"Added movie: {title} ({year_str if year_str else 'year unknown'})")
+                                media_items.append({
+                                    "title": title,
+                                    "media_type": "movie",
+                                    "year": year
+                                })
+                                logging.info(f"Added movie: {title} ({year if year else 'year unknown'})")
                             
                         except Exception as e:
                             logging.warning(f"Failed to parse movie item: {str(e)}")
                             continue
                     
-                    # Check for pagination
-                    pagination = sb.find_elements(".pagination")
-                    if not pagination:
-                        logging.info("No pagination found - single page list")
-                        break
-                    
-                    # Check if we're on the last page
-                    if sb.find_elements(".pagination .paginate-nextprev.paginate-disabled .next"):
-                        logging.info("Found disabled next button - this is the last page")
-                        break
-                    
-                    # Find and click the next button
+                    # Check for next page
                     try:
-                        next_button = sb.find_element(".pagination .next:not(.paginate-disabled)")
-                        if not next_button:
-                            logging.info("No more pages to process")
+                        next_link = sb.find_element(".pagination .next a")
+                        if next_link:
+                            next_link.click()
+                            sb.sleep(2)  # Wait for next page to load
+                        else:
                             break
-                        
-                        next_link = next_button.find_element("css selector", "a")
-                        sb.execute_script("arguments[0].scrollIntoView(true);", next_link)
-                        sb.sleep(1)  # Wait for scroll
-                        next_link.click()
-                        sb.sleep(3)  # Wait for new page to load
-                        
                     except Exception as e:
-                        logging.info(f"No next page button found: {str(e)}")
+                        logging.info("No next page found, ending pagination")
                         break
                         
                 except Exception as e:
-                    logging.error(f"Error processing page {page_number}: {str(e)}")
+                    logging.error(f"Error processing page: {str(e)}")
                     break
             
             print(color_gradient(f"✨  Found {len(media_items)} items from Letterboxd list!", "#00ff00", "#00aa00"))
