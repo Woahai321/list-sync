@@ -1430,57 +1430,64 @@ def load_env_config():
     """Load configuration from environment variables."""
     url = os.getenv('OVERSEERR_URL')
     api_key = os.getenv('OVERSEERR_API_KEY')
-    user_id = os.getenv('OVERSEERR_USER_ID')
-    sync_interval = os.getenv('SYNC_INTERVAL')
+    user_id = os.getenv('OVERSEERR_USER_ID', '1')  # Default to 1 if not set
+    sync_interval = os.getenv('SYNC_INTERVAL', '12')  # Default to 12 if not set
     
-    # Only return the config if all required variables are present
+    # Only return the config if required variables are present
     if url and api_key:
         try:
             # Test the API connection
             test_overseerr_api(url, api_key)
-            # If user_id not specified, use default
-            if not user_id:
-                user_id = "1"
-            # If sync_interval not specified, default to 0 (interactive mode)
-            if not sync_interval:
-                sync_interval = "0"
             return url, api_key, user_id, int(sync_interval)
         except Exception as e:
             logging.error(f"Error testing Overseerr API with environment variables: {e}")
+            print(color_gradient(f"\n❌  Error testing Overseerr API: {e}", "#ff0000", "#aa0000"))
     return None, None, None, 0
 
 def load_env_lists():
     """Load lists from environment variables."""
     lists_added = False
     
-    # Clear existing lists first
-    with sqlite3.connect(DB_FILE) as conn:
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM lists")
-        conn.commit()
-    
-    # Process IMDB lists
-    if imdb_lists := os.getenv('IMDB_LISTS'):
-        for list_id in imdb_lists.split(','):
-            if list_id.strip():
-                save_list_id(list_id.strip(), "imdb")
-                lists_added = True
-    
-    # Process Trakt lists
-    if trakt_lists := os.getenv('TRAKT_LISTS'):
-        for list_id in trakt_lists.split(','):
-            if list_id.strip():
-                save_list_id(list_id.strip(), "trakt")
-                lists_added = True
-    
-    # Process Letterboxd lists
-    if letterboxd_lists := os.getenv('LETTERBOXD_LISTS'):
-        for list_id in letterboxd_lists.split(','):
-            if list_id.strip():
-                save_list_id(list_id.strip(), "letterboxd")
-                lists_added = True
-    
-    return lists_added
+    try:
+        # Clear existing lists first
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM lists")
+            conn.commit()
+        
+        # Process IMDB lists
+        if imdb_lists := os.getenv('IMDB_LISTS'):
+            for list_id in imdb_lists.split(','):
+                if list_id.strip():
+                    save_list_id(list_id.strip(), "imdb")
+                    lists_added = True
+                    logging.info(f"Added IMDb list: {list_id.strip()}")
+        
+        # Process Trakt lists
+        if trakt_lists := os.getenv('TRAKT_LISTS'):
+            for list_id in trakt_lists.split(','):
+                if list_id.strip():
+                    save_list_id(list_id.strip(), "trakt")
+                    lists_added = True
+                    logging.info(f"Added Trakt list: {list_id.strip()}")
+        
+        # Process Letterboxd lists
+        if letterboxd_lists := os.getenv('LETTERBOXD_LISTS'):
+            for list_id in letterboxd_lists.split(','):
+                if list_id.strip():
+                    save_list_id(list_id.strip(), "letterboxd")
+                    lists_added = True
+                    logging.info(f"Added Letterboxd list: {list_id.strip()}")
+        
+        if not lists_added:
+            logging.warning("No lists found in environment variables")
+            print(color_gradient("\n⚠️  No lists found in environment variables", "#ffaa00", "#ff5500"))
+        
+        return lists_added
+    except Exception as e:
+        logging.error(f"Error loading lists from environment: {str(e)}")
+        print(color_gradient(f"\n❌  Error loading lists: {str(e)}", "#ff0000", "#aa0000"))
+        return False
 
 def format_time_remaining(seconds):
     """Format seconds into hours, minutes, seconds."""
@@ -1521,7 +1528,30 @@ def main():
                     print(color_gradient("\n👋 Exiting automated sync mode...", "#ffaa00", "#ff5500"))
                     return
     else:
-        # Interactive setup and menu
+        # Fall back to .env file or interactive mode
+        if os.path.exists('.env'):
+            load_dotenv()
+            overseerr_url, api_key, requester_user_id, sync_interval = load_env_config()
+            if all([overseerr_url, api_key, requester_user_id]):
+                print(color_gradient("👋  Welcome to the List to Overseerr Sync Tool!", "#00aaff", "#00ffaa") + "\n")
+                print(color_gradient("📝 Using configuration from .env file", "#00aaff", "#00ffaa"))
+                
+                lists_loaded = load_env_lists()
+                if lists_loaded:
+                    print(color_gradient("📋 Lists loaded from .env file", "#00aaff", "#00ffaa"))
+                
+                if sync_interval > 0:
+                    print(color_gradient(f"\n⚙️  Starting automated sync mode (interval: {sync_interval} hours)...", "#00aaff", "#00ffaa"))
+                    while True:
+                        try:
+                            start_sync(overseerr_url, api_key, requester_user_id, setup_logging())
+                            sleep_with_countdown(sync_interval * 3600, overseerr_url, api_key, requester_user_id, setup_logging)
+                        except KeyboardInterrupt:
+                            print(color_gradient("\n👋 Exiting automated sync mode...", "#ffaa00", "#ff5500"))
+                            break
+                return
+        
+        # Interactive setup and menu if no environment variables or .env file
         print(color_gradient("👋  Welcome to the List to Overseerr Sync Tool!", "#00aaff", "#00ffaa") + "\n")
         
         # Load or create config
