@@ -3,24 +3,24 @@ requires-python = ">= 3.9"
 
 [tool.poetry]
 name = "list-sync"
-version = "0.4.4"
-description = ""
+version = "0.5.5"
+description = "Sync your watchlists from IMDb, Trakt, and Letterboxd with Overseerr/Jellyseerr"
 authors = ["Woahai321"]
 readme = "README.md"
 package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.9"
-requests = "^2.32.3"
+requests = "^2.31.0"
 bs4 = "^0.0.2"
 halo = "^0.0.31"
 colorama = "^0.4.6"
-cryptography = "^43.0.1"
-python-dotenv = "^0.19.2"
+cryptography = "^42.0.2"
+python-dotenv = "^1.0.1"
 seleniumbase = "^4.22.3"
 
 [tool.poetry.group.dev.dependencies]
-ruff = "^0.6.0"
+ruff = "^0.2.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
