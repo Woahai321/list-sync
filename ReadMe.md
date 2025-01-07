@@ -168,69 +168,62 @@ For detailed information about SeerrBridge, visit the [SeerrBridge Repository](h
 |      ![Trakt](https://img.shields.io/badge/Trakt-green?style=for-the-badge&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABKElEQVQ4jZXTMUoDQRQG4C+7YmFhYSHYWFgIHkAQPICFhYcQBEEQxGNYWHgIC0H0BsELWFhYWAQLC2GzxSzsLrOz2f0hMDDvzXvfzLz3ZkopKKMxxrjHJc7wjjd0UgpfZRYVgbM4P2AevZzEHlZwiU5KYa8QmMUNtnCMh5TCqCR0jgF6eEQfq1jHFfbRxHFKYVQQWMQIZxjGehObeEUH7ZTCJCcYx2Ub99jGEEtYwDnWsIk2LlIK/ZzALK7RwlKsPWMppfAc/m+0UwrTnKCBHt7iZnlp5/GCVkrhKyd4wg5WYv6NTkrhNSdoRd0b2Cg0z0dOcIj9uHnePG/+t/k3wR/kyUNUdQE+UAAAAABJRU5ErkJgg==)      | ✅ Supported | Currently supported |
 | ![Letterboxd](https://img.shields.io/badge/Letterboxd-green?style=for-the-badge&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABKElEQVQ4jZXTMUoDQRQG4C+7YmFhYSHYWFgIHkAQPICFhYcQBEEQxGNYWHgIC0H0BsELWFhYWAQLC2GzxSzsLrOz2f0hMDDvzXvfzLz3ZkopKKMxxrjHJc7wjjd0UgpfZRYVgbM4P2AevZzEHlZwiU5KYa8QmMUNtnCMh5TCqCR0jgF6eEQfq1jHFfbRxHFKYVQQWMQIZxjGehObeEUH7ZTCJCcYx2Ub99jGEEtYwDnWsIk2LlIK/ZzALK7RwlKsPWMppfAc/m+0UwrTnKCBHt7iZnlp5/GCVkrhKyd4wg5WYv6NTkrhNSdoRd0b2Cg0z0dOcIj9uHnePG/+t/k3wR/kyUNUdQE+UAAAAABJRU5ErkJgg==) | ✅ Supported | Currently supported |
 
-## 🔍 Obtaining List IDs
+---
 
-ListSync supports IMDb, Trakt and Letterboxd lists, and you can add them using either the raw URL or the list ID. This flexibility allows you to simply copy and paste from your browser’s URL bar or follow the instructions below to extract the list ID. Additionally, ListSync now supports IMDb charts, making it even easier to sync popular lists like the Top 250 or Box Office.
+## 📋 Obtaining List IDs
 
-### IMDb List ID or URL
+ListSync supports **IMDb**, **Trakt**, and **Letterboxd** lists. You can add them using either the raw URL or the list ID.
 
-You can add IMDb lists using either the raw URL or the list ID. Here’s how:
+<details>
+<summary>📋 IMDb List ID or URL</summary>
 
 #### **Using the Raw URL**:
-
-1. Navigate to your IMDb list in your browser.
-2. Copy the URL from the address bar. It will look like one of the following:
-   - For custom lists: `https://www.imdb.com/list/ls012345678/`
-   - For IMDb charts: `https://www.imdb.com/chart/top/` (Top 250), `https://www.imdb.com/chart/boxoffice/` (Box Office), etc.
-   - For watchlists: `https://www.imdb.com/user/ur12345678/watchlist`
+1. Navigate to your IMDb list in your browser.  
+2. Copy the URL from the address bar. Examples:  
+   - Custom lists: `https://www.imdb.com/list/ls012345678/`  
+   - IMDb charts: `https://www.imdb.com/chart/top/` (Top 250), `https://www.imdb.com/chart/boxoffice/` (Box Office)  
+   - Watchlists: `https://www.imdb.com/user/ur12345678/watchlist`  
 3. Paste the URL directly into ListSync.
 
 #### **Using the List ID**:
-
-1. Navigate to your IMDb list in your browser.
-2. Look at the URL. It will be in one of the following formats:
-   - For custom lists: `https://www.imdb.com/list/ls012345678/` → The list ID is `ls012345678`.
-   - For IMDb charts: The chart name (e.g., `top`, `boxoffice`, `moviemeter`, `tvmeter`) is the list ID.
-   - For watchlists: `https://www.imdb.com/user/ur12345678/watchlist` → The list ID is `ur12345678`.
-3. Use the list ID in ListSync.
+1. Look at the URL:  
+   - Custom lists: `ls012345678`  
+   - IMDb charts: Use the chart name (e.g., `top`, `boxoffice`)  
+   - Watchlists: `ur12345678`  
+2. Use the list ID in ListSync.
 
 #### **Supported IMDb Charts**:
+- `top` (Top 250 Movies)  
+- `boxoffice` (Box Office)  
+- `moviemeter` (MovieMeter)  
+- `tvmeter` (TVMeter)  
+</details>
 
-ListSync supports the following IMDb charts by name:
-
-- `top` (Top 250 Movies)
-- `boxoffice` (Box Office)
-- `moviemeter` (MovieMeter)
-- `tvmeter` (TVMeter)
-
-### Trakt List ID or URL
-
-You can add Trakt lists using either the raw URL or the list ID. Here’s how:
+<details>
+<summary>📋 Trakt List ID or URL</summary>
 
 #### **Using the Raw URL**:
-
-1. Navigate to your Trakt list in your browser.
-2. Copy the URL from the address bar. It will look like one of the following:
-   - For user lists: `https://trakt.tv/users/username/lists/example-list`
+1. Navigate to your Trakt list in your browser.  
+2. Copy the URL from the address bar. Example:  
+   - `https://trakt.tv/users/username/lists/example-list`  
 3. Paste the URL directly into ListSync.
 
 #### **Using the List ID**:
+1. Click the "Share" button on your Trakt list.  
+2. Copy the link, which will look like:  
+   - `https://trakt.tv/lists/12345678`  
+3. The list ID is the number at the end (e.g., `12345678`).  
+</details>
 
-1. Go to your Trakt list in your browser.
-2. Look for the blue "Share" button, located in the list.
-3. ![trakt-help](https://share.woahlab.com/-Nx5VJnbUEY)
-4. Hover over it, and it should say "**Copy Link**".
-5. The copied link will be in the format: `https://trakt.tv/lists/12345678` or `https://trakt.tv/users/username/lists/12345678`.
-6. The list ID is the number at the end. In this example, it would be `12345678`.
-
-### Letterboxd URL
+<details>
+<summary>📋 Letterboxd URL</summary>
 
 #### **Using the Raw URL**:
-
-1. Navigate to your Letterboxd list in your browser.
-2. Copy the URL from the address bar. It will look like one of the following:
-   - For user lists: `https://letterboxd.com/user/list/example-list/`
-3. Paste the URL directly into ListSync.
+1. Navigate to your Letterboxd list in your browser.  
+2. Copy the URL from the address bar. Example:  
+   - `https://letterboxd.com/user/list/example-list/`  
+3. Paste the URL directly into ListSync.  
+</details>
 
 ### Adding Multiple List IDs
 
@@ -239,6 +232,8 @@ When inputting list IDs or URLs, you can add multiple lists by separating them w
 - IMDb: `ls012345678,12345678,https://www.imdb.com/chart/top/,ur987654321,https://trakt.tv/lists/87654321`
 
 This allows you to sync multiple lists at once, whether they are custom lists, charts, or watchlists.
+
+---
 
 ## 📋 Notes
 
@@ -255,6 +250,8 @@ If you find ListSync useful and would like to support its development, consider 
 - ETH (Ethereum): `0xAF3ADE79B7304784049D200ea50352D1C717d7f2`
 
 Thank you for your support!
+
+---
 
 ## 🔎 How it Works
 
