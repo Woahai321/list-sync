@@ -227,9 +227,9 @@ ListSync supports **IMDb**, **Trakt**, and **Letterboxd** lists. You can add the
 
 ### Adding Multiple List IDs
 
-When inputting list IDs or URLs, you can add multiple lists by separating them with commas. For example:
+When inputting list IDs or URLs, you can add multiple lists by separating them with commas:
 
-- IMDb: `ls012345678,12345678,https://www.imdb.com/chart/top/,ur987654321,https://trakt.tv/lists/87654321`
+- Example: `ls012345678,12345678,https://www.imdb.com/chart/top/,ur987654321,https://letterboxd.com/user/list/example-list/`
 
 This allows you to sync multiple lists at once, whether they are custom lists, charts, or watchlists.
 
