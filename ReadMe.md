@@ -92,18 +92,22 @@ The fastest way to get started is with our Docker one-liner:
 Create and configure your `.env` file with your settings:
 
 ```env
-# Overseerr Configuration
+# Overseerr Configuration 
 OVERSEERR_URL=https://your-overseerr-instance
 OVERSEERR_API_KEY=your-api-key-here
 OVERSEERR_USER_ID=1
+
+# Set to true for automated mode (recommended for Docker)
+AUTOMATED_MODE=false
 
 # Sync interval in hours (default: 24)
 SYNC_INTERVAL=24
 
 # Lists Configuration (comma-separated)
-IMDB_LISTS=ls123456789,ur123456789,top,boxoffice
-TRAKT_LISTS=12345,67890
-LETTERBOXD_LISTS=https://letterboxd.com/username/list/listname/
+# Examples:
+IMDB_LISTS=ls123456789,ur123456789,top,boxoffice,https://www.imdb.com/list/ls123456789/
+TRAKT_LISTS=12345,67890,https://trakt.tv/users/username/lists/listname
+LETTERBOXD_LISTS=https://letterboxd.com/username/list/listname/ 
 ```
 
 Run using Docker Compose:
