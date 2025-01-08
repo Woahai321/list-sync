@@ -1563,9 +1563,44 @@ def main():
             api_key = custom_input(color_gradient("🔑 Enter your API key: ", "#ffaa00", "#ff5500"))
             requester_user_id = set_requester_user(overseerr_url, api_key)
             save_config(overseerr_url, api_key, requester_user_id)
-        
-        # Continue with interactive menu...
-        # (rest of the interactive menu code remains the same)
+
+        # Interactive menu
+        while True:
+            display_menu()
+            choice = custom_input(color_gradient("\nEnter your choice: ", "#ffaa00", "#ff5500"))
+            
+            try:
+                if choice == "1":
+                    add_new_lists()
+                elif choice == "2":
+                    start_sync(overseerr_url, api_key, requester_user_id, setup_logging())
+                elif choice == "3":
+                    one_time_list_sync(overseerr_url, api_key, requester_user_id, setup_logging())
+                elif choice == "4":
+                    manage_lists()
+                elif choice == "5":
+                    configure_sync_interval()
+                    interval = load_sync_interval()
+                    if interval > 0:
+                        print(color_gradient(f"\n⚙️  Starting automated sync mode (interval: {interval} hours)...", "#00aaff", "#00ffaa"))
+                        while True:
+                            try:
+                                start_sync(overseerr_url, api_key, requester_user_id, setup_logging())
+                                sleep_with_countdown(interval * 3600, overseerr_url, api_key, requester_user_id, setup_logging)
+                            except KeyboardInterrupt:
+                                print(color_gradient("\n👋 Exiting automated sync mode...", "#ffaa00", "#ff5500"))
+                                break
+                elif choice == "6":
+                    start_sync(overseerr_url, api_key, requester_user_id, setup_logging(), dry_run=True)
+                elif choice == "7":
+                    print(color_gradient("\n👋 Thanks for using ListSync!", "#00aaff", "#00ffaa"))
+                    break
+                else:
+                    print(color_gradient("\n❌ Invalid choice. Please try again.", "#ff0000", "#aa0000"))
+            except Exception as e:
+                print(color_gradient(f"\n❌ Error: {str(e)}", "#ff0000", "#aa0000"))
+                logging.error(f"Error in menu option {choice}: {str(e)}")
+                continue
 
 if __name__ == "__main__":
     main()
