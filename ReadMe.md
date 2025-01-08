@@ -98,7 +98,7 @@ OVERSEERR_API_KEY=your-api-key-here
 OVERSEERR_USER_ID=1
 
 # Set to true for automated mode (recommended for Docker)
-AUTOMATED_MODE=false
+AUTOMATED_MODE=true
 
 # Sync interval in hours (default: 24)
 SYNC_INTERVAL=24
