@@ -144,7 +144,7 @@ services:
 **Run using Docker Compose**:
 | Installation Method | Command |
 | :----------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------: |
-| ![Docker](https://img.shields.io/badge/Docker-ready-blue?style=for-the-badge&logo=docker) | `docker-compose build && docker-compose up` |
+| ![Docker](https://img.shields.io/badge/Docker-ready-blue?style=for-the-badge&logo=docker) | `docker-compose up` |
 
 
 This setup will trigger *Automated Mode*, meaning it will automatically pull in the added lists based on your configuration, streamlining the syncing process.
