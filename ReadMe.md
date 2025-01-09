@@ -35,7 +35,18 @@ Key Features:
 
 ---
 
-### How Does It Work?
+### Currently in Development for v0.6.0
+
+For the most stable experience, use the source code from the latest release [here](https://github.com/Woahai321/list-sync/releases/tag/v0.5.5).
+
+## 🎬 Demo
+
+![Bot In Action](https://share.woahlab.com/-BZtwSD96LN)
+
+---
+
+<details>
+<summary>How Does It Work?</summary>
 
 ListSync seamlessly syncs your watchlists with your media server in three simple steps:
 
@@ -53,43 +64,40 @@ ListSync checks if the media is already available or requested. If not, it autom
 
 - For **Movies**, it requests the title.
 - For **TV Shows**, it requests all available seasons.
-
-### Why Use ListSync?
+</details>
+<details>
+<summary>Why Use ListSync?</summary>
 
 - **Save Time**: Automates adding movies and TV shows to your media server.
 - **Stay Organized**: Keeps your media server in sync with your watchlists.
 - **Flexible**: Works with IMDb, Trakt, Letterboxd, Overseerr, and Jellyseerr.
 - **Customizable**: Set sync intervals to match your preferences.
-
----
-
-### Currently in Development for v0.6.0
-
-For the most stable experience, use the source code from the latest release [here](https://github.com/Woahai321/list-sync/releases/tag/v0.5.5).
-
-## 🎬 Demo
-
-![Bot In Action](https://share.woahlab.com/-BZtwSD96LN)
+</details>
 
 ---
 
 ## 🚀 Getting Started
 
-There are two ways to run ListSync:
+You can run ListSync in two primary modes: **Interactive Mode** and **Automated Mode**. 
 
-### Option 1: Quick Start (Recommended)
+### 1. **Interactive Mode** (Recommended for Quick Start)
 
-The fastest way to get started is with our Docker one-liner:
+The quickest way to get started is by using our Docker one-liner, which runs ListSync in Interactive Mode. This option will prompt you for all the necessary information during setup:
+
 | Installation Method | Command |
-| :----------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------: |
+| :-------------------- | :---------------------------------- |
 | ![Docker](https://img.shields.io/badge/Docker-ready-blue?style=for-the-badge&logo=docker) | `docker pull ghcr.io/woahai321/list-sync:main && docker run -it --rm -v "$(pwd)/data:/usr/src/app/data" -e TERM=xterm-256color ghcr.io/woahai321/list-sync:main` |
 
+### 2. **Automated Mode** (Preferred for Regular Syncing)
+
+For a seamless experience, you can run ListSync in Automated Mode using a .env file and Docker Compose. This mode eliminates the need for manual inputs each time you run the script by automatically pulling list IDs and configurations from your `.env` file:
+
 <details>
-<summary>Option 2: Using Docker Compose 🐳</summary>
+<summary>Expand for Docker Compose Instructions 🐳</summary>
 
-### Option 2: Using Docker Compose
+#### Running with Docker Compose
 
-Create and configure your `.env` file with your settings:
+**Create a `.env` file**: Configure your settings in a `.env` file with the following template:
 
 ```env
 # Overseerr Configuration 
@@ -97,38 +105,66 @@ OVERSEERR_URL=https://your-overseerr-instance
 OVERSEERR_API_KEY=your-api-key-here
 OVERSEERR_USER_ID=1
 
-# Set to true for automated mode (recommended for Docker)
+# Set this to true for automated mode
 AUTOMATED_MODE=true
 
 # Sync interval in hours (default: 24)
 SYNC_INTERVAL=24
 
 # Lists Configuration (comma-separated)
-# Examples:
 IMDB_LISTS=ls123456789,ur123456789,top,boxoffice,https://www.imdb.com/list/ls123456789/
 TRAKT_LISTS=12345,67890,https://trakt.tv/users/username/lists/listname
-LETTERBOXD_LISTS=https://letterboxd.com/username/list/listname/ 
+LETTERBOXD_LISTS=https://letterboxd.com/username/list/listname/
 ```
 
-Run using Docker Compose:
+**Create a `docker-compose.yml` file**:
+
+```
+version: "3.8"
+
+services:
+  listsync:
+    image: ghcr.io/woahai321/list-sync:main
+    container_name: listsync
+    environment:
+      - OVERSEERR_URL=${OVERSEERR_URL}
+      - OVERSEERR_API_KEY=${OVERSEERR_API_KEY}
+      - OVERSEERR_USER_ID=${OVERSEERR_USER_ID:-1}
+      - SYNC_INTERVAL=${SYNC_INTERVAL:-24}
+      - AUTOMATED_MODE=true
+      - IMDB_LISTS=${IMDB_LISTS}
+      - TRAKT_LISTS=${TRAKT_LISTS}
+      - LETTERBOXD_LISTS=${LETTERBOXD_LISTS}
+    volumes:
+      - ./data:/usr/src/app/data
+      - ./.env:/usr/src/app/.env
+    restart: unless-stopped
+```
+
+**Run using Docker Compose**:
 | Installation Method | Command |
 | :----------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------: |
 | ![Docker](https://img.shields.io/badge/Docker-ready-blue?style=for-the-badge&logo=docker) | `docker-compose build && docker-compose up` |
 
+
+This setup will trigger *Automated Mode*, meaning it will automatically pull in the added lists based on your configuration, streamlining the syncing process.
 </details>
 
+### 3. **Manual Installation** (Advanced Users)
+
+You can also set up ListSync manually if you prefer a more hands-on approach:
+
 <details>
-<summary>Option 3: Manual Installation 🛠️</summary>
+<summary>Expand for Manual Installation Instructions 🛠️</summary>
 
-### Option 3: Manual Installation
+#### Manual Installation Methods
 
-|                                    Installation Method                                     |                                                          Command                                                           |
-| :----------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------: |
-| ![Poetry](https://img.shields.io/badge/Poetry-ready-blue?style=for-the-badge&logo=poetry)  |    `git clone https://github.com/Woahai321/list-sync.git && cd list-sync && poetry install && poetry run python add.py`    |
+| Installation Method | Command |
+| :------------------ | :------------------------------------------------------------ |
+| ![Poetry](https://img.shields.io/badge/Poetry-ready-blue?style=for-the-badge&logo=poetry) | `git clone https://github.com/Woahai321/list-sync.git && cd list-sync && poetry install && poetry run python add.py` |
 | ![Python](https://img.shields.io/badge/Python-3.7%2B-blue?style=for-the-badge&logo=python) | `git clone https://github.com/Woahai321/list-sync.git && cd list-sync && pip install -r requirements.txt && python add.py` |
 
-For detailed installation instructions, please refer to our [Installation Guide](/docs/installation.md).
-
+Refer to our [Installation Guide](/docs/installation.md) for detailed instructions.
 </details>
 
 ---
