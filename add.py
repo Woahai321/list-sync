@@ -1589,7 +1589,7 @@ def main():
                     while True:
                         try:
                             start_sync(overseerr_url, api_key, requester_user_id, setup_logging())
-                            sleep_with_countdown(interval * 3600, overseerr_url, api_key, requester_user_id, setup_logging)
+                            sleep_with_countdown(sync_interval * 3600, overseerr_url, api_key, requester_user_id, setup_logging)
                         except KeyboardInterrupt:
                             print(color_gradient("\n👋 Exiting automated sync mode...", "#ffaa00", "#ff5500"))
                             break
