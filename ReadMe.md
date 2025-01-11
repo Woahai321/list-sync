@@ -105,16 +105,20 @@ OVERSEERR_URL=https://your-overseerr-instance
 OVERSEERR_API_KEY=your-api-key-here
 OVERSEERR_USER_ID=1
 
-# Set this to true for automated mode
-AUTOMATED_MODE=true
+# Set to true for automated mode (recommended for Docker)
+AUTOMATED_MODE=false
 
 # Sync interval in hours (default: 24)
 SYNC_INTERVAL=24
 
+# Request Quality Profile (true for 4K, false for standard)
+OVERSEERR_4K=false
+
 # Lists Configuration (comma-separated)
+# Examples:
 IMDB_LISTS=ls123456789,ur123456789,top,boxoffice,https://www.imdb.com/list/ls123456789/
 TRAKT_LISTS=12345,67890,https://trakt.tv/users/username/lists/listname
-LETTERBOXD_LISTS=https://letterboxd.com/username/list/listname/
+LETTERBOXD_LISTS=https://letterboxd.com/username/list/listname/ 
 ```
 
 **Create a `docker-compose.yml` file**:
