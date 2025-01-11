@@ -857,13 +857,13 @@ def confirm_media_status(overseerr_url, api_key, media_id, media_type):
         logging.error(f"Error confirming status for {media_type} ID {media_id}: {str(e)}")
         raise
 
-def request_media_in_overseerr(overseerr_url, api_key, requester_user_id, media_id, media_type):
+def request_media_in_overseerr(overseerr_url, api_key, requester_user_id, media_id, media_type, is_4k=False):
     headers = {"X-Api-Key": api_key, "X-Api-User": requester_user_id, "Content-Type": "application/json"}
     request_url = f"{overseerr_url}/api/v1/request"
     payload = {
         "mediaId": media_id,
         "mediaType": media_type,
-        "is4k": False
+        "is4k": is_4k
     }
     try:
         response = requests.post(request_url, headers=headers, json=payload)
@@ -874,7 +874,7 @@ def request_media_in_overseerr(overseerr_url, api_key, requester_user_id, media_
         logging.error(f"Error requesting {media_type} ID {media_id}: {str(e)}")
         return "error"
 
-def request_tv_series_in_overseerr(overseerr_url, api_key, requester_user_id, tv_id, number_of_seasons):
+def request_tv_series_in_overseerr(overseerr_url, api_key, requester_user_id, tv_id, number_of_seasons, is_4k=False):
     headers = {"X-Api-Key": api_key, "X-Api-User": requester_user_id, "Content-Type": "application/json"}
     request_url = f"{overseerr_url}/api/v1/request"
     
@@ -884,7 +884,7 @@ def request_tv_series_in_overseerr(overseerr_url, api_key, requester_user_id, tv
     payload = {
         "mediaId": tv_id,
         "mediaType": "tv",
-        "is4k": False,
+        "is4k": is_4k,
         "seasons": seasons_list
     }
     
@@ -1018,7 +1018,7 @@ def save_sync_result(title, media_type, imdb_id, overseerr_id, status):
         ''', (title, media_type, imdb_id, overseerr_id, status))
         conn.commit()
 
-def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, requester_user_id: str, dry_run: bool) -> Dict[str, Any]:
+def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, requester_user_id: str, dry_run: bool, is_4k: bool = False) -> Dict[str, Any]:
     title = item.get('title', 'Unknown Title').strip()
     media_type = item.get('media_type', 'unknown')
     year = item.get('year')
@@ -1064,9 +1064,9 @@ def process_media_item(item: Dict[str, Any], overseerr_url: str, api_key: str, r
                 return {"title": title, "status": "already_requested", "year": year, "media_type": media_type}
             else:
                 if search_result["mediaType"] == 'tv':
-                    request_status = request_tv_series_in_overseerr(overseerr_url, api_key, requester_user_id, overseerr_id, number_of_seasons)
+                    request_status = request_tv_series_in_overseerr(overseerr_url, api_key, requester_user_id, overseerr_id, number_of_seasons, is_4k)
                 else:
-                    request_status = request_media_in_overseerr(overseerr_url, api_key, requester_user_id, overseerr_id, search_result["mediaType"])
+                    request_status = request_media_in_overseerr(overseerr_url, api_key, requester_user_id, overseerr_id, search_result["mediaType"], is_4k)
                 
                 if request_status == "success":
                     save_sync_result(title, media_type, None, overseerr_id, "requested")
@@ -1108,7 +1108,7 @@ def sleep_with_countdown(seconds, overseerr_url, api_key, requester_user_id, set
         print("\nExiting automated sync mode...")
         raise
 
-def process_media(media_items: List[Dict[str, Any]], overseerr_url: str, api_key: str, requester_user_id: str, dry_run: bool = False):
+def process_media(media_items: List[Dict[str, Any]], overseerr_url: str, api_key: str, requester_user_id: str, dry_run: bool = False, is_4k: bool = False):
     sync_results = SyncResults()
     sync_results.total_items = len(media_items)
     current_item = 0
@@ -1116,7 +1116,7 @@ def process_media(media_items: List[Dict[str, Any]], overseerr_url: str, api_key
     print(color_gradient(f"\n🎬  Processing {sync_results.total_items} media items...", "#00aaff", "#00ffaa") + "\n")
     
     with ThreadPoolExecutor(max_workers=10) as executor:
-        future_to_item = {executor.submit(process_media_item, item, overseerr_url, api_key, requester_user_id, dry_run): item for item in media_items}
+        future_to_item = {executor.submit(process_media_item, item, overseerr_url, api_key, requester_user_id, dry_run, is_4k): item for item in media_items}
         for future in as_completed(future_to_item):
             item = future_to_item[future]
             current_item += 1
@@ -1274,7 +1274,7 @@ def handle_menu_choice(choice, overseerr_url, api_key, requester_user_id):
     else:
         print(color_gradient("\n❌ Invalid choice. Please try again.", "#ff0000", "#aa0000"))
 
-def start_sync(overseerr_url, api_key, requester_user_id, added_logger, dry_run=False):
+def start_sync(overseerr_url, api_key, requester_user_id, added_logger, dry_run=False, is_4k=False):
     try:
         test_overseerr_api(overseerr_url, api_key)
     except Exception as e:
@@ -1296,7 +1296,7 @@ def start_sync(overseerr_url, api_key, requester_user_id, added_logger, dry_run=
             logging.error(f"Error fetching list: {e}")
             continue
 
-    process_media(media_items, overseerr_url, api_key, requester_user_id, dry_run)
+    process_media(media_items, overseerr_url, api_key, requester_user_id, dry_run, is_4k)
 
 def one_time_list_sync(overseerr_url, api_key, requester_user_id, added_logger):
     list_ids = custom_input(color_gradient("\n🎬  Enter List ID(s) for one-time sync (comma-separated for multiple): ", "#ffaa00", "#ff5500"))
@@ -1476,17 +1476,18 @@ def load_env_config():
     user_id = os.getenv('OVERSEERR_USER_ID', '1')  # Default to 1 if not set
     sync_interval = os.getenv('SYNC_INTERVAL', '12')  # Default to 12 if not set
     automated_mode = os.getenv('AUTOMATED_MODE', 'true').lower() == 'true'  # New env var
+    is_4k = os.getenv('OVERSEERR_4K', 'false').lower() == 'true'  # New 4K setting
     
     # Only return the config if required variables are present
     if url and api_key:
         try:
             # Test the API connection
             test_overseerr_api(url, api_key)
-            return url, api_key, user_id, int(sync_interval), automated_mode
+            return url, api_key, user_id, int(sync_interval), automated_mode, is_4k
         except Exception as e:
             logging.error(f"Error testing Overseerr API with environment variables: {e}")
             print(color_gradient(f"\n❌  Error testing Overseerr API: {e}", "#ff0000", "#aa0000"))
-    return None, None, None, 0, False
+    return None, None, None, 0, False, False
 
 def load_env_lists():
     """Load lists from environment variables."""
@@ -1549,7 +1550,7 @@ def main():
     display_ascii_art()
 
     # First try to load from environment variables (Docker Compose)
-    overseerr_url, api_key, requester_user_id, sync_interval, automated_mode = load_env_config()
+    overseerr_url, api_key, requester_user_id, sync_interval, automated_mode, is_4k = load_env_config()
     
     # If environment config exists and automated mode is enabled
     if all([overseerr_url, api_key, requester_user_id]) and automated_mode:
@@ -1566,7 +1567,7 @@ def main():
             print(color_gradient(f"\n⚙️  Starting automated sync mode (interval: {sync_interval} hours)...", "#00aaff", "#00ffaa"))
             while True:
                 try:
-                    start_sync(overseerr_url, api_key, requester_user_id, setup_logging())
+                    start_sync(overseerr_url, api_key, requester_user_id, setup_logging(), dry_run=False, is_4k=is_4k)
                     sleep_with_countdown(sync_interval * 3600, overseerr_url, api_key, requester_user_id, setup_logging)
                 except KeyboardInterrupt:
                     print(color_gradient("\n👋 Exiting automated sync mode...", "#ffaa00", "#ff5500"))
@@ -1575,7 +1576,7 @@ def main():
         # Try loading from .env file if environment variables weren't sufficient
         if os.path.exists('.env'):
             load_dotenv()
-            overseerr_url, api_key, requester_user_id, sync_interval, automated_mode = load_env_config()
+            overseerr_url, api_key, requester_user_id, sync_interval, automated_mode, is_4k = load_env_config()
             if all([overseerr_url, api_key, requester_user_id]) and automated_mode:
                 print(color_gradient("👋  Welcome to the List to Overseerr Sync Tool!", "#00aaff", "#00ffaa") + "\n")
                 print(color_gradient("📝 Using configuration from .env file", "#00aaff", "#00ffaa"))
@@ -1588,7 +1589,7 @@ def main():
                     print(color_gradient(f"\n⚙️  Starting automated sync mode (interval: {sync_interval} hours)...", "#00aaff", "#00ffaa"))
                     while True:
                         try:
-                            start_sync(overseerr_url, api_key, requester_user_id, setup_logging())
+                            start_sync(overseerr_url, api_key, requester_user_id, setup_logging(), dry_run=False, is_4k=is_4k)
                             sleep_with_countdown(sync_interval * 3600, overseerr_url, api_key, requester_user_id, setup_logging)
                         except KeyboardInterrupt:
                             print(color_gradient("\n👋 Exiting automated sync mode...", "#ffaa00", "#ff5500"))
