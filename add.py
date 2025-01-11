@@ -18,6 +18,7 @@ import readline
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
 import re
+import sys
 
 import requests
 from colorama import Style, init
@@ -219,17 +220,27 @@ def load_config():
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, "rb") as f:
             encrypted_config = f.read()
-        print()  # Ensure password prompt is on a new line
-        password = getpass.getpass(color_gradient("🔑  Enter your password: ", "#ff0000", "#aa0000"))
-        try:
-            config = decrypt_config(encrypted_config, password)
-            return config["overseerr_url"], config["api_key"], config["requester_user_id"]
-        except Exception:
-            print(f'\n{color_gradient("❌  Incorrect password. Unable to decrypt config.", "#ff0000", "#aa0000")}')
-            if custom_input("\n🗑️  Delete this config and start over? (y/n): ").lower() == "y":
-                os.remove(CONFIG_FILE)
-                print(f'\n{color_gradient("🔄  Config deleted. Rerun the script to set it up again.", "#ffaa00", "#ff5500")}\n')
-            return None, None, None
+        
+        max_attempts = 3
+        current_attempt = 0
+        
+        while current_attempt < max_attempts:
+            print()  # Ensure password prompt is on a new line
+            password = getpass.getpass(color_gradient("🔑  Enter your password: ", "#ff0000", "#aa0000"))
+            try:
+                config = decrypt_config(encrypted_config, password)
+                print()  # Add a newline after successful password entry
+                return config["overseerr_url"], config["api_key"], config["requester_user_id"]
+            except Exception:
+                current_attempt += 1
+                if current_attempt < max_attempts:
+                    print(color_gradient("\n❌  Incorrect password. Please try again.", "#ff0000", "#aa0000"))
+                else:
+                    print(color_gradient("\n❌  Maximum password attempts reached.", "#ff0000", "#aa0000"))
+                    if custom_input("\n🗑️  Delete this config and start over? (y/n): ").lower() == "y":
+                        os.remove(CONFIG_FILE)
+                        print(color_gradient("\n🔄  Config deleted. Rerun the script to set it up again.", "#ffaa00", "#ff5500") + "\n")
+                    return None, None, None
     return None, None, None
 
 def test_overseerr_api(overseerr_url, api_key):
@@ -1196,13 +1207,13 @@ def display_summary(sync_results: SyncResults):
     summary += f"Total Time: {int(processing_time // 60)}m {int(processing_time % 60)}s\n"
     summary += f"Avg Time: {avg_time_ms:.1f}ms/item\n\n"
 
-    # Status Summary
-    summary += "Status Summary\n"
+    # Results Summary
+    summary += "Results\n"
     summary += "─────────────\n"
     summary += f"✅ Requested: {sync_results.results['requested']}\n"
-    summary += f"☑️  Available: {sync_results.results['already_available']}\n"
+    summary += f"☑️ Available: {sync_results.results['already_available']}\n"
     summary += f"📌 Already Requested: {sync_results.results['already_requested']}\n"
-    summary += f"⏭️  Skipped: {sync_results.results['skipped']}\n\n"
+    summary += f"⏭️ Skipped: {sync_results.results['skipped']}\n\n"
 
     # Media Types
     summary += "Media Types\n"
@@ -1235,11 +1246,40 @@ def display_menu():
 """
     print(color_gradient(menu, "#00aaff", "#00ffaa") + Style.RESET_ALL)
 
+def handle_menu_choice(choice, overseerr_url, api_key, requester_user_id):
+    if choice == "1":
+        add_new_lists()
+    elif choice == "2":
+        start_sync(overseerr_url, api_key, requester_user_id, setup_logging())
+    elif choice == "3":
+        one_time_list_sync(overseerr_url, api_key, requester_user_id, setup_logging())
+    elif choice == "4":
+        manage_lists()
+    elif choice == "5":
+        configure_sync_interval()
+        interval = load_sync_interval()
+        if interval > 0:
+            print(color_gradient(f"\n⚙️  Starting automated sync mode (interval: {interval} hours)...", "#00aaff", "#00ffaa"))
+            while True:
+                try:
+                    start_sync(overseerr_url, api_key, requester_user_id, setup_logging())
+                    sleep_with_countdown(interval * 3600, overseerr_url, api_key, requester_user_id, setup_logging)
+                except KeyboardInterrupt:
+                    print(color_gradient("\n👋 Exiting automated sync mode...", "#ffaa00", "#ff5500"))
+                    break
+    elif choice == "6":
+        start_sync(overseerr_url, api_key, requester_user_id, setup_logging(), dry_run=True)
+    elif choice == "7":
+        print(color_gradient("\n👋 Thanks for using ListSync!", "#00aaff", "#00ffaa"))
+        os._exit(0)
+    else:
+        print(color_gradient("\n❌ Invalid choice. Please try again.", "#ff0000", "#aa0000"))
+
 def start_sync(overseerr_url, api_key, requester_user_id, added_logger, dry_run=False):
     try:
         test_overseerr_api(overseerr_url, api_key)
     except Exception as e:
-        print(color_gradient(f"\n❌  Error testing Overseerr API: {e}", "#ff0000", "#aa0000") + "\n")
+        print(color_gradient(f"\n❌  Error testing Overseerr API: {e}", "#ff0000", "#aa0000"))
         logging.error(f"Error testing Overseerr API: {e}")
         return
 
@@ -1253,7 +1293,7 @@ def start_sync(overseerr_url, api_key, requester_user_id, added_logger, dry_run=
             elif list_info['type'] == "letterboxd":
                 media_items.extend(fetch_letterboxd_list(list_info['id']))
         except Exception as e:
-            print(color_gradient(f"\n❌  Error fetching list: {e}", "#ff0000", "#aa0000") + "\n")
+            print(color_gradient(f"\n❌  Error fetching list: {e}", "#ff0000", "#aa0000"))
             logging.error(f"Error fetching list: {e}")
             continue
 
@@ -1301,12 +1341,8 @@ def one_time_list_sync(overseerr_url, api_key, requester_user_id, added_logger):
         print(color_gradient("\n❌  No valid lists were processed.", "#ff0000", "#aa0000"))
 
 def add_new_lists():
-    add_new_list = True
-    while add_new_list:
-        add_list_to_sync()
-        more_lists = custom_input(color_gradient("\n🏁  Do you want to import any other lists? (y/n): ", "#ffaa00", "#ff5500")).lower()
-        if more_lists != "y":
-            add_new_list = False
+    """Add new lists and start sync."""
+    add_list_to_sync()
 
     # Start sync immediately after adding new lists
     overseerr_url, api_key, requester_user_id = load_config()
@@ -1338,39 +1374,47 @@ def manage_lists():
             print(color_gradient("\n❌ Invalid choice. Please try again.", "#ff0000", "#aa0000"))
 
 def add_list_to_sync():
-    """Add a single list to sync."""
-    list_id = custom_input(color_gradient("\n🎬  Enter List ID or URL: ", "#ffaa00", "#ff5500")).strip()
+    """Add one or more lists to sync."""
+    list_ids = custom_input(color_gradient("\n🎬  Enter List ID(s) or URL(s) (comma-separated for multiple): ", "#ffaa00", "#ff5500")).strip()
+    list_ids = [id.strip() for id in list_ids.split(',')]
     
-    try:
-        # Check for IMDb URLs or chart IDs
-        if list_id.startswith(('http://', 'https://')):
-            if 'imdb.com' in list_id:
+    # List of common URL parameters to ignore
+    ignore_params = {'asc', 'desc', 'sort', 'page', 'limit'}
+    
+    for list_id in list_ids:
+        # Skip common URL parameters that might get split as separate items
+        if list_id.lower() in ignore_params:
+            continue
+            
+        try:
+            # Check for IMDb URLs or chart IDs
+            if list_id.startswith(('http://', 'https://')):
+                if 'imdb.com' in list_id:
+                    list_type = "imdb"
+                elif 'trakt.tv' in list_id:
+                    list_type = "trakt"
+                elif 'letterboxd.com' in list_id and '/list/' in list_id:
+                    list_type = "letterboxd"
+                else:
+                    print(color_gradient(f"\n❌  Invalid URL format for '{list_id}'. Must be IMDb, Trakt, or Letterboxd URL.", "#ff0000", "#aa0000"))
+                    continue
+            elif list_id in ['top', 'boxoffice', 'moviemeter', 'tvmeter']:
                 list_type = "imdb"
-            elif 'trakt.tv' in list_id:
+            elif list_id.startswith(('ls', 'ur')):
+                list_type = "imdb"
+            elif list_id.isdigit():
                 list_type = "trakt"
-            elif 'letterboxd.com' in list_id and '/list/' in list_id:
-                list_type = "letterboxd"
             else:
-                print(color_gradient("\n❌  Invalid URL format. Must be IMDb, Trakt, or Letterboxd URL.", "#ff0000", "#aa0000"))
-                return
-        elif list_id in ['top', 'boxoffice', 'moviemeter', 'tvmeter']:
-            list_type = "imdb"
-        elif list_id.startswith(('ls', 'ur')):
-            list_type = "imdb"
-        elif list_id.isdigit():
-            list_type = "trakt"
-        else:
-            print(color_gradient(f"\n❌  Invalid list ID format for '{list_id}'.", "#ff0000", "#aa0000"))
-            return
+                print(color_gradient(f"\n❌  Invalid list ID format for '{list_id}'.", "#ff0000", "#aa0000"))
+                continue
 
-        # Confirm with user
-        confirmation_message = f"Are you sure this {list_type.upper()} list is correct? (ID/URL: {list_id})"
-        add_to_sync = custom_input(color_gradient(f"\n🚨  {confirmation_message} (y/n): ", "#ffaa00", "#ff5500")).lower()
-        if add_to_sync == "y":
+            # Save list without confirmation for each individual list
             save_list_id(list_id, list_type)
             print(color_gradient(f"\n✅  Added {list_type.upper()} list: {list_id}", "#00ff00", "#00aa00"))
-    except Exception as e:
-        print(color_gradient(f"\n❌  Error adding list: {str(e)}", "#ff0000", "#aa0000"))
+            
+        except Exception as e:
+            print(color_gradient(f"\n❌  Error adding list {list_id}: {str(e)}", "#ff0000", "#aa0000"))
+            continue
 
 def init_selenium_driver():
     logging.info("Initializing Selenium driver...")
@@ -1546,11 +1590,11 @@ def main():
                     while True:
                         try:
                             start_sync(overseerr_url, api_key, requester_user_id, setup_logging())
-                            sleep_with_countdown(sync_interval * 3600, overseerr_url, api_key, requester_user_id, setup_logging)
+                            sleep_with_countdown(interval * 3600, overseerr_url, api_key, requester_user_id, setup_logging)
                         except KeyboardInterrupt:
                             print(color_gradient("\n👋 Exiting automated sync mode...", "#ffaa00", "#ff5500"))
                             break
-                return
+                    return
 
         # Fall back to interactive mode if no valid automated configuration
         print(color_gradient("👋  Welcome to the List to Overseerr Sync Tool!", "#00aaff", "#00ffaa") + "\n")
@@ -1563,40 +1607,15 @@ def main():
             api_key = custom_input(color_gradient("🔑 Enter your API key: ", "#ffaa00", "#ff5500"))
             requester_user_id = set_requester_user(overseerr_url, api_key)
             save_config(overseerr_url, api_key, requester_user_id)
+            print()  # Add a newline after config setup
 
         # Interactive menu
         while True:
+            print()  # Add a newline before menu
             display_menu()
-            choice = custom_input(color_gradient("\nEnter your choice: ", "#ffaa00", "#ff5500"))
-            
             try:
-                if choice == "1":
-                    add_new_lists()
-                elif choice == "2":
-                    start_sync(overseerr_url, api_key, requester_user_id, setup_logging())
-                elif choice == "3":
-                    one_time_list_sync(overseerr_url, api_key, requester_user_id, setup_logging())
-                elif choice == "4":
-                    manage_lists()
-                elif choice == "5":
-                    configure_sync_interval()
-                    interval = load_sync_interval()
-                    if interval > 0:
-                        print(color_gradient(f"\n⚙️  Starting automated sync mode (interval: {interval} hours)...", "#00aaff", "#00ffaa"))
-                        while True:
-                            try:
-                                start_sync(overseerr_url, api_key, requester_user_id, setup_logging())
-                                sleep_with_countdown(interval * 3600, overseerr_url, api_key, requester_user_id, setup_logging)
-                            except KeyboardInterrupt:
-                                print(color_gradient("\n👋 Exiting automated sync mode...", "#ffaa00", "#ff5500"))
-                                break
-                elif choice == "6":
-                    start_sync(overseerr_url, api_key, requester_user_id, setup_logging(), dry_run=True)
-                elif choice == "7":
-                    print(color_gradient("\n👋 Thanks for using ListSync!", "#00aaff", "#00ffaa"))
-                    break
-                else:
-                    print(color_gradient("\n❌ Invalid choice. Please try again.", "#ff0000", "#aa0000"))
+                choice = custom_input(color_gradient("\nEnter your choice: ", "#ffaa00", "#ff5500"))
+                handle_menu_choice(choice, overseerr_url, api_key, requester_user_id)
             except Exception as e:
                 print(color_gradient(f"\n❌ Error: {str(e)}", "#ff0000", "#aa0000"))
                 logging.error(f"Error in menu option {choice}: {str(e)}")
