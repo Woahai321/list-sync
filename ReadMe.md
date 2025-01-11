@@ -37,7 +37,7 @@ Key Features:
 
 ### Currently in Development for v0.6.0
 
-For the most stable experience, use the source code from the latest release [here](https://github.com/Woahai321/list-sync/releases/tag/v0.5.5).
+For the most stable experience, use the source code from the latest release [here](https://github.com/Woahai321/list-sync/releases/tag/v0.5.6).
 
 ## 🎬 Demo
 
