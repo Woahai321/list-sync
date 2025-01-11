@@ -18,7 +18,6 @@ import readline
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
 import re
-import sys
 
 import requests
 from colorama import Style, init
@@ -1257,13 +1256,13 @@ def handle_menu_choice(choice, overseerr_url, api_key, requester_user_id):
         manage_lists()
     elif choice == "5":
         configure_sync_interval()
-        interval = load_sync_interval()
-        if interval > 0:
-            print(color_gradient(f"\n⚙️  Starting automated sync mode (interval: {interval} hours)...", "#00aaff", "#00ffaa"))
+        sync_interval = load_sync_interval()
+        if sync_interval > 0:
+            print(color_gradient(f"\n⚙️  Starting automated sync mode (interval: {sync_interval} hours)...", "#00aaff", "#00ffaa"))
             while True:
                 try:
                     start_sync(overseerr_url, api_key, requester_user_id, setup_logging())
-                    sleep_with_countdown(interval * 3600, overseerr_url, api_key, requester_user_id, setup_logging)
+                    sleep_with_countdown(sync_interval * 3600, overseerr_url, api_key, requester_user_id, setup_logging)
                 except KeyboardInterrupt:
                     print(color_gradient("\n👋 Exiting automated sync mode...", "#ffaa00", "#ff5500"))
                     break
@@ -1571,7 +1570,7 @@ def main():
                     sleep_with_countdown(sync_interval * 3600, overseerr_url, api_key, requester_user_id, setup_logging)
                 except KeyboardInterrupt:
                     print(color_gradient("\n👋 Exiting automated sync mode...", "#ffaa00", "#ff5500"))
-                    return
+                    break
     else:
         # Try loading from .env file if environment variables weren't sufficient
         if os.path.exists('.env'):
