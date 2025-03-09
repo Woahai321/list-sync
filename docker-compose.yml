@@ -14,6 +14,7 @@ services:
       - IMDB_LISTS=${IMDB_LISTS}
       - TRAKT_LISTS=${TRAKT_LISTS}
       - LETTERBOXD_LISTS=${LETTERBOXD_LISTS}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
     volumes:
       - ./data:/usr/src/app/data
       - ./.env:/usr/src/app/.env

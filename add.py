@@ -1,5 +1,5 @@
 # =============================================================================
-# Soluify  |  Your #1 IT Problem Solver  |  {list-sync v0.5.6}
+# Soluify  |  Your #1 IT Problem Solver  |  {list-sync v0.5.7}
 # =============================================================================
 #  __         _
 # (_  _ |   .(_
@@ -25,6 +25,7 @@ from cryptography.fernet import Fernet
 from halo import Halo
 from seleniumbase import SB
 from dotenv import load_dotenv
+from discord_webhook import DiscordWebhook, DiscordEmbed
 
 # Initialize colorama for cross-platform colored terminal output
 init(autoreset=True)
@@ -191,7 +192,7 @@ def display_banner():
     """Display the banner."""
     banner = """
 ==============================================================
-Soluify - {servarr-tools_list-sync_v0.5.6}
+Soluify - {servarr-tools_list-sync_v0.5.7}
 ==============================================================
 """
     print(color_gradient(banner, "#00aaff", "#00ffaa"))
@@ -1724,6 +1725,90 @@ def display_summary(sync_results: SyncResults):
             summary += f"• {item['title']}\n"
 
     print(color_gradient(summary, "#9400D3", "#00FF00") + Style.RESET_ALL)
+    
+    # Send to Discord webhook if configured
+    discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
+    if discord_webhook_url:
+        send_to_discord_webhook(summary, sync_results, discord_webhook_url)
+
+def send_to_discord_webhook(summary_text, sync_results: SyncResults, webhook_url):
+    """Send the sync summary to a Discord webhook."""
+    try:
+        processing_time = time.time() - sync_results.start_time
+        total_items = sync_results.total_items or 1
+        
+        # Create webhook instance
+        webhook = DiscordWebhook(url=webhook_url, username="Soluify List Sync")
+        
+        # Create embed for the summary
+        embed = DiscordEmbed(
+            title="📊 List Sync Summary",
+            description="Results of the latest sync operation",
+            color="7289da"  # Discord blue color
+        )
+        
+        # Add Processing Stats
+        embed.add_embed_field(
+            name="⏱️ Processing Stats",
+            value=(
+                f"Total Items: **{sync_results.total_items}**\n"
+                f"Total Time: **{int(processing_time // 60)}m {int(processing_time % 60)}s**\n"
+                f"Avg Time: **{(processing_time / total_items) * 1000:.1f}ms/item**"
+            ),
+            inline=False
+        )
+        
+        # Add Status Summary
+        embed.add_embed_field(
+            name="📋 Status Summary",
+            value=(
+                f"✅ Requested: **{sync_results.results['requested']}**\n"
+                f"☑️ Available: **{sync_results.results['already_available']}**\n"
+                f"📌 Already Requested: **{sync_results.results['already_requested']}**\n"
+                f"⏭️ Skipped: **{sync_results.results['skipped']}**"
+            ),
+            inline=False
+        )
+        
+        # Add Media Types
+        embed.add_embed_field(
+            name="🎬 Media Types",
+            value=(
+                f"Movies: **{sync_results.media_type_counts['movie']}** ({sync_results.media_type_counts['movie']/total_items*100:.1f}%)\n"
+                f"TV Shows: **{sync_results.media_type_counts['tv']}** ({sync_results.media_type_counts['tv']/total_items*100:.1f}%)"
+            ),
+            inline=False
+        )
+        
+        # Add Not Found Items if any (up to 10 to avoid hitting Discord's limits)
+        if sync_results.not_found_items:
+            not_found_text = ""
+            for i, item in enumerate(sync_results.not_found_items[:10]):
+                not_found_text += f"• {item['title']}\n"
+            
+            if len(sync_results.not_found_items) > 10:
+                not_found_text += f"... and {len(sync_results.not_found_items) - 10} more"
+                
+            embed.add_embed_field(
+                name=f"❓ Not Found Items ({len(sync_results.not_found_items)})",
+                value=not_found_text,
+                inline=False
+            )
+        
+        # Set timestamp
+        embed.set_timestamp()
+        
+        # Add footer
+        embed.set_footer(text="Soluify List Sync Tool | v0.5.7")
+        
+        # Add embed to webhook
+        webhook.add_embed(embed)
+        
+        # Send webhook
+        webhook.execute()
+        logging.info("Discord webhook notification sent successfully")
+    except Exception as e:
+        logging.error(f"Failed to send Discord webhook notification: {str(e)}")
 
 def display_menu():
     menu = """
@@ -1973,6 +2058,11 @@ def load_env_config():
     sync_interval = os.getenv('SYNC_INTERVAL', '12')  # Default to 12 if not set
     automated_mode = os.getenv('AUTOMATED_MODE', 'true').lower() == 'true'  # New env var
     is_4k = os.getenv('OVERSEERR_4K', 'false').lower() == 'true'  # New 4K setting
+    discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')  # New webhook URL
+    
+    # Log if Discord webhook is configured
+    if discord_webhook_url:
+        logging.info("Discord webhook integration enabled")
     
     # Only return the config if required variables are present
     if url and api_key:
@@ -2121,5 +2211,5 @@ if __name__ == "__main__":
     main()
 
 # =======================================================================================================
-# Soluify  |  You actually read it? Nice work, stay safe out there people!  |  {list-sync v0.5.6}
+# Soluify  |  You actually read it? Nice work, stay safe out there people!  |  {list-sync v0.5.7}
 # =======================================================================================================
