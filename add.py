@@ -906,7 +906,7 @@ def fetch_imdb_list(list_id):
                                         href = link.get_attribute("href")
                                         if href and "/title/" in href:
                                             imdb_id = href.split("/")[4]
-                                            logging.info(f"Found IMDb ID from generic link")
+                                            logging.info("Found IMDb ID from generic link")
                                             break
                                 except Exception:
                                     pass
