@@ -31,49 +31,30 @@ Key Features:
 - [📋 List Setup Guide](#-obtaining-list-ids)
 - [🛠️ Troubleshooting](#-troubleshooting)
 - [📖 Documentation](docs/)
-- [🌉 SeerrBridge Integration](#-seerrbridge-integration)
 
 ---
 
-### Currently in Development for v0.6.0
+## ✨ Run ListSync & SeerrBridge with ElfHosted 🚀
 
-For the most stable experience, use the source code from the latest release [here](https://github.com/Woahai321/list-sync/releases/tag/v0.5.6).
+[ElfHosted](https://elfhosted.com) is your friendly neighborhood [open-source](https://elfhosted.com/open/) PaaS, handling the geeky heavy-lifting (_hosting, security, updates, you name it!_) so you can focus on syncing your lists!
 
+> [!IMPORTANT]
+> **ElfHosted 💜 ListSync & SeerrBridge!**
+>
+> ListSync and its awesome companion SeerrBridge are fully supported and integrated into the ElfHosted ecosystem! While they're being added to the main [ElfHosted app catalogue](https://elfhosted.com/apps/), you can already get them pre-configured in the bundles below.
+
+> [!TIP]
+> **ElfHosted "Hobbit" Bundles: Your Turn-Key Streaming Powerhouse!** 💹
+>
+> Want ListSync & SeerrBridge without the DIY setup? 🎉 These ElfHosted "Hobbit" bundles come pre-wired with RealDebrid and your choice of media server. Get the ultimate hassle-free, automated infinite streaming experience:
+> *   [Hobbit: [Jellyfin + RealDebrid + ListSync + SeerrBridge]](https://store.elfhosted.com/product/hobbit-jellyfin-realdebrid-seerrbridge/) (*Sync & Stream with Jellyfin, fully automated!*)
+> *   [Hobbit: [Plex + RealDebrid + ListSync + SeerrBridge]](https://store.elfhosted.com/product/hobbit-plex-realdebrid-seerrbridge/) (*Turbocharge your Plex library management!*)
+> *   [Hobbit: [Emby + RealDebrid + ListSync + SeerrBridge]](https://store.elfhosted.com/product/hobbit-emby-realdebrid-seerrbridge/) (*Unlock seamless syncing for your Emby setup!*)
+
+---
 ## 🎬 Demo
 
 ![Bot In Action](https://share.woahlab.com/-BZtwSD96LN)
-
----
-
-<details>
-<summary>How Does It Work?</summary>
-
-ListSync seamlessly syncs your watchlists with your media server in three simple steps:
-
-#### 1. **Fetch Watchlists**
-
-ListSync retrieves your watchlists from **IMDb**, **Trakt** or **Letterboxd** using Selenium web scraping techniques.
-
-#### 2. **Search Media on Media Server**
-
-ListSync searches for each item on your media server (**Overseerr** or **Jellyseerr**) using its API. It handles edge cases like special characters or multiple results for accurate matches.
-
-#### 3. **Request Media**
-
-ListSync checks if the media is already available or requested. If not, it automatically requests the item:
-
-- For **Movies**, it requests the title.
-- For **TV Shows**, it requests all available seasons.
-</details>
-<details>
-<summary>Why Use ListSync?</summary>
-
-- **Save Time**: Automates adding movies and TV shows to your media server.
-- **Stay Organized**: Keeps your media server in sync with your watchlists.
-- **Flexible**: Works with IMDb, Trakt, Letterboxd, Overseerr, and Jellyseerr.
-- **Customizable**: Set sync intervals to match your preferences.
-</details>
-
 ---
 
 ## 🚀 Getting Started
@@ -106,7 +87,7 @@ OVERSEERR_API_KEY=your-api-key-here
 OVERSEERR_USER_ID=1
 
 # Set to true for automated mode (recommended for Docker)
-AUTOMATED_MODE=false
+AUTOMATED_MODE=true
 
 # Sync interval in hours (default: 24)
 SYNC_INTERVAL=24
@@ -174,9 +155,45 @@ Refer to our [Installation Guide](/docs/installation.md) for detailed instructio
 
 ---
 
+### Currently in Development for v0.6.0
+
+For the most stable experience, use the source code from the latest release [here](https://github.com/Woahai321/list-sync/releases/tag/v0.5.6).
+
+<details>
+<summary>How Does It Work?</summary>
+
+ListSync seamlessly syncs your watchlists with your media server in three simple steps:
+
+#### 1. **Fetch Watchlists**
+
+ListSync retrieves your watchlists from **IMDb**, **Trakt** or **Letterboxd** using Selenium web scraping techniques.
+
+#### 2. **Search Media on Media Server**
+
+ListSync searches for each item on your media server (**Overseerr** or **Jellyseerr**) using its API. It handles edge cases like special characters or multiple results for accurate matches.
+
+#### 3. **Request Media**
+
+ListSync checks if the media is already available or requested. If not, it automatically requests the item:
+
+- For **Movies**, it requests the title.
+- For **TV Shows**, it requests all available seasons.
+</details>
+<details>
+<summary>Why Use ListSync?</summary>
+
+- **Save Time**: Automates adding movies and TV shows to your media server.
+- **Stay Organized**: Keeps your media server in sync with your watchlists.
+- **Flexible**: Works with IMDb, Trakt, Letterboxd, Overseerr, and Jellyseerr.
+- **Customizable**: Set sync intervals to match your preferences.
+</details>
+
+---
 ## 📊 Compatibility
 
-### 🌉 SeerrBridge Integration
+<details>
+<summary>🌉 SeerrBridge Integration</summary>
+
 
 [![SeerrBridge](https://img.shields.io/badge/SeerrBridge-Compatible-blue?style=for-the-badge&logo=github)](https://github.com/Woahai321/SeerrBridge)
 
@@ -185,16 +202,16 @@ SeerrBridge is our companion application that provides an alternative to traditi
 - **Automated Processing**: When ListSync adds requests to Jellyseerr/Overseerr, SeerrBridge automatically processes them
 - **Browser Automation**: Uses Selenium to automate media fetching through Debrid Media Manager
 - **Simplified Setup**: Eliminates the need for complex \*arr stack configuration
-- **Real-Debrid Integration**: Direct integration with Real-Debrid for content retrieval
 
 #### How ListSync & SeerrBridge Work Together
 
 1. ListSync adds media requests to Jellyseerr/Overseerr
 2. SeerrBridge detects the requests via webhook
 3. SeerrBridge automatically processes the requests through DMM
-4. Media becomes available in your library
+4. Media becomes available in your RD library
 
 For detailed information about SeerrBridge, visit the [SeerrBridge Repository](https://github.com/Woahai321/SeerrBridge).
+</details>
 
 ### Media Server Compatibility
 
@@ -287,12 +304,11 @@ This allows you to sync multiple lists at once, whether they are custom lists, c
 - **Rate Limiting:** Be mindful of Overseerr's rate limiting policies during imports.
 - **Permissions:** Only import and manage media you have the rights to handle.
 
-## 💰 Donations
+## 💰 Support ListSync's Development
 
-If you find ListSync useful and would like to support its development, consider making a donation:
+If you find ListSync useful and would like to support its development, consider becoming a sponsor:
 
-- BTC (Bitcoin): `bc1qxjpfszwvy3ty33weu6tjkr394uq30jwkysp4x0`
-- ETH (Ethereum): `0xAF3ADE79B7304784049D200ea50352D1C717d7f2`
+➡️ [Sponsor us on GitHub](https://github.com/sponsors/Woahai321)
 
 Thank you for your support!
 
