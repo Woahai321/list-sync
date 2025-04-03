@@ -36,7 +36,7 @@ Key Features:
 
 ## ✨ Run ListSync & SeerrBridge with ElfHosted 🚀
 
-[ElfHosted](https://elfhosted.com) is your friendly neighborhood [open-source](https://elfhosted.com/open/) PaaS, handling the geeky heavy-lifting (_hosting, security, updates, you name it!_) so you can focus on syncing your lists!
+[ElfHosted](https://store.elfhosted.com/seerrbridge/elf/6929/) is your friendly neighborhood [open-source](https://elfhosted.com/open/) PaaS, handling the geeky heavy-lifting (_hosting, security, updates, you name it!_) so you can focus on syncing your lists!
 
 > [!IMPORTANT]
 > **ElfHosted 💜 ListSync & SeerrBridge!**
