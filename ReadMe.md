@@ -36,20 +36,20 @@ Key Features:
 
 ## ✨ Run ListSync & SeerrBridge with ElfHosted 🚀
 
-[ElfHosted](https://store.elfhosted.com/seerrbridge/elf/6929/) is your friendly neighborhood [open-source](https://elfhosted.com/open/) PaaS, handling the geeky heavy-lifting (_hosting, security, updates, you name it!_) so you can focus on syncing your lists!
+[ElfHosted](https://store.elfhosted.com/product/list-sync/elf/6929/) is your friendly neighborhood [open-source](https://elfhosted.com/open/) PaaS, handling the geeky heavy-lifting (_hosting, security, updates, you name it!_) so you can focus on syncing your lists!
 
 > [!IMPORTANT]
 > **ElfHosted 💜 ListSync & SeerrBridge!**
 >
-> ListSync and its awesome companion SeerrBridge are fully supported and integrated into the ElfHosted ecosystem! While they're being added to the main [ElfHosted app catalogue](https://elfhosted.com/apps/), you can already get them pre-configured in the bundles below.
+> ListSync and its awesome companion SeerrBridge are fully supported and integrated into the ElfHosted ecosystem! While they're being added to the main [ElfHosted app catalogue](https://store.elfhosted.com/elf/6929/), you can already get them pre-configured in the bundles below.
 
 > [!TIP]
 > **ElfHosted "Hobbit" Bundles: Your Turn-Key Streaming Powerhouse!** 💹
 >
 > Want ListSync & SeerrBridge without the DIY setup? 🎉 These ElfHosted "Hobbit" bundles come pre-wired with RealDebrid and your choice of media server. Get the ultimate hassle-free, automated infinite streaming experience:
-> *   [Hobbit: [Jellyfin + RealDebrid + ListSync + SeerrBridge]](https://store.elfhosted.com/product/hobbit-jellyfin-realdebrid-seerrbridge/) (*Sync & Stream with Jellyfin, fully automated!*)
-> *   [Hobbit: [Plex + RealDebrid + ListSync + SeerrBridge]](https://store.elfhosted.com/product/hobbit-plex-realdebrid-seerrbridge/) (*Turbocharge your Plex library management!*)
-> *   [Hobbit: [Emby + RealDebrid + ListSync + SeerrBridge]](https://store.elfhosted.com/product/hobbit-emby-realdebrid-seerrbridge/) (*Unlock seamless syncing for your Emby setup!*)
+> *   [Hobbit: [Jellyfin + RealDebrid + ListSync + SeerrBridge]](https://store.elfhosted.com/product/hobbit-jellyfin-realdebrid-seerrbridge/elf/6929/) (*Sync & Stream with Jellyfin, fully automated!*)
+> *   [Hobbit: [Plex + RealDebrid + ListSync + SeerrBridge]](https://store.elfhosted.com/product/hobbit-plex-realdebrid-seerrbridge/elf/6929/) (*Turbocharge your Plex library management!*)
+> *   [Hobbit: [Emby + RealDebrid + ListSync + SeerrBridge]](https://store.elfhosted.com/product/hobbit-emby-realdebrid-seerrbridge/elf/6929/) (*Unlock seamless syncing for your Emby setup!*)
 
 ---
 ## 🎬 Demo
