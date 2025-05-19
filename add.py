@@ -1169,7 +1169,7 @@ def fetch_letterboxd_list(list_id):
                             # Verify it's the "Older" button
                             for btn in next_buttons:
                                 if 'Older' in btn.text or '/page/' in btn.get_attribute('href'):
-                                    logging.info(f"Found 'Older' button, clicking to go to next page")
+                                    logging.info("Found 'Older' button, clicking to go to next page")
                                     has_next_page = True
                                     next_button = btn
                                     page += 1
@@ -2331,7 +2331,7 @@ def fetch_mdblist_list(list_id):
             # Handle full URLs vs list IDs
             if list_id.startswith(('http://', 'https://')):
                 url = list_id.rstrip('/')  # Use the provided URL directly
-                if not 'mdblist.com/lists/' in url:
+                if 'mdblist.com/lists/' not in url:
                     raise ValueError("Invalid MDBList URL format")
             else:
                 # Assume it's a username/listname format
