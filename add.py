@@ -1,5 +1,5 @@
 # =============================================================================
-# Soluify  |  Your #1 IT Problem Solver  |  {list-sync v0.5.7}
+# Soluify  |  Your #1 IT Problem Solver  |  {list-sync v0.5.8}
 # =============================================================================
 #  __         _
 # (_  _ |   .(_
@@ -192,7 +192,7 @@ def display_banner():
     """Display the banner."""
     banner = """
 ==============================================================
-Soluify - {servarr-tools_list-sync_v0.5.7}
+Soluify - {servarr-tools_list-sync_v0.5.8}
 ==============================================================
 """
     print(color_gradient(banner, "#00aaff", "#00ffaa"))
@@ -1083,7 +1083,7 @@ def fetch_trakt_list(list_id):
         raise
 
 def fetch_letterboxd_list(list_id):
-    """Fetch Letterboxd list using Selenium with pagination"""
+    """Fetch Letterboxd list using Selenium with pagination, supporting both regular lists and watchlists"""
     media_items = []
     print(color_gradient("📚  Fetching Letterboxd list...", "#ffaa00", "#ff5500"))
     
@@ -1094,6 +1094,11 @@ def fetch_letterboxd_list(list_id):
                 base_url = list_id.rstrip('/')
             else:
                 base_url = f"https://letterboxd.com/{list_id}"
+            
+            # Determine if this is a watchlist or regular list
+            is_watchlist = '/watchlist' in base_url or list_id.endswith('/watchlist')
+            
+            logging.info(f"Processing Letterboxd {'watchlist' if is_watchlist else 'list'}: {base_url}")
             
             page = 1
             while True:
@@ -1151,12 +1156,62 @@ def fetch_letterboxd_list(list_id):
                         logging.warning(f"Failed to parse movie item: {str(e)}")
                         continue
                 
-                # If we found exactly 100 items, there might be more pages
-                if items_count == 100:
-                    page += 1
-                    logging.info(f"Found exactly 100 items, trying page {page}")
-                else:
-                    logging.info(f"Found {items_count} items (< 100), must be the last page")
+                # Check for next page based on list type
+                try:
+                    if is_watchlist:
+                        # Watchlists use "Older" button with class "next"
+                        # For watchlists, we ONLY rely on the "Older" button, not item count
+                        next_buttons = sb.find_elements("a.next")
+                        has_next_page = False
+                        next_button = None
+                        
+                        if next_buttons:
+                            # Verify it's the "Older" button
+                            for btn in next_buttons:
+                                if 'Older' in btn.text or '/page/' in btn.get_attribute('href'):
+                                    logging.info(f"Found 'Older' button, clicking to go to next page")
+                                    has_next_page = True
+                                    next_button = btn
+                                    page += 1
+                                    break
+                        
+                        if has_next_page and next_button:
+                            # Click the "Older" button to navigate
+                            try:
+                                # Scroll to make the button visible
+                                sb.execute_script("arguments[0].scrollIntoView(true);", next_button)
+                                sb.sleep(1)  # Wait a moment for scroll to complete
+                                
+                                # Click the button
+                                next_button.click()
+                                
+                                # Wait for the page to load
+                                sb.wait_for_element_present("ul.poster-list", timeout=20)
+                                sb.sleep(2)  # Additional wait to ensure page loads
+                                logging.info(f"Successfully navigated to watchlist page {page}")
+                            except Exception as e:
+                                logging.warning(f"Error clicking 'Older' button: {str(e)}")
+                                # Try direct URL navigation as fallback
+                                fallback_url = f"{base_url}/page/{page}"
+                                logging.info(f"Falling back to direct URL navigation: {fallback_url}")
+                                sb.open(fallback_url)
+                                sb.wait_for_element_present("ul.poster-list", timeout=20)
+                        else:
+                            logging.info("No 'Older' button found, must be last page of watchlist")
+                            break
+                            
+                    else:
+                        # Regular lists use standard pagination
+                        # If we found exactly 100 items, there might be more pages
+                        if items_count == 100:
+                            page += 1
+                            logging.info(f"Found exactly 100 items, trying page {page}")
+                        else:
+                            logging.info(f"Found {items_count} items (< 100), must be the last page")
+                            break
+                except Exception as e:
+                    logging.warning(f"Error checking pagination: {str(e)}")
+                    # If there's an error checking pagination, assume we're done
                     break
             
             print(color_gradient(f"✨  Found {len(media_items)} items from Letterboxd list!", "#00ff00", "#00aa00"))
@@ -1411,8 +1466,11 @@ def save_list_id(list_id: str, list_type: str):
         # For Trakt URLs, store the full URL
         elif list_type == "trakt" and list_id.startswith(('http://', 'https://')):
             id_to_save = list_id.rstrip('/')
+        # For MDBList URLs, store the full URL
+        elif list_type == "mdblist" and list_id.startswith(('http://', 'https://')):
+            id_to_save = list_id.rstrip('/')
         else:
-            # For traditional IDs (ls, ur, numeric), store as is
+            # For traditional IDs (ls, ur, numeric) or MDBList username/listname format, store as is
             id_to_save = list_id
             
         cursor.execute(
@@ -1799,7 +1857,7 @@ def send_to_discord_webhook(summary_text, sync_results: SyncResults, webhook_url
         embed.set_timestamp()
         
         # Add footer
-        embed.set_footer(text="Soluify List Sync Tool | v0.5.7")
+        embed.set_footer(text="Soluify List Sync Tool | v0.5.8")
         
         # Add embed to webhook
         webhook.add_embed(embed)
@@ -1870,8 +1928,31 @@ def start_sync(overseerr_url, api_key, requester_user_id, added_logger, dry_run=
                 media_items.extend(fetch_imdb_list(list_info['id']))
             elif list_info['type'] == "trakt":
                 media_items.extend(fetch_trakt_list(list_info['id']))
+            elif list_info['type'] == "trakt_special":
+                # For special Trakt lists, check if it's a shortcut or a full URL
+                list_id = list_info['id']
+                if ':' in list_id:
+                    # Convert "trending:movies" format to URL
+                    parts = list_id.split(':')
+                    if len(parts) == 2:
+                        list_type, media_type = parts
+                        if media_type.lower() in ['movies', 'movie']:
+                            special_url = f"https://trakt.tv/movies/{list_type}"
+                        elif media_type.lower() in ['shows', 'show', 'tv']:
+                            special_url = f"https://trakt.tv/shows/{list_type}"
+                        else:
+                            raise ValueError(f"Invalid media type in special list: {list_id}")
+                else:
+                    # Assume it's already a URL
+                    special_url = list_id
+                
+                media_items.extend(fetch_trakt_special_list(special_url))
             elif list_info['type'] == "letterboxd":
                 media_items.extend(fetch_letterboxd_list(list_info['id']))
+            elif list_info['type'] == "mdblist":
+                media_items.extend(fetch_mdblist_list(list_info['id']))
+            elif list_info['type'] == "stevenlu":
+                media_items.extend(fetch_stevenlu_list())
         except Exception as e:
             print(color_gradient(f"\n❌  Error fetching list: {e}", "#ff0000", "#aa0000"))
             logging.error(f"Error fetching list: {e}")
@@ -1886,18 +1967,41 @@ def one_time_list_sync(overseerr_url, api_key, requester_user_id, added_logger):
     media_items = []
     for list_id in list_ids:
         try:
-            # Check for IMDb URLs or chart IDs
+            # Check for URLs
             if list_id.startswith(('http://', 'https://')):
                 if 'imdb.com' in list_id:
                     items = fetch_imdb_list(list_id)
                     if items:
                         media_items.extend(items)
                 elif 'trakt.tv' in list_id:
-                    media_items.extend(fetch_trakt_list(list_id))
+                    # Check if this is a special Trakt list
+                    special_patterns = [
+                        '/movies/trending', '/movies/recommendations', '/movies/streaming',
+                        '/movies/anticipated', '/movies/popular', '/movies/favorited',
+                        '/movies/watched', '/movies/collected', '/movies/boxoffice',
+                        '/shows/trending', '/shows/recommendations', '/shows/streaming',
+                        '/shows/anticipated', '/shows/popular', '/shows/favorited',
+                        '/shows/watched', '/shows/collected'
+                    ]
+                    
+                    is_special_list = False
+                    for pattern in special_patterns:
+                        if pattern in list_id:
+                            is_special_list = True
+                            break
+                    
+                    if is_special_list:
+                        media_items.extend(fetch_trakt_special_list(list_id))
+                    else:
+                        media_items.extend(fetch_trakt_list(list_id))
                 elif 'letterboxd.com' in list_id and '/list/' in list_id:
                     media_items.extend(fetch_letterboxd_list(list_id))
+                elif 'mdblist.com/lists/' in list_id:
+                    media_items.extend(fetch_mdblist_list(list_id))
+                elif 'movies.stevenlu.com' in list_id or 's3.amazonaws.com/popular-movies' in list_id:
+                    media_items.extend(fetch_stevenlu_list())
                 else:
-                    print(color_gradient("\n❌  Invalid URL format. Must be IMDb, Trakt, or Letterboxd URL.", "#ff0000", "#aa0000"))
+                    print(color_gradient("\n❌  Invalid URL format. Must be IMDb, Trakt, Letterboxd, MDBList, or Steven Lu URL.", "#ff0000", "#aa0000"))
             elif list_id in ['top', 'boxoffice', 'moviemeter', 'tvmeter']:
                 items = fetch_imdb_list(list_id)
                 if items:
@@ -1905,9 +2009,31 @@ def one_time_list_sync(overseerr_url, api_key, requester_user_id, added_logger):
             # Check for IMDb list IDs
             elif list_id.startswith(('ls', 'ur')):
                 media_items.extend(fetch_imdb_list(list_id))
+            # Check for Trakt special list shortcuts
+            elif ':' in list_id:
+                parts = list_id.split(':')
+                if len(parts) == 2:
+                    list_type, media_type = parts
+                    # Convert shorthand to URL (e.g., "trending:movies" -> "https://trakt.tv/movies/trending")
+                    if media_type.lower() in ['movies', 'movie']:
+                        special_url = f"https://trakt.tv/movies/{list_type}"
+                        media_items.extend(fetch_trakt_special_list(special_url))
+                    elif media_type.lower() in ['shows', 'show', 'tv']:
+                        special_url = f"https://trakt.tv/shows/{list_type}"
+                        media_items.extend(fetch_trakt_special_list(special_url))
+                    else:
+                        print(color_gradient(f"\n❌  Invalid media type in special list format: {list_id}", "#ff0000", "#aa0000"))
+                else:
+                    print(color_gradient(f"\n❌  Invalid special list format: {list_id}", "#ff0000", "#aa0000"))
             # Check for Trakt IDs
             elif list_id.isdigit():
                 media_items.extend(fetch_trakt_list(list_id))
+            # Check for MDBList in format username/listname
+            elif list_id.count('/') == 1 and not list_id.startswith(('ls', 'ur')):
+                media_items.extend(fetch_mdblist_list(list_id))
+            # Handle 'stevenlu' as a keyword to fetch Steven Lu's list
+            elif list_id.lower() in ['stevenlu', 'steven', 'steven-lu', 'stevenlu-movies', 'stevenlumovies']:
+                media_items.extend(fetch_stevenlu_list())
             else:
                 print(color_gradient(f"\n❌  Invalid list ID format for '{list_id}'. Skipping this ID.", "#ff0000", "#aa0000"))
         except Exception as e:
@@ -1967,23 +2093,68 @@ def add_list_to_sync():
             continue
             
         try:
-            # Check for IMDb URLs or chart IDs
+            # Check for URLs
             if list_id.startswith(('http://', 'https://')):
                 if 'imdb.com' in list_id:
                     list_type = "imdb"
                 elif 'trakt.tv' in list_id:
-                    list_type = "trakt"
+                    # Check if this is a special Trakt list
+                    special_patterns = [
+                        '/movies/trending', '/movies/recommendations', '/movies/streaming',
+                        '/movies/anticipated', '/movies/popular', '/movies/favorited',
+                        '/movies/watched', '/movies/collected', '/movies/boxoffice',
+                        '/shows/trending', '/shows/recommendations', '/shows/streaming',
+                        '/shows/anticipated', '/shows/popular', '/shows/favorited',
+                        '/shows/watched', '/shows/collected'
+                    ]
+                    
+                    is_special_list = False
+                    for pattern in special_patterns:
+                        if pattern in list_id:
+                            is_special_list = True
+                            break
+                    
+                    if is_special_list:
+                        list_type = "trakt_special"
+                    else:
+                        list_type = "trakt"
                 elif 'letterboxd.com' in list_id and '/list/' in list_id:
                     list_type = "letterboxd"
+                elif 'mdblist.com/lists/' in list_id:
+                    list_type = "mdblist"
+                elif 'movies.stevenlu.com' in list_id or 's3.amazonaws.com/popular-movies' in list_id:
+                    list_type = "stevenlu"
+                    # For Steven Lu, we don't need the specific URL as there's only one list
+                    list_id = "stevenlu" 
                 else:
-                    print(color_gradient(f"\n❌  Invalid URL format for '{list_id}'. Must be IMDb, Trakt, or Letterboxd URL.", "#ff0000", "#aa0000"))
+                    print(color_gradient(f"\n❌  Invalid URL format for '{list_id}'. Must be IMDb, Trakt, Letterboxd, MDBList, or Steven Lu URL.", "#ff0000", "#aa0000"))
                     continue
             elif list_id in ['top', 'boxoffice', 'moviemeter', 'tvmeter']:
                 list_type = "imdb"
             elif list_id.startswith(('ls', 'ur')):
                 list_type = "imdb"
+            # Check for special Trakt list formats like "trending:movies"
+            elif ':' in list_id:
+                parts = list_id.split(':')
+                if len(parts) == 2:
+                    list_type, media_type = parts
+                    if media_type.lower() in ['movies', 'movie', 'shows', 'show', 'tv']:
+                        list_type = "trakt_special"
+                    else:
+                        print(color_gradient(f"\n❌  Invalid media type in special list format: {list_id}", "#ff0000", "#aa0000"))
+                        continue
+                else:
+                    print(color_gradient(f"\n❌  Invalid special list format: {list_id}", "#ff0000", "#aa0000"))
+                    continue
             elif list_id.isdigit():
                 list_type = "trakt"
+            # Check for MDBList in format username/listname
+            elif list_id.count('/') == 1 and not list_id.startswith(('ls', 'ur')):
+                list_type = "mdblist"
+            # Handle Steven Lu keywords
+            elif list_id.lower() in ['stevenlu', 'steven', 'steven-lu', 'stevenlu-movies', 'stevenlumovies']:
+                list_type = "stevenlu"
+                list_id = "stevenlu"  # Standardize the ID
             else:
                 print(color_gradient(f"\n❌  Invalid list ID format for '{list_id}'.", "#ff0000", "#aa0000"))
                 continue
@@ -2101,6 +2272,14 @@ def load_env_lists():
                     save_list_id(list_id.strip(), "trakt")
                     lists_added = True
                     logging.info(f"Added Trakt list: {list_id.strip()}")
+                    
+        # Process special Trakt lists
+        if trakt_special_lists := os.getenv('TRAKT_SPECIAL_LISTS'):
+            for list_id in trakt_special_lists.split(','):
+                if list_id.strip():
+                    save_list_id(list_id.strip(), "trakt_special")
+                    lists_added = True
+                    logging.info(f"Added special Trakt list: {list_id.strip()} (max 20 items)")
         
         # Process Letterboxd lists
         if letterboxd_lists := os.getenv('LETTERBOXD_LISTS'):
@@ -2109,6 +2288,21 @@ def load_env_lists():
                     save_list_id(list_id.strip(), "letterboxd")
                     lists_added = True
                     logging.info(f"Added Letterboxd list: {list_id.strip()}")
+        
+        # Process MDBList lists
+        if mdblist_lists := os.getenv('MDBLIST_LISTS'):
+            for list_id in mdblist_lists.split(','):
+                if list_id.strip():
+                    save_list_id(list_id.strip(), "mdblist")
+                    lists_added = True
+                    logging.info(f"Added MDBList list: {list_id.strip()}")
+        
+        # Process Steven Lu lists
+        if stevenlu_lists := os.getenv('STEVENLU_LISTS'):
+            if 'stevenlu' in stevenlu_lists.lower():
+                save_list_id("stevenlu", "stevenlu")
+                lists_added = True
+                logging.info("Added Steven Lu popular movies list")
         
         if not lists_added:
             logging.warning("No lists found in environment variables")
@@ -2126,6 +2320,328 @@ def format_time_remaining(seconds):
     minutes = (seconds % 3600) // 60
     secs = seconds % 60
     return f"{int(hours)}h {int(minutes)}m {int(secs)}s"
+
+def fetch_mdblist_list(list_id):
+    """Fetch MDBList list using Selenium with infinite scrolling support"""
+    media_items = []
+    print(color_gradient("📚  Fetching MDBList list...", "#ffaa00", "#ff5500"))
+    
+    try:
+        with SB(uc=True, headless=True) as sb:
+            # Handle full URLs vs list IDs
+            if list_id.startswith(('http://', 'https://')):
+                url = list_id.rstrip('/')  # Use the provided URL directly
+                if not 'mdblist.com/lists/' in url:
+                    raise ValueError("Invalid MDBList URL format")
+            else:
+                # Assume it's a username/listname format
+                parts = list_id.split('/')
+                if len(parts) == 2:
+                    url = f"https://mdblist.com/lists/{parts[0]}/{parts[1]}"
+                else:
+                    raise ValueError("Invalid MDBList format - must be 'username/listname' or a full URL")
+            
+            logging.info(f"Attempting to load URL: {url}")
+            sb.open(url)
+            
+            # Initial wait for the page to start loading
+            sb.sleep(3)
+            
+            # Scroll to load all content (infinite scrolling)
+            last_height = sb.execute_script("return document.body.scrollHeight")
+            items_count = 0
+            max_scroll_attempts = 50  # Prevent infinite loops
+            
+            logging.info("Starting infinite scroll to load all items")
+            for _ in range(max_scroll_attempts):
+                # Scroll down to bottom
+                sb.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                # Wait to load page
+                sb.sleep(2)
+                
+                # Calculate new scroll height and compare with last scroll height
+                new_height = sb.execute_script("return document.body.scrollHeight")
+                
+                # Count current number of items
+                current_items = len(sb.find_elements(".header.movie-title"))
+                
+                if new_height == last_height and current_items == items_count:
+                    # If heights are the same and no new items, we've reached the end
+                    logging.info(f"Scrolling complete - loaded {current_items} items")
+                    break
+                
+                items_count = current_items
+                last_height = new_height
+                logging.info(f"Scrolled and found {items_count} items so far, continuing...")
+            
+            # Now extract all items
+            items = sb.find_elements(".content")
+            logging.info(f"Found {len(items)} total items on the page")
+            
+            for item in items:
+                try:
+                    # Extract media type from link
+                    links = item.find_elements("css selector", "a")
+                    media_type = "unknown"
+                    imdb_id = None
+                    
+                    for link in links:
+                        href = link.get_attribute("href")
+                        if href:
+                            if "/movie/" in href:
+                                media_type = "movie"
+                                imdb_match = re.search(r'/movie/(tt\d+)', href)
+                                if imdb_match:
+                                    imdb_id = imdb_match.group(1)
+                                break
+                            elif "/show/" in href:
+                                media_type = "tv"
+                                imdb_match = re.search(r'/show/(tt\d+)', href)
+                                if imdb_match:
+                                    imdb_id = imdb_match.group(1)
+                                break
+                    
+                    # Extract title and year
+                    title_elem = item.find_element("css selector", ".header.movie-title")
+                    if title_elem:
+                        full_title = title_elem.text.strip()
+                        # Parse title and year (format: "Title (Year)")
+                        year_match = re.search(r'(.+?)\s*\((\d{4})\)', full_title)
+                        if year_match:
+                            title = year_match.group(1).strip()
+                            year = int(year_match.group(2))
+                        else:
+                            title = full_title
+                            year = None
+                        
+                        media_items.append({
+                            "title": title,
+                            "imdb_id": imdb_id,
+                            "media_type": media_type,
+                            "year": year
+                        })
+                        logging.info(f"Added {media_type}: {title} ({year}) (IMDB ID: {imdb_id})")
+                except Exception as e:
+                    logging.warning(f"Failed to parse MDBList item: {str(e)}")
+                    continue
+            
+            print(color_gradient(f"✨  Found {len(media_items)} items from MDBList!", "#00ff00", "#00aa00"))
+            logging.info(f"MDBList fetched successfully. Found {len(media_items)} items.")
+            return media_items
+            
+    except Exception as e:
+        print(color_gradient(f"💥  Failed to fetch MDBList. Error: {str(e)}", "#ff0000", "#aa0000"))
+        logging.error(f"Error fetching MDBList: {str(e)}")
+        raise
+
+def fetch_stevenlu_list(list_id=None):
+    """Fetch Steven Lu's popular movies list from the JSON endpoint"""
+    media_items = []
+    print(color_gradient("📚  Fetching Steven Lu's popular movies list...", "#ffaa00", "#ff5500"))
+    
+    try:
+        # The list_id parameter is ignored as there's only one list
+        json_url = "https://s3.amazonaws.com/popular-movies/movies.json"
+        
+        logging.info(f"Attempting to fetch Steven Lu movies from: {json_url}")
+        response = requests.get(json_url, timeout=10)
+        response.raise_for_status()  # Raise exception for HTTP errors
+        
+        movies_data = response.json()
+        logging.info(f"Found {len(movies_data)} movies in Steven Lu's list")
+        
+        for movie in movies_data:
+            try:
+                title = movie.get('title', '').strip()
+                imdb_id = movie.get('imdb_id')
+                
+                if not title:
+                    logging.warning(f"Skipping movie with empty title: {movie}")
+                    continue
+                
+                # All items from this source are movies
+                media_items.append({
+                    "title": title,
+                    "imdb_id": imdb_id,
+                    "media_type": "movie",
+                    "year": None  # Year is not provided in this data source
+                })
+                logging.info(f"Added movie: {title} (IMDB ID: {imdb_id})")
+                
+            except Exception as e:
+                logging.warning(f"Failed to parse movie data: {str(e)}")
+                continue
+        
+        print(color_gradient(f"✨  Found {len(media_items)} movies from Steven Lu's list!", "#00ff00", "#00aa00"))
+        logging.info(f"Steven Lu list fetched successfully. Found {len(media_items)} movies.")
+        return media_items
+        
+    except Exception as e:
+        print(color_gradient(f"💥  Failed to fetch Steven Lu list. Error: {str(e)}", "#ff0000", "#aa0000"))
+        logging.error(f"Error fetching Steven Lu list: {str(e)}")
+        raise
+
+def fetch_trakt_special_list(url):
+    """Fetch special Trakt list (trending, popular, etc.) with a hard-coded limit of 20 items"""
+    media_items = []
+    print(color_gradient("📚  Fetching special Trakt list...", "#ffaa00", "#ff5500"))
+    
+    try:
+        with SB(uc=True, headless=True) as sb:
+            # Clean the URL
+            url = url.rstrip('/')
+            
+            # Check if URL is in the correct format
+            valid_patterns = [
+                # Movies
+                'trakt.tv/movies/trending', 'trakt.tv/movies/recommendations', 'trakt.tv/movies/streaming',
+                'trakt.tv/movies/anticipated', 'trakt.tv/movies/popular', 'trakt.tv/movies/favorited',
+                'trakt.tv/movies/watched', 'trakt.tv/movies/collected', 'trakt.tv/movies/boxoffice',
+                # TV Shows
+                'trakt.tv/shows/trending', 'trakt.tv/shows/recommendations', 'trakt.tv/shows/streaming',
+                'trakt.tv/shows/anticipated', 'trakt.tv/shows/popular', 'trakt.tv/shows/favorited',
+                'trakt.tv/shows/watched', 'trakt.tv/shows/collected'
+            ]
+            
+            valid_url = False
+            for pattern in valid_patterns:
+                if pattern in url:
+                    valid_url = True
+                    break
+            
+            if not valid_url:
+                raise ValueError(f"Invalid Trakt special list URL: {url}")
+                
+            logging.info(f"Fetching special Trakt list: {url} (limit: 20 items)")
+            sb.open(url)
+            
+            # Wait for page to load - looking for multiple possible elements
+            # Use a longer timeout
+            try:
+                # First try the row fanarts container
+                sb.wait_for_element_present(".row.fanarts", timeout=15)
+                logging.info("Found .row.fanarts container")
+            except Exception:
+                # If that fails, try looking for any grid items directly
+                try:
+                    sb.wait_for_element_present("[data-type='movie'], [data-type='show']", timeout=15)
+                    logging.info("Found grid items by data-type attribute")
+                except Exception:
+                    # Try one more general selector for divs with grid-item class
+                    sb.wait_for_element_present(".grid-item", timeout=15)
+                    logging.info("Found grid items by .grid-item class")
+            
+            # Add a small wait to ensure the page is fully loaded
+            sb.sleep(3)
+            
+            # Now try to get all grid items
+            # Try multiple selectors since the grid classes seem to vary
+            items = []
+            selectors_to_try = [
+                ".grid-item",
+                "[data-type='movie'], [data-type='show']",
+                ".row.fanarts > div"
+            ]
+            
+            for selector in selectors_to_try:
+                items = sb.find_elements(selector)
+                if items and len(items) > 0:
+                    logging.info(f"Found {len(items)} items using selector: {selector}")
+                    break
+            
+            if not items or len(items) == 0:
+                raise ValueError("Could not find any list items on the page")
+            
+            logging.info(f"Found {len(items)} items on page, will grab up to 20")
+            
+            # Process only up to 20 items
+            item_count = 0
+            for item in items:
+                if item_count >= 20:
+                    break
+                    
+                try:
+                    # Extract media type
+                    media_type = item.get_attribute("data-type")
+                    if not media_type:
+                        # Try to determine from the URL
+                        links = item.find_elements("css selector", "a")
+                        for link in links:
+                            href = link.get_attribute("href")
+                            if href:
+                                if "/movies/" in href:
+                                    media_type = "movie"
+                                    break
+                                elif "/shows/" in href:
+                                    media_type = "show"
+                                    break
+                    
+                    # If still no media type, skip this item
+                    if not media_type:
+                        continue
+                    
+                    # Extract title and year - try different selectors
+                    title_elem = None
+                    title_selectors = [
+                        ".titles h3",
+                        ".fanart .titles h3"
+                    ]
+                    
+                    for selector in title_selectors:
+                        try:
+                            title_elem = item.find_element("css selector", selector)
+                            if title_elem:
+                                break
+                        except Exception:
+                            continue
+                    
+                    if not title_elem:
+                        logging.warning("Could not find title element, skipping item")
+                        continue
+                    
+                    # Title format is typically "Title <span class="year">Year</span>"
+                    full_title = title_elem.text
+                    year = None
+                    
+                    # Try to extract year from span.year
+                    try:
+                        year_span = title_elem.find_element("css selector", "span.year")
+                        if year_span:
+                            year_text = year_span.text.strip()
+                            if year_text.isdigit():
+                                year = int(year_text)
+                            # Remove the year span from the title
+                            full_title = full_title.replace(year_span.text, "").strip()
+                    except Exception:
+                        # If we can't find the year span, try to extract from the full title
+                        if " (" in full_title and ")" in full_title:
+                            title_parts = full_title.split(" (")
+                            full_title = title_parts[0].strip()
+                            year_part = title_parts[1].strip(")")
+                            if year_part.isdigit():
+                                year = int(year_part)
+                    
+                    media_items.append({
+                        "title": full_title.strip(),
+                        "media_type": "tv" if media_type == "show" else "movie",
+                        "year": year
+                    })
+                    
+                    item_count += 1
+                    logging.info(f"Added {media_type}: {full_title} ({year if year else 'unknown year'}) [{item_count}/20]")
+                    
+                except Exception as e:
+                    logging.warning(f"Failed to parse Trakt special list item: {str(e)}")
+                    continue
+            
+            print(color_gradient(f"✨  Found {len(media_items)} items from special Trakt list!", "#00ff00", "#00aa00"))
+            logging.info(f"Special Trakt list fetched successfully. Got {len(media_items)} items (max: 20).")
+            return media_items
+        
+    except Exception as e:
+        print(color_gradient(f"💥  Failed to fetch special Trakt list. Error: {str(e)}", "#ff0000", "#aa0000"))
+        logging.error(f"Error fetching special Trakt list: {str(e)}")
+        raise
 
 def main():
     ensure_data_directory_exists()
@@ -2211,5 +2727,5 @@ if __name__ == "__main__":
     main()
 
 # =======================================================================================================
-# Soluify  |  You actually read it? Nice work, stay safe out there people!  |  {list-sync v0.5.7}
+# Soluify  |  You actually read it? Nice work, stay safe out there people!  |  {list-sync v0.5.8}
 # =======================================================================================================

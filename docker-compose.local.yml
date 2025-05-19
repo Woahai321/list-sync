@@ -2,8 +2,10 @@ version: "3.8"
 
 services:
   listsync:
-    image: ghcr.io/woahai321/list-sync:main
-    container_name: listsync
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: listsync-local
     environment:
       - OVERSEERR_URL=${OVERSEERR_URL}
       - OVERSEERR_API_KEY=${OVERSEERR_API_KEY}
@@ -21,4 +23,4 @@ services:
     volumes:
       - ./data:/usr/src/app/data
       - ./.env:/usr/src/app/.env
-    restart: unless-stopped
+    restart: unless-stopped 
