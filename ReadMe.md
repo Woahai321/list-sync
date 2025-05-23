@@ -402,4 +402,10 @@ For important legal information about using ListSync, please refer to our [Legal
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=Woahai321/list-sync&type=Date)](https://star-history.com/#Woahai321/list-sync&Date)
+<a href="https://www.star-history.com/#Woahai321/list-sync&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Woahai321/list-sync&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Woahai321/list-sync&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Woahai321/list-sync&type=Date" />
+ </picture>
+</a>
