@@ -47,8 +47,8 @@ Key Features:
 > **ElfHosted Streaming Bundles: Your Turn-Key Streaming Powerhouse!** 💹
 >
 > Want all of this without the DIY setup? 🎉 These ElfHosted bundles come pre-wired with RealDebrid, SeerrBridge and ListSync, and your choice of media server. Get the ultimate hassle-free, automated infinite streaming experience:
-> * [Starter](https://store.elfhosted.com/product/hobbit/elf/6929/)  Personal Media Streamer [2xHD / 1x4K, contented]
-> * [Hobbit](https://store.elfhosted.com/product/starter/elf/6929/) Personal Media Streamer [4xHD / 2x4K, semi-dedicated]
+> * [Starter](https://store.elfhosted.com/product/starter/elf/6929/)  Personal Media Streamer [2xHD / 1x4K, contented]
+> * [Hobbit](https://store.elfhosted.com/product/hobbit/elf/6929/) Personal Media Streamer [4xHD / 2x4K, semi-dedicated]
 > * [Ranger](https://store.elfhosted.com/product/ranger/elf/6929/) Personal Media Streamer [8xHD / 4x4K, semi-dedicated]
 ---
 ## 🎬 Demo
