@@ -3,7 +3,7 @@ name = "list-sync"
 version = "0.5.8"
 description = "Sync your watchlists from IMDb, Trakt, and Letterboxd with Overseerr/Jellyseerr"
 authors = ["Soluify"]
-readme = "ReadMe.md"
+readme = "README.md"
 packages = [{include = "list_sync"}]
 
 [tool.poetry.scripts]

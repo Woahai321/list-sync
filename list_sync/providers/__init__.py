@@ -2,7 +2,8 @@
 List provider registration and management.
 """
 
-from typing import Any, Callable, Dict, List
+from typing import Dict, Callable, List, Any
+
 
 # Registry to store provider functions by type
 PROVIDERS = {}
@@ -40,7 +41,7 @@ def get_provider(provider_type: str) -> Callable:
     # Import providers if not already imported
     if not PROVIDERS:
         _import_all_providers()
-
+    
     if provider_type not in PROVIDERS:
         raise ValueError(f"Provider type '{provider_type}' not supported. Available: {list(PROVIDERS.keys())}")
     return PROVIDERS[provider_type]
@@ -56,14 +57,18 @@ def get_available_providers() -> List[str]:
     # Import providers if not already imported
     if not PROVIDERS:
         _import_all_providers()
-
+    
     return list(PROVIDERS.keys())
 
 
 def _import_all_providers():
     """Import all providers to register them."""
     try:
-        from . import imdb, letterboxd, mdblist, stevenlu, trakt
+        from . import imdb
+        from . import trakt
+        from . import letterboxd
+        from . import mdblist
+        from . import stevenlu
     except ImportError as e:
         import logging
         logging.warning(f"Could not import all providers: {e}")
