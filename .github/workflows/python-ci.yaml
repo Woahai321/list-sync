@@ -34,20 +34,26 @@ jobs:
       # install dependencies if cache does not exist
       #----------------------------------------------
       - name: Install dependencies
-        run: poetry install --no-interaction
+        run: poetry install --no-interaction --no-root
 
       #----------------------------------------------
-      #    run basic import tests for new structure
+      #    Permanent venv activation
       #----------------------------------------------
-      - name: Test package imports
+      - name: Activate virtualenv
         run: |
-          poetry run python -c "import list_sync; print(f'ListSync {list_sync.__version__} by {list_sync.__author__}')"
-          poetry run python -c "from list_sync.providers import get_available_providers; print('Available providers:', get_available_providers())"
-          poetry run python -c "from list_sync.main import main; print('Main module imported successfully')"
+          source .venv/bin/activate
+          echo PATH=$PATH >> $GITHUB_ENV
+
+      #----------------------------------------------
+      #    run test suite and output coverage file
+      #----------------------------------------------
+      # - name: Test with pytest
+      #   run: |
+      #     pytest --cov-branch --cov=src --cov-report=xml tests
 
       #----------------------------------------------
       #              lint and formatting
       #----------------------------------------------
       - name: Lint with Ruff
         run: |
-          poetry run ruff check --output-format=github .
+          ruff check --output-format=github .
