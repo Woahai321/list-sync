@@ -2,8 +2,8 @@
 Database operations for ListSync.
 """
 
-import sqlite3
 import os
+import sqlite3
 from typing import Dict, List, Optional
 
 from .utils.logger import DATA_DIR
@@ -16,15 +16,15 @@ def init_database():
     """Initialize the SQLite database with required tables."""
     with sqlite3.connect(DB_FILE) as conn:
         cursor = conn.cursor()
-        cursor.execute('''
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS lists (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 list_type TEXT NOT NULL,
                 list_id TEXT NOT NULL,
                 UNIQUE(list_type, list_id)
             )
-        ''')
-        cursor.execute('''
+        """)
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS synced_items (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 title TEXT NOT NULL,
@@ -34,13 +34,13 @@ def init_database():
                 status TEXT,
                 last_synced TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        ''')
-        cursor.execute('''
+        """)
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS sync_interval (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 interval_hours REAL NOT NULL
             )
-        ''')
+        """)
         conn.commit()
 
 
@@ -48,27 +48,24 @@ def save_list_id(list_id: str, list_type: str):
     """Save list ID to database, converting URLs to IDs if needed."""
     with sqlite3.connect(DB_FILE) as conn:
         cursor = conn.cursor()
-        
+
         # For IMDb URLs, store the full URL
-        if list_type == "imdb" and list_id.startswith(('http://', 'https://')):
+        if list_type == "imdb" and list_id.startswith(("http://", "https://")):
             # Keep the full URL as is
-            id_to_save = list_id.rstrip('/')
+            id_to_save = list_id.rstrip("/")
         # For IMDb chart names, store as is
-        elif list_type == "imdb" and list_id in ['top', 'boxoffice', 'moviemeter', 'tvmeter']:
+        elif list_type == "imdb" and list_id in ["top", "boxoffice", "moviemeter", "tvmeter"]:
             id_to_save = list_id
         # For Trakt URLs, store the full URL
-        elif list_type == "trakt" and list_id.startswith(('http://', 'https://')):
-            id_to_save = list_id.rstrip('/')
-        # For MDBList URLs, store the full URL
-        elif list_type == "mdblist" and list_id.startswith(('http://', 'https://')):
-            id_to_save = list_id.rstrip('/')
+        elif (list_type == "trakt" and list_id.startswith(("http://", "https://"))) or (list_type == "mdblist" and list_id.startswith(("http://", "https://"))):
+            id_to_save = list_id.rstrip("/")
         else:
             # For traditional IDs (ls, ur, numeric) or MDBList username/listname format, store as is
             id_to_save = list_id
-            
+
         cursor.execute(
             "INSERT OR REPLACE INTO lists (list_type, list_id) VALUES (?, ?)",
-            (list_type, id_to_save)
+            (list_type, id_to_save),
         )
         conn.commit()
 
@@ -88,13 +85,13 @@ def delete_list(list_type: str, list_id: str) -> bool:
             cursor = conn.cursor()
             cursor.execute(
                 "DELETE FROM lists WHERE list_type = ? AND list_id = ?",
-                (list_type, list_id)
+                (list_type, list_id),
             )
             conn.commit()
             return cursor.rowcount > 0
     except Exception as e:
         import logging
-        logging.error(f"Error deleting list: {str(e)}")
+        logging.exception(f"Error deleting list: {e!s}")
         return False
 
 
@@ -120,11 +117,11 @@ def should_sync_item(overseerr_id: int) -> bool:
     """Check if an item should be synced based on last sync time."""
     with sqlite3.connect(DB_FILE) as conn:
         cursor = conn.cursor()
-        cursor.execute('''
+        cursor.execute("""
             SELECT last_synced FROM synced_items
             WHERE overseerr_id = ?
             AND last_synced > datetime('now', '-48 hours')
-        ''', (overseerr_id,))
+        """, (overseerr_id,))
         result = cursor.fetchone()
         return result is None
 
@@ -133,11 +130,11 @@ def save_sync_result(title: str, media_type: str, imdb_id: Optional[str], overse
     """Save the result of a sync operation."""
     with sqlite3.connect(DB_FILE) as conn:
         cursor = conn.cursor()
-        cursor.execute('''
+        cursor.execute("""
             INSERT OR REPLACE INTO synced_items 
             (title, media_type, imdb_id, overseerr_id, status, last_synced)
             VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        ''', (title, media_type, imdb_id, overseerr_id, status))
+        """, (title, media_type, imdb_id, overseerr_id, status))
         conn.commit()
 
 
@@ -153,12 +150,12 @@ def get_sync_stats() -> Dict[str, int]:
     """Get sync statistics from the database."""
     with sqlite3.connect(DB_FILE) as conn:
         cursor = conn.cursor()
-        cursor.execute('''
+        cursor.execute("""
             SELECT status, COUNT(*) 
             FROM synced_items 
             WHERE last_synced > datetime('now', '-7 days') 
             GROUP BY status
-        ''')
+        """)
         stats = dict(cursor.fetchall())
         return stats
 
@@ -167,10 +164,10 @@ def cleanup_old_sync_results(days: int = 30):
     """Clean up sync results older than specified days."""
     with sqlite3.connect(DB_FILE) as conn:
         cursor = conn.cursor()
-        cursor.execute('''
+        cursor.execute(f"""
             DELETE FROM synced_items 
-            WHERE last_synced < datetime('now', '-{} days')
-        '''.format(days))
+            WHERE last_synced < datetime('now', '-{days} days')
+        """)
         deleted_count = cursor.rowcount
         conn.commit()
         return deleted_count

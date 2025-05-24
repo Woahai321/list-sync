@@ -7,7 +7,6 @@ import getpass
 import json
 import os
 import sqlite3
-import time
 from typing import Optional, Tuple
 
 import requests
@@ -15,7 +14,7 @@ from cryptography.fernet import Fernet
 from dotenv import load_dotenv
 from halo import Halo
 
-from .utils.helpers import custom_input, color_gradient
+from .utils.helpers import color_gradient, custom_input
 from .utils.logger import DATA_DIR
 
 # Define paths for config and database
@@ -78,10 +77,10 @@ def load_config() -> Tuple[Optional[str], Optional[str], Optional[str]]:
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, "rb") as f:
             encrypted_config = f.read()
-        
+
         max_attempts = 3
         current_attempt = 0
-        
+
         while current_attempt < max_attempts:
             print()  # Ensure password prompt is on a new line
             password = getpass.getpass(color_gradient("🔑  Enter your password: ", "#ff0000", "#aa0000"))
@@ -114,9 +113,9 @@ def test_overseerr_api(overseerr_url, api_key):
         import logging
         logging.info("Overseerr API connection successful!")
     except Exception as e:
-        spinner.fail(color_gradient(f"❌  Overseerr API connection failed. Error: {str(e)}", "#ff0000", "#aa0000"))
+        spinner.fail(color_gradient(f"❌  Overseerr API connection failed. Error: {e!s}", "#ff0000", "#aa0000"))
         import logging
-        logging.error(f"Overseerr API connection failed. Error: {str(e)}")
+        logging.exception(f"Overseerr API connection failed. Error: {e!s}")
         raise
 
 def set_requester_user(overseerr_url, api_key):
@@ -128,12 +127,12 @@ def set_requester_user(overseerr_url, api_key):
         response = requests.get(users_url, headers=headers)
         response.raise_for_status()
         jsonResult = response.json()
-        if jsonResult['pageInfo']['results'] > 1:
+        if jsonResult["pageInfo"]["results"] > 1:
             print(color_gradient("\n📋 Multiple users detected, you can choose which user will make the requests on ListSync behalf.\n", "#00aaff", "#00ffaa"))
-            for result in jsonResult['results']:
+            for result in jsonResult["results"]:
                 print(color_gradient(f"{result['id']}. {result['displayName']}", "#ffaa00", "#ff5500"))
             requester_user_id = custom_input(color_gradient("\nEnter the number of the list to use as requester user: ", "#ffaa00", "#ff5500"))
-            if not next((x for x in jsonResult['results'] if str(x['id']) == requester_user_id), None):
+            if not next((x for x in jsonResult["results"] if str(x["id"]) == requester_user_id), None):
                 requester_user_id = "1"
                 print(color_gradient("\n❌  Invalid option, using admin as requester user.", "#ff0000", "#aa0000"))
 
@@ -142,7 +141,7 @@ def set_requester_user(overseerr_url, api_key):
         return requester_user_id
     except Exception as e:
         import logging
-        logging.error(f"Overseerr API connection failed. Error: {str(e)}")
+        logging.exception(f"Overseerr API connection failed. Error: {e!s}")
         return 1
 
 def load_env_config() -> Tuple[Optional[str], Optional[str], Optional[str], float, bool, bool]:
@@ -153,22 +152,22 @@ def load_env_config() -> Tuple[Optional[str], Optional[str], Optional[str], floa
         Tuple: Overseerr URL, API key, user ID, sync interval (float), automated mode flag, 4K flag
     """
     # Load environment variables if .env exists
-    if os.path.exists('.env'):
+    if os.path.exists(".env"):
         load_dotenv()
-        
-    url = os.getenv('OVERSEERR_URL')
-    api_key = os.getenv('OVERSEERR_API_KEY')
-    user_id = os.getenv('OVERSEERR_USER_ID', '1')  # Default to 1 if not set
-    sync_interval = os.getenv('SYNC_INTERVAL', '12')  # Default to 12 if not set
-    automated_mode = os.getenv('AUTOMATED_MODE', 'true').lower() == 'true'  # New env var
-    is_4k = os.getenv('OVERSEERR_4K', 'false').lower() == 'true'  # New 4K setting
-    discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')  # New webhook URL
-    
+
+    url = os.getenv("OVERSEERR_URL")
+    api_key = os.getenv("OVERSEERR_API_KEY")
+    user_id = os.getenv("OVERSEERR_USER_ID", "1")  # Default to 1 if not set
+    sync_interval = os.getenv("SYNC_INTERVAL", "12")  # Default to 12 if not set
+    automated_mode = os.getenv("AUTOMATED_MODE", "true").lower() == "true"  # New env var
+    is_4k = os.getenv("OVERSEERR_4K", "false").lower() == "true"  # New 4K setting
+    discord_webhook_url = os.getenv("DISCORD_WEBHOOK_URL")  # New webhook URL
+
     # Log if Discord webhook is configured
     if discord_webhook_url:
         import logging
         logging.info("Discord webhook integration enabled")
-    
+
     # Only return the config if required variables are present
     if url and api_key:
         try:
@@ -177,7 +176,7 @@ def load_env_config() -> Tuple[Optional[str], Optional[str], Optional[str], floa
             return url, api_key, user_id, float(sync_interval), automated_mode, is_4k
         except Exception as e:
             import logging
-            logging.error(f"Error testing Overseerr API with environment variables: {e}")
+            logging.exception(f"Error testing Overseerr API with environment variables: {e}")
             print(color_gradient(f"\n❌  Error testing Overseerr API: {e}", "#ff0000", "#aa0000"))
     return None, None, None, 0.0, False, False
 
@@ -188,81 +187,81 @@ def load_env_lists() -> bool:
     Returns:
         bool: True if any lists were loaded, False otherwise
     """
-    from .database import save_list_id, DB_FILE
-    
+    from .database import DB_FILE, save_list_id
+
     lists_added = False
-    
+
     try:
         # Clear existing lists first
         with sqlite3.connect(DB_FILE) as conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM lists")
             conn.commit()
-        
+
         # Process IMDB lists
-        if imdb_lists := os.getenv('IMDB_LISTS'):
-            for list_id in imdb_lists.split(','):
+        if imdb_lists := os.getenv("IMDB_LISTS"):
+            for list_id in imdb_lists.split(","):
                 if list_id.strip():
                     save_list_id(list_id.strip(), "imdb")
                     lists_added = True
                     import logging
                     logging.info(f"Added IMDb list: {list_id.strip()}")
-        
+
         # Process Trakt lists
-        if trakt_lists := os.getenv('TRAKT_LISTS'):
-            for list_id in trakt_lists.split(','):
+        if trakt_lists := os.getenv("TRAKT_LISTS"):
+            for list_id in trakt_lists.split(","):
                 if list_id.strip():
                     save_list_id(list_id.strip(), "trakt")
                     lists_added = True
                     import logging
                     logging.info(f"Added Trakt list: {list_id.strip()}")
-                    
+
         # Process special Trakt lists
-        if trakt_special_lists := os.getenv('TRAKT_SPECIAL_LISTS'):
-            for list_id in trakt_special_lists.split(','):
+        if trakt_special_lists := os.getenv("TRAKT_SPECIAL_LISTS"):
+            for list_id in trakt_special_lists.split(","):
                 if list_id.strip():
                     save_list_id(list_id.strip(), "trakt_special")
                     lists_added = True
                     import logging
-                    trakt_limit = os.getenv('TRAKT_SPECIAL_ITEMS_LIMIT', '20')
+                    trakt_limit = os.getenv("TRAKT_SPECIAL_ITEMS_LIMIT", "20")
                     logging.info(f"Added special Trakt list: {list_id.strip()} (max {trakt_limit} items)")
-        
+
         # Process Letterboxd lists
-        if letterboxd_lists := os.getenv('LETTERBOXD_LISTS'):
-            for list_id in letterboxd_lists.split(','):
+        if letterboxd_lists := os.getenv("LETTERBOXD_LISTS"):
+            for list_id in letterboxd_lists.split(","):
                 if list_id.strip():
                     save_list_id(list_id.strip(), "letterboxd")
                     lists_added = True
                     import logging
                     logging.info(f"Added Letterboxd list: {list_id.strip()}")
-        
+
         # Process MDBList lists
-        if mdblist_lists := os.getenv('MDBLIST_LISTS'):
-            for list_id in mdblist_lists.split(','):
+        if mdblist_lists := os.getenv("MDBLIST_LISTS"):
+            for list_id in mdblist_lists.split(","):
                 if list_id.strip():
                     save_list_id(list_id.strip(), "mdblist")
                     lists_added = True
                     import logging
                     logging.info(f"Added MDBList list: {list_id.strip()}")
-        
+
         # Process Steven Lu lists
-        if stevenlu_lists := os.getenv('STEVENLU_LISTS'):
-            if 'stevenlu' in stevenlu_lists.lower():
+        if stevenlu_lists := os.getenv("STEVENLU_LISTS"):
+            if "stevenlu" in stevenlu_lists.lower():
                 save_list_id("stevenlu", "stevenlu")
                 lists_added = True
                 import logging
                 logging.info("Added Steven Lu popular movies list")
-        
+
         if not lists_added:
             import logging
             logging.warning("No lists found in environment variables")
             print(color_gradient("\n⚠️  No lists found in environment variables", "#ffaa00", "#ff5500"))
-        
+
         return lists_added
     except Exception as e:
         import logging
-        logging.error(f"Error loading lists from environment: {str(e)}")
-        print(color_gradient(f"\n❌  Error loading lists: {str(e)}", "#ff0000", "#aa0000"))
+        logging.exception(f"Error loading lists from environment: {e!s}")
+        print(color_gradient(f"\n❌  Error loading lists: {e!s}", "#ff0000", "#aa0000"))
         return False
 
 def format_time_remaining(seconds):
