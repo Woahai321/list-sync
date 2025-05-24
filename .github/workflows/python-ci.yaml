@@ -45,11 +45,13 @@ jobs:
           echo PATH=$PATH >> $GITHUB_ENV
 
       #----------------------------------------------
-      #    run test suite and output coverage file
+      #    run basic import tests for new structure
       #----------------------------------------------
-      # - name: Test with pytest
-      #   run: |
-      #     pytest --cov-branch --cov=src --cov-report=xml tests
+      - name: Test package imports
+        run: |
+          python -c "import list_sync; print(f'ListSync {list_sync.__version__} by {list_sync.__author__}')"
+          python -c "from list_sync.providers import get_available_providers; print('Available providers:', get_available_providers())"
+          python -c "from list_sync.main import main; print('Main module imported successfully')"
 
       #----------------------------------------------
       #              lint and formatting

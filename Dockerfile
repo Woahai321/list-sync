@@ -91,5 +91,5 @@ RUN mkdir -p /usr/src/app/data
 RUN mkdir -p /tmp/.X11-unix && \
     chmod 1777 /tmp/.X11-unix
 
-# The entrypoint should run the script directly
-ENTRYPOINT ["xvfb-run", "--server-args='-screen 0 1920x1080x24 -ac'", "--auto-servernum", "python", "add.py"]
+# The entrypoint should run the new modular package
+ENTRYPOINT ["xvfb-run", "--server-args='-screen 0 1920x1080x24 -ac'", "--auto-servernum", "python", "-m", "list_sync"]
