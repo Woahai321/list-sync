@@ -140,8 +140,8 @@ You can also set up ListSync manually if you prefer a more hands-on approach:
 
 | Installation Method | Command |
 | :------------------ | :------------------------------------------------------------ |
-| ![Poetry](https://img.shields.io/badge/Poetry-ready-blue?style=for-the-badge&logo=poetry) | `git clone https://github.com/Woahai321/list-sync.git && cd list-sync && poetry install && poetry run python add.py` |
-| ![Python](https://img.shields.io/badge/Python-3.7%2B-blue?style=for-the-badge&logo=python) | `git clone https://github.com/Woahai321/list-sync.git && cd list-sync && pip install -r requirements.txt && python add.py` |
+| ![Poetry](https://img.shields.io/badge/Poetry-ready-blue?style=for-the-badge&logo=poetry) | `git clone https://github.com/Woahai321/list-sync.git && cd list-sync && poetry install && poetry run python -m list_sync` |
+| ![Python](https://img.shields.io/badge/Python-3.7%2B-blue?style=for-the-badge&logo=python) | `git clone https://github.com/Woahai321/list-sync.git && cd list-sync && pip install -r requirements.txt && python -m list_sync` |
 
 Refer to our [Installation Guide](/docs/installation.md) for detailed instructions.
 </details>
@@ -150,7 +150,7 @@ Refer to our [Installation Guide](/docs/installation.md) for detailed instructio
 
 ### Currently in Development for v0.6.0
 
-For the most stable experience, use the source code from the latest release [here](https://github.com/Woahai321/list-sync/releases/tag/v0.5.6).
+For the most stable experience, use the source code from the latest release [here](https://github.com/Woahai321/list-sync/releases/tag/v0.5.9).
 
 <details>
 <summary>How Does It Work?</summary>
