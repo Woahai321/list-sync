@@ -37,25 +37,17 @@ jobs:
         run: poetry install --no-interaction
 
       #----------------------------------------------
-      #    Permanent venv activation
-      #----------------------------------------------
-      - name: Activate virtualenv
-        run: |
-          source .venv/bin/activate
-          echo PATH=$PATH >> $GITHUB_ENV
-
-      #----------------------------------------------
       #    run basic import tests for new structure
       #----------------------------------------------
       - name: Test package imports
         run: |
-          python -c "import list_sync; print(f'ListSync {list_sync.__version__} by {list_sync.__author__}')"
-          python -c "from list_sync.providers import get_available_providers; print('Available providers:', get_available_providers())"
-          python -c "from list_sync.main import main; print('Main module imported successfully')"
+          poetry run python -c "import list_sync; print(f'ListSync {list_sync.__version__} by {list_sync.__author__}')"
+          poetry run python -c "from list_sync.providers import get_available_providers; print('Available providers:', get_available_providers())"
+          poetry run python -c "from list_sync.main import main; print('Main module imported successfully')"
 
       #----------------------------------------------
       #              lint and formatting
       #----------------------------------------------
       - name: Lint with Ruff
         run: |
-          ruff check --output-format=github .
+          poetry run ruff check --output-format=github .
