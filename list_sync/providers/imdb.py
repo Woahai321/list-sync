@@ -4,29 +4,30 @@ IMDb list provider for ListSync.
 
 import logging
 import re
-from typing import Any, Dict, List
+from typing import Any
 
+from selenium.common.exceptions import NoSuchElementException, TimeoutException, WebDriverException
 from seleniumbase import SB
 
 from . import register_provider
 
 
 @register_provider("imdb")
-def fetch_imdb_list(list_id: str) -> List[Dict[str, Any]]:
+def fetch_imdb_list(list_id: str) -> list[dict[str, Any]]:
     """
     Fetch IMDb list using Selenium with pagination
-    
+
     Args:
         list_id (str): IMDb list ID, chart name, or URL
-        
+
     Returns:
-        List[Dict[str, Any]]: List of media items
-        
+        list[dict[str, Any]]: List of media items
+
     Raises:
         ValueError: If list ID format is invalid
     """
     media_items = []
-    logging.info(f"Fetching IMDb list: {list_id}")
+    logging.info("Fetching IMDb list: %s", list_id)
 
     try:
         with SB(uc=True, headless=True) as sb:
@@ -38,7 +39,8 @@ def fetch_imdb_list(list_id: str) -> List[Dict[str, Any]]:
                 elif "/list/" in url or "/user/" in url:
                     is_chart = False
                 else:
-                    raise ValueError("Invalid IMDb URL format")
+                    msg = "Invalid IMDb URL format"
+                    raise ValueError(msg)
             # Existing logic for list IDs
             elif list_id in ["top", "boxoffice", "moviemeter", "tvmeter"]:
                 url = f"https://www.imdb.com/chart/{list_id}"
@@ -50,13 +52,14 @@ def fetch_imdb_list(list_id: str) -> List[Dict[str, Any]]:
                 url = f"https://www.imdb.com/user/{list_id}/watchlist"
                 is_chart = False
             else:
-                raise ValueError("Invalid IMDb list ID format")
+                msg = "Invalid IMDb list ID format"
+                raise ValueError(msg)
 
-            logging.info(f"Attempting to load URL: {url}")
+            logging.info("Attempting to load URL: %s", url)
             sb.open(url)
 
             # Common wait logic for all IMDb pages (both lists and charts)
-            logging.info(f"Attempting to load IMDb page: {url}")
+            logging.info("Attempting to load IMDb page: %s", url)
             sb.open(url)
 
             # Initial wait for page load
@@ -68,8 +71,8 @@ def fetch_imdb_list(list_id: str) -> List[Dict[str, Any]]:
                 sb.sleep(1)
                 sb.execute_script("window.scrollTo(0, 600);")
                 sb.sleep(1)
-            except Exception as e:
-                logging.warning(f"Could not perform scrolling: {e!s}")
+            except WebDriverException as e:
+                logging.warning("Could not perform scrolling: %s", e)
 
             # Wait for any potential captcha/anti-bot verification to load
             sb.sleep(3)
@@ -81,23 +84,23 @@ def fetch_imdb_list(list_id: str) -> List[Dict[str, Any]]:
                 # Process regular list page
                 media_items.extend(_process_imdb_list(sb, url))
 
-            logging.info(f"Found {len(media_items)} items from IMDb list {list_id}")
+            logging.info("Found %d items from IMDb list %s", len(media_items), list_id)
             return media_items
 
-    except Exception as e:
-        logging.exception(f"Error fetching IMDb list {list_id}: {e!s}")
+    except (TimeoutException, NoSuchElementException, WebDriverException):
+        logging.exception("Error fetching IMDb list %s", list_id)
         raise
 
 
-def _process_imdb_chart(sb) -> List[Dict[str, Any]]:
+def _process_imdb_chart(sb) -> list[dict[str, Any]]:
     """
     Process an IMDb chart page.
-    
+
     Args:
         sb: SeleniumBase instance
-        
+
     Returns:
-        List[Dict[str, Any]]: List of media items
+        list[dict[str, Any]]: List of media items
     """
     media_items = []
     chart_found = False
@@ -112,16 +115,16 @@ def _process_imdb_chart(sb) -> List[Dict[str, Any]]:
 
     for selector in data_testid_selectors:
         try:
-            logging.info(f"Trying to find chart with data-testid selector: {selector}")
+            logging.info("Trying to find chart with data-testid selector: %s", selector)
             # Use a longer timeout for charts
             sb.wait_for_element_present(selector, timeout=10)
             chart_found = True
-            logging.info(f"Chart parent found with selector: {selector}")
+            logging.info("Chart parent found with selector: %s", selector)
             # Add extra wait after finding the element to ensure it's fully loaded
             sb.sleep(2)
             break
-        except Exception as e:
-            logging.warning(f"Could not find chart with data-testid selector {selector}: {e!s}")
+        except (TimeoutException, NoSuchElementException) as e:
+            logging.warning("Could not find chart with data-testid selector %s: %s", selector, e)
 
     # If not found, try different class-based selectors for the list itself
     if not chart_found:
@@ -134,16 +137,16 @@ def _process_imdb_chart(sb) -> List[Dict[str, Any]]:
 
         for selector in class_selectors:
             try:
-                logging.info(f"Trying to find chart with class selector: {selector}")
+                logging.info("Trying to find chart with class selector: %s", selector)
                 # Use a longer timeout for charts
                 sb.wait_for_element_present(selector, timeout=10)
                 chart_found = True
-                logging.info(f"Chart found with selector: {selector}")
+                logging.info("Chart found with selector: %s", selector)
                 # Add extra wait after finding the element
                 sb.sleep(2)
                 break
-            except Exception as e:
-                logging.warning(f"Could not find chart with class selector {selector}: {e!s}")
+            except (TimeoutException, NoSuchElementException) as e:
+                logging.warning("Could not find chart with class selector %s: %s", selector, e)
 
     if not chart_found:
         # Try a more aggressive approach with longer waits and more scrolling
@@ -172,16 +175,17 @@ def _process_imdb_chart(sb) -> List[Dict[str, Any]]:
                 try:
                     items = ul.find_elements("css selector", "li")
                     if len(items) > 5:  # If we find a list with several items, it's likely our chart
-                        logging.info(f"Found a ul with {len(items)} items, likely our chart")
+                        logging.info("Found a ul with %d items, likely our chart", len(items))
                         chart_found = True
                         break
-                except Exception:
+                except (NoSuchElementException, WebDriverException):
                     pass
-        except Exception as e:
-            logging.exception(f"Could not find any ul elements after scrolling: {e!s}")
+        except (TimeoutException, NoSuchElementException):
+            logging.exception("Could not find any ul elements after scrolling")
 
     if not chart_found:
-        raise ValueError("Could not find chart content on IMDb page after multiple attempts")
+        msg = "Could not find chart content on IMDb page after multiple attempts"
+        raise ValueError(msg)
 
     # Get total number of items if possible
     try:
@@ -191,11 +195,11 @@ def _process_imdb_chart(sb) -> List[Dict[str, Any]]:
             total_match = re.search(r"(\d+)\s+Titles?", total_text)
             if total_match:
                 total_items = int(total_match.group(1))
-                logging.info(f"Total items in chart: {total_items}")
+                logging.info("Total items in chart: %d", total_items)
         else:
             total_items = None
-    except Exception as e:
-        logging.warning(f"Could not determine total items: {e!s}")
+    except (NoSuchElementException, WebDriverException) as e:
+        logging.warning("Could not determine total items: %s", e)
         total_items = None
 
     # Process items in the chart - try multiple selectors for items
@@ -211,29 +215,29 @@ def _process_imdb_chart(sb) -> List[Dict[str, Any]]:
 
     for selector in item_selectors:
         try:
-            logging.info(f"Trying to find list items with selector: {selector}")
+            logging.info("Trying to find list items with selector: %s", selector)
             items = sb.find_elements(selector)
             if items and len(items) > 0:
-                logging.info(f"Found {len(items)} items using selector: {selector}")
+                logging.info("Found %d items using selector: %s", len(items), selector)
                 break
-        except Exception as e:
-            logging.warning(f"Could not find items with selector {selector}: {e!s}")
+        except (NoSuchElementException, WebDriverException) as e:
+            logging.warning("Could not find items with selector %s: %s", selector, e)
 
     if not items or len(items) == 0:
         # Last resort: try to find any list items on the page
         try:
             items = sb.find_elements("li")
-            logging.warning(f"Using generic li selector as fallback, found {len(items)} items")
-        except Exception as e:
-            logging.exception(f"Could not find any list items on the page: {e!s}")
-            raise ValueError("Could not find any list items in the chart")
+            logging.warning("Using generic li selector as fallback, found %d items", len(items))
+        except (NoSuchElementException, WebDriverException):
+            logging.exception("Could not find any list items on the page")
+            msg = "Could not find any list items in the chart"
+            raise ValueError(msg)
 
-    logging.info(f"Found {len(items)} items in chart")
+    logging.info("Found %d items in chart", len(items))
 
     for item in items:
         try:
             # Get title element - try multiple selectors
-            title_element = None
             full_title = ""
 
             title_selectors = [
@@ -251,11 +255,11 @@ def _process_imdb_chart(sb) -> List[Dict[str, Any]]:
                             element_text = element.text
                             if element_text and len(element_text) > 0:
                                 full_title = element_text
-                                logging.info(f"Found title using selector: {selector}")
+                                logging.info("Found title using selector: %s", selector)
                                 break
                         if full_title:
                             break
-                except Exception:
+                except (NoSuchElementException, WebDriverException):
                     pass
 
             if not full_title:
@@ -266,9 +270,9 @@ def _process_imdb_chart(sb) -> List[Dict[str, Any]]:
                     for line in text_lines:
                         if line and len(line) > 2 and not line.isdigit() and not re.match(r"^\d+\.$", line):
                             full_title = line
-                            logging.warning(f"Using fallback method for title: {full_title}")
+                            logging.warning("Using fallback method for title: %s", full_title)
                             break
-                except Exception:
+                except (NoSuchElementException, WebDriverException):
                     pass
 
             if not full_title:
@@ -303,7 +307,7 @@ def _process_imdb_chart(sb) -> List[Dict[str, Any]]:
                                 break
                         if year:
                             break
-                except Exception:
+                except (NoSuchElementException, WebDriverException):
                     pass
 
             if not year and metadata_text:
@@ -319,7 +323,7 @@ def _process_imdb_chart(sb) -> List[Dict[str, Any]]:
                     year_match = re.search(r"(\d{4})", item_text)
                     if year_match:
                         year = int(year_match.group(1))
-                except Exception:
+                except (NoSuchElementException, WebDriverException):
                     pass
 
             # Get IMDB ID from the title link - try different approaches
@@ -343,11 +347,11 @@ def _process_imdb_chart(sb) -> List[Dict[str, Any]]:
                                 break
                     if imdb_id:
                         break
-                except Exception:
+                except (NoSuchElementException, WebDriverException):
                     pass
 
             if not imdb_id:
-                logging.warning(f"Could not find IMDb ID for {title}, skipping")
+                logging.warning("Could not find IMDb ID for %s, skipping", title)
                 continue
 
             # For charts, all items are movies unless explicitly marked as TV
@@ -361,25 +365,25 @@ def _process_imdb_chart(sb) -> List[Dict[str, Any]]:
                 "media_type": media_type,
                 "year": year,
             })
-            logging.info(f"Added {media_type}: {title} ({year}) (IMDB ID: {imdb_id})")
+            logging.info("Added %s: %s (%s) (IMDB ID: %s)", media_type, title, year, imdb_id)
 
-        except Exception as e:
-            logging.warning(f"Failed to parse IMDb chart item: {e!s}")
+        except (NoSuchElementException, WebDriverException) as e:
+            logging.warning("Failed to parse IMDb chart item: %s", e)
             continue
 
     return media_items
 
 
-def _process_imdb_list(sb, url) -> List[Dict[str, Any]]:
+def _process_imdb_list(sb, url) -> list[dict[str, Any]]:
     """
     Process a regular IMDb list page.
-    
+
     Args:
         sb: SeleniumBase instance
         url: URL of the list
-        
+
     Returns:
-        List[Dict[str, Any]]: List of media items
+        list[dict[str, Any]]: List of media items
     """
     media_items = []
 
@@ -398,8 +402,8 @@ def _process_imdb_list(sb, url) -> List[Dict[str, Any]]:
             logging.info("Found content by data-testid attribute")
             # Add extra wait after finding the element
             sb.sleep(2)
-        except Exception as e:
-            logging.warning(f"Could not find content by data-testid: {e!s}")
+        except (TimeoutException, NoSuchElementException) as e:
+            logging.warning("Could not find content by data-testid: %s", e)
 
         # If that fails, try looking for the list element directly
         if not content_found:
@@ -410,8 +414,8 @@ def _process_imdb_list(sb, url) -> List[Dict[str, Any]]:
                 logging.info("Found list element directly")
                 # Add extra wait after finding the element
                 sb.sleep(2)
-            except Exception as e:
-                logging.warning(f"Could not find list element: {e!s}")
+            except (TimeoutException, NoSuchElementException) as e:
+                logging.warning("Could not find list element: %s", e)
 
         # If that also fails, try looking for list items
         if not content_found:
@@ -422,8 +426,8 @@ def _process_imdb_list(sb, url) -> List[Dict[str, Any]]:
                 logging.info("Found list items")
                 # Add extra wait after finding the element
                 sb.sleep(2)
-            except Exception as e:
-                logging.warning(f"Could not find list items: {e!s}")
+            except (TimeoutException, NoSuchElementException) as e:
+                logging.warning("Could not find list items: %s", e)
 
         # If everything fails, try a more aggressive approach with longer waits and scrolling
         if not content_found:
@@ -457,23 +461,25 @@ def _process_imdb_list(sb, url) -> List[Dict[str, Any]]:
                     try:
                         items = ul.find_elements("css selector", "li")
                         if len(items) > 5:  # If we find a list with several items, it's likely our list
-                            logging.info(f"Found a ul with {len(items)} items, likely our list content")
+                            logging.info("Found a ul with %d items, likely our list content", len(items))
                             content_found = True
                             break
-                    except Exception:
+                    except (NoSuchElementException, WebDriverException):
                         pass
 
                 if not content_found:
-                    raise ValueError("Could not find list content on IMDb page after multiple attempts")
-            except Exception as e:
-                logging.exception(f"Could not find any list content after multiple attempts: {e!s}")
-                raise ValueError("Could not find list content on IMDb page after multiple attempts")
+                    msg = "Could not find list content on IMDb page after multiple attempts"
+                    raise ValueError(msg)
+            except (TimeoutException, NoSuchElementException):
+                logging.exception("Could not find any list content after multiple attempts")
+                msg = "Could not find list content on IMDb page after multiple attempts"
+                raise ValueError(msg)
 
         # Additional wait to ensure everything is loaded
         sb.sleep(3)
 
-    except Exception as e:
-        logging.exception(f"Failed to load IMDb list page: {e!s}")
+    except (TimeoutException, NoSuchElementException, WebDriverException):
+        logging.exception("Failed to load IMDb list page")
         raise
 
     # Get total number of items
@@ -486,20 +492,20 @@ def _process_imdb_list(sb, url) -> List[Dict[str, Any]]:
             titles_match = re.search(r"(\d+)\s*titles?", total_text, re.IGNORECASE)
             if titles_match:
                 total_items = int(titles_match.group(1))
-                logging.info(f"Total items in list: {total_items}")
+                logging.info("Total items in list: %d", total_items)
                 expected_pages = (total_items + 249) // 250  # Round up division by 250
-                logging.info(f"Expected number of pages: {expected_pages}")
+                logging.info("Expected number of pages: %d", expected_pages)
             else:
                 # Try another approach - find the text showing range like "1 - 250"
                 range_container = sb.find_element("css selector", ".ipc-inline-list__item")
                 range_text = range_container.text
-                logging.info(f"Found range text: {range_text}")
+                logging.info("Found range text: %s", range_text)
                 if " - " in range_text:
                     # This is like "1 - 250"
                     try:
                         _, end = range_text.split(" - ")
                         per_page = int(end)
-                        logging.info(f"Items per page: {per_page}")
+                        logging.info("Items per page: %d", per_page)
                         # Find total in the next element
                         next_item = sb.find_element("css selector", ".ipc-inline-list__item.sc-d6269c7a-1")
                         if next_item:
@@ -508,9 +514,9 @@ def _process_imdb_list(sb, url) -> List[Dict[str, Any]]:
                             if titles_match:
                                 total_items = int(titles_match.group(1))
                                 expected_pages = (total_items + per_page - 1) // per_page
-                                logging.info(f"Total items: {total_items}, expected pages: {expected_pages}")
-                    except Exception as e:
-                        logging.warning(f"Could not parse range: {e!s}")
+                                logging.info("Total items: %d, expected pages: %d", total_items, expected_pages)
+                    except (ValueError, AttributeError) as e:
+                        logging.warning("Could not parse range: %s", e)
                         total_items = None
                         expected_pages = None
                 else:
@@ -520,17 +526,17 @@ def _process_imdb_list(sb, url) -> List[Dict[str, Any]]:
             logging.warning("Total items container not found")
             total_items = None
             expected_pages = None
-    except Exception as e:
-        logging.warning(f"Could not determine total items using new selector: {e!s}")
+    except (NoSuchElementException, WebDriverException) as e:
+        logging.warning("Could not determine total items using new selector: %s", e)
         # Fallback to original selector
         try:
             total_element = sb.find_element('[data-testid="list-page-mc-total-items"]')
             total_text = total_element.text
             total_items = int(re.search(r"(\d+)\s+titles?", total_text).group(1))
-            logging.info(f"Total items in list (fallback): {total_items}")
+            logging.info("Total items in list (fallback): %d", total_items)
             expected_pages = (total_items + 249) // 250  # Round up division by 250
-        except Exception as e2:
-            logging.warning(f"Could not determine total items with fallback: {e2!s}")
+        except (NoSuchElementException, WebDriverException, AttributeError) as e2:
+            logging.warning("Could not determine total items with fallback: %s", e2)
             total_items = None
             expected_pages = None
 
@@ -545,18 +551,18 @@ def _process_imdb_list(sb, url) -> List[Dict[str, Any]]:
         try:
             items = sb.find_elements("css selector", "li.ipc-metadata-list-summary-item")
             if items:
-                logging.info(f"Found {len(items)} items using specific selector")
-        except Exception as e:
-            logging.warning(f"Could not find items using specific selector: {e!s}")
+                logging.info("Found %d items using specific selector", len(items))
+        except (NoSuchElementException, WebDriverException) as e:
+            logging.warning("Could not find items using specific selector: %s", e)
 
         # If that fails, try a more generic selector
         if not items:
             try:
                 items = sb.find_elements("css selector", ".ipc-metadata-list-summary-item")
                 if items:
-                    logging.info(f"Found {len(items)} items using generic class selector")
-            except Exception as e:
-                logging.warning(f"Could not find items using generic selector: {e!s}")
+                    logging.info("Found %d items using generic class selector", len(items))
+            except (NoSuchElementException, WebDriverException) as e:
+                logging.warning("Could not find items using generic selector: %s", e)
 
         # If that also fails, try an even more generic approach
         if not items:
@@ -566,11 +572,11 @@ def _process_imdb_list(sb, url) -> List[Dict[str, Any]]:
                 # Then get its children
                 items = list_element.find_elements("css selector", "li")
                 if items:
-                    logging.info(f"Found {len(items)} items via parent list element")
-            except Exception as e:
-                logging.warning(f"Could not find items via parent: {e!s}")
+                    logging.info("Found %d items via parent list element", len(items))
+            except (NoSuchElementException, WebDriverException) as e:
+                logging.warning("Could not find items via parent: %s", e)
 
-        logging.info(f"Processing page {current_page}: Found {len(items)} items")
+        logging.info("Processing page %d: Found %d items", current_page, len(items))
 
         if not items:
             logging.warning("No items found on this page, attempting to continue to next page")
@@ -579,7 +585,7 @@ def _process_imdb_list(sb, url) -> List[Dict[str, Any]]:
                 # Try to navigate to next page directly
                 next_page = current_page + 1
                 next_url = f"{url}/?page={next_page}"
-                logging.info(f"Attempting to navigate directly to page {next_page}: {next_url}")
+                logging.info("Attempting to navigate directly to page %d: %s", next_page, next_url)
                 sb.open(next_url)
                 sb.sleep(5)  # Wait longer for page load
                 current_page += 1
@@ -606,15 +612,15 @@ def _process_imdb_list(sb, url) -> List[Dict[str, Any]]:
                         title_element = item.find_element("css selector", selector)
                         if title_element:
                             full_title = title_element.text
-                            logging.info(f"Found title using selector: {selector}")
+                            logging.info("Found title using selector: %s", selector)
                             break
-                    except Exception:
+                    except (NoSuchElementException, WebDriverException):
                         pass
 
                 if not full_title:
                     # Last resort: try to get any text from the item
                     full_title = item.text.split("\n")[0]
-                    logging.warning(f"Using fallback method for title: {full_title}")
+                    logging.warning("Using fallback method for title: %s", full_title)
 
                 title = re.sub(r"^\d+\.\s*", "", full_title)  # Remove the numbering (e.g., "1. ")
 
@@ -635,9 +641,9 @@ def _process_imdb_list(sb, url) -> List[Dict[str, Any]]:
                         metadata = item.find_element("css selector", selector)
                         if metadata:
                             metadata_text = metadata.text
-                            logging.info(f"Found metadata using selector: {selector}")
+                            logging.info("Found metadata using selector: %s", selector)
                             break
-                    except Exception:
+                    except (NoSuchElementException, WebDriverException):
                         pass
 
                 # Extract year if we found metadata text
@@ -646,7 +652,7 @@ def _process_imdb_list(sb, url) -> List[Dict[str, Any]]:
                     year_match = re.search(r"(\d{4})", metadata_text)
                     if year_match:
                         year = int(year_match.group(1))
-                    logging.debug(f"Extracted year for {title}: {year}")
+                    logging.debug("Extracted year for %s: %s", title, year)
 
                 # More robust media type detection
                 media_type = "movie"  # default
@@ -670,9 +676,9 @@ def _process_imdb_list(sb, url) -> List[Dict[str, Any]]:
                             href = title_link.get_attribute("href")
                             if href and "/title/" in href:
                                 imdb_id = href.split("/")[4]
-                                logging.info(f"Found IMDb ID using selector: {selector}")
+                                logging.info("Found IMDb ID using selector: %s", selector)
                                 break
-                    except Exception:
+                    except (NoSuchElementException, WebDriverException):
                         pass
 
                 if not imdb_id:
@@ -685,11 +691,11 @@ def _process_imdb_list(sb, url) -> List[Dict[str, Any]]:
                                 imdb_id = href.split("/")[4]
                                 logging.info("Found IMDb ID from generic link")
                                 break
-                    except Exception:
+                    except (NoSuchElementException, WebDriverException):
                         pass
 
                 if not imdb_id:
-                    logging.warning(f"Could not find IMDb ID for {title}, skipping")
+                    logging.warning("Could not find IMDb ID for %s, skipping", title)
                     continue
 
                 media_items.append({
@@ -698,15 +704,15 @@ def _process_imdb_list(sb, url) -> List[Dict[str, Any]]:
                     "media_type": media_type,
                     "year": year,
                 })
-                logging.info(f"Added {media_type}: {title} ({year}) (IMDB ID: {imdb_id})")
+                logging.info("Added %s: %s (%s) (IMDB ID: %s)", media_type, title, year, imdb_id)
 
-            except Exception as e:
-                logging.warning(f"Failed to parse IMDb item: {e!s}")
+            except (NoSuchElementException, WebDriverException) as e:
+                logging.warning("Failed to parse IMDb item: %s", e)
                 continue
 
         # Check if we've processed all expected pages
         if expected_pages and current_page >= expected_pages:
-            logging.info(f"Reached final page {current_page} of {expected_pages}")
+            logging.info("Reached final page %d of %d", current_page, expected_pages)
             break
 
         # Try to navigate to next page
@@ -727,7 +733,7 @@ def _process_imdb_list(sb, url) -> List[Dict[str, Any]]:
                 # Check if the button is disabled
                 if next_button:
                     is_disabled = next_button.get_attribute("disabled")
-                    logging.info(f"Next button found, disabled attribute: {is_disabled}")
+                    logging.info("Next button found, disabled attribute: %s", is_disabled)
                     if is_disabled:
                         logging.info("Next button is disabled, no more pages")
                         break
@@ -744,31 +750,31 @@ def _process_imdb_list(sb, url) -> List[Dict[str, Any]]:
                     # Verify we have items on the page
                     new_items = sb.find_elements("css selector", "li.ipc-metadata-list-summary-item")
                     if not new_items:
-                        logging.warning(f"No items found after navigation to page {current_page + 1}, retrying...")
+                        logging.warning("No items found after navigation to page %d, retrying...", current_page + 1)
                         # Fall back to direct URL navigation
                         next_page = current_page + 1
                         next_url = f"{url}/?page={next_page}"
                         sb.open(next_url)
                         sb.wait_for_element_present('[data-testid="list-page-mc-list-content"]', timeout=10)
                         sb.sleep(3)
-            except Exception as e:
-                logging.info(f"Could not click next button: {e!s}")
+            except (TimeoutException, NoSuchElementException, WebDriverException) as e:
+                logging.info("Could not click next button: %s", e)
                 # Fall back to direct URL navigation
                 next_page = current_page + 1
                 next_url = f"{url}/?page={next_page}"
-                logging.info(f"Attempting to navigate directly to page {next_page}: {next_url}")
+                logging.info("Attempting to navigate directly to page %d: %s", next_page, next_url)
                 sb.open(next_url)
                 sb.wait_for_element_present('[data-testid="list-page-mc-list-content"]', timeout=10)
                 sb.sleep(3)
 
             current_page += 1
             sb.sleep(2)
-        except Exception as e:
-            logging.info(f"No more pages available: {e!s}")
+        except (TimeoutException, NoSuchElementException, WebDriverException) as e:
+            logging.info("No more pages available: %s", e)
             break
 
     # Validate total items found
     if total_items and len(media_items) < total_items:
-        logging.warning(f"Only found {len(media_items)} items out of {total_items} total")
+        logging.warning("Only found %d items out of %d total", len(media_items), total_items)
 
     return media_items
