@@ -1,5 +1,5 @@
 """
-Main entry point for the ListSync application.
+Main entry point for the List-Sync application.
 """
 
 import datetime

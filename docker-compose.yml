@@ -21,7 +21,7 @@ services:
       - TRAKT_SPECIAL_ITEMS_LIMIT=${TRAKT_SPECIAL_ITEMS_LIMIT}
 
 
-      # Optional Discord webhook
+      # Optional Discord webhook 
       - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
     volumes:
       - ./data:/usr/src/app/data

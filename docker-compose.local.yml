@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     container_name: listsync-local
     environment:
-      # Overseerr Configuration
+      # Overseerr Configuration 
       - OVERSEERR_URL=${OVERSEERR_URL}
       - OVERSEERR_API_KEY=${OVERSEERR_API_KEY}
       - OVERSEERR_USER_ID=${OVERSEERR_USER_ID:-1}

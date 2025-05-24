@@ -111,7 +111,7 @@ def display_banner():
     """Display the application banner."""
     banner = """
 ==============================================================
-Soluify - {servarr-tools_list-sync_v0.5.8}
+Soluify - {servarr-tools_list-sync_v0.5.9}
 ==============================================================
 """
     print(color_gradient(banner, "#00aaff", "#00ffaa"))

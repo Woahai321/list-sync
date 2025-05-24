@@ -30,7 +30,7 @@ services:
     image: ghcr.io/woahai321/list-sync:main
     container_name: listsync-main
     environment:
-      - OVERSEERR_URL=https://overseerr-main.example.com
+      - OVERSEERR_URL=https://overseerr.example.com
       - OVERSEERR_API_KEY=${MAIN_API_KEY}
       - AUTOMATED_MODE=true
       - SYNC_INTERVAL=24

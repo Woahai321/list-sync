@@ -12,7 +12,7 @@
 
 ---
 
-## 🚀 What is ListSync?
+## 🚀 What is ListSync? 
 
 ListSync automatically syncs your watchlists from IMDb, Trakt, Letterboxd, MDBList, and more with Overseerr/Jellyseerr. No more manual adding - just add movies and shows to your favorite watchlist, and they'll appear in your media server automatically.
 

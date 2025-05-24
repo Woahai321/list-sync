@@ -176,7 +176,7 @@ def send_to_discord_webhook(summary_text, sync_results, webhook_url: Optional[st
         for item in sync_results.not_found_items:
             all_failed_items.append(f"• {item['title']} (Not Found)")
         
-        # Add error items
+        # Add error items 
         for item in sync_results.error_items:
             error_msg = item.get('error', 'Unknown error')
             all_failed_items.append(f"• {item['title']} (Error: {error_msg})")
@@ -203,7 +203,7 @@ def send_to_discord_webhook(summary_text, sync_results, webhook_url: Optional[st
         embed.set_timestamp()
         
         # Add footer
-        embed.set_footer(text="Soluify List Sync Tool | v0.5.8")
+        embed.set_footer(text="Soluify List Sync Tool | v0.5.9")
         
         # Add embed to webhook
         webhook.add_embed(embed)

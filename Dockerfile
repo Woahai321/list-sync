@@ -1,7 +1,7 @@
 # Use specific Python version
 ARG PYTHON_VERSION=3.9
 
-# Stage 1: Builder
+# Stage 1: Builder 
 FROM python:${PYTHON_VERSION}-slim AS builder
 
 WORKDIR /usr/src/app
