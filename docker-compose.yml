@@ -3,7 +3,7 @@ services:
     image: ghcr.io/woahai321/list-sync:main
     container_name: listsync-full
     ports:
-      # Frontend (Next.js Dashboard)
+      # Frontend (Next.js Dashboard) 
       - "3222:3222"
       # Backend API (FastAPI)
       - "4222:4222"

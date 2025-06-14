@@ -1,5 +1,5 @@
 # Multi-stage Dockerfile for Complete ListSync Web Application
-# Includes: ListSync Core Service + FastAPI Backend + Next.js Frontend
+# Includes: ListSync Core Service + FastAPI Backend + Next.js Frontend 
 
 # Use specific Python version
 ARG PYTHON_VERSION=3.9

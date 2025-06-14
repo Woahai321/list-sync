@@ -100,7 +100,7 @@ Deploy only specific components:
 docker-compose -f docker-compose.core.yml up -d
 
 # Domain services (Web UI + API)
-docker-compose -f docker-compose.domain.yml up -d
+docker-compose -f docker-compose.proddomain.yml up -d
 ```
 
 ### Docker Configuration

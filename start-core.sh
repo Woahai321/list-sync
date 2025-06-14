@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash 
 # Shell script to start ListSync in Core-Only mode
 # This deployment includes only the core synchronization functionality
 # No web UI or API server - minimal resource footprint

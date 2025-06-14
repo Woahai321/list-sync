@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+#!/usr/bin/env pwsh 
 # PowerShell script to stop ListSync Core-Only mode
 
 Write-Host "🛑 Stopping ListSync Core-Only Mode..." -ForegroundColor Yellow

@@ -7,7 +7,7 @@ services:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     container_name: listsync-domain
     ports:
-      # Frontend (Next.js Dashboard) - point your-domain.com here
+      # Frontend (Next.js Dashboard) - point your-domain.com here 
       - "3222:3222"
       # Backend API (FastAPI) - point back.your-domain.com here
       - "4222:4222"

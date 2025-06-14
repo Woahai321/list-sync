@@ -1,5 +1,5 @@
 # Core-Only ListSync Dockerfile
-# Contains only the core Python synchronization application
+# Contains only the core Python synchronization application 
 # Excludes: FastAPI backend, Next.js frontend, Node.js dependencies
 
 ARG PYTHON_VERSION=3.9

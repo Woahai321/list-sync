@@ -51,7 +51,7 @@ def initialize_sync_interval():
             logging.info(f"Using existing sync interval from database: {db_interval} hours")
             return db_interval
         
-        # No database interval, check environment
+        # No database interval, check environment 
         _, _, _, env_interval, _, _ = load_env_config()
         
         if env_interval > 0:

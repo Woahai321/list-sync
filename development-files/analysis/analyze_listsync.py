@@ -45,7 +45,7 @@ def parse_log_for_sync_info(log_path, max_lines=100):
         with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
             lines = f.readlines()
             
-        # Check last N lines for recent activity
+        # Check last N lines for recent activity 
         recent_lines = lines[-max_lines:] if len(lines) > max_lines else lines
         
         for line in recent_lines:

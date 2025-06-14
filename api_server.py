@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3 
 """
 ListSync Web UI API Server
 FastAPI backend that integrates with the existing ListSync codebase

@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile.core
     container_name: listsync-core
     environment:
-      # Timezone Configuration (set to your local timezone)
+      # Timezone Configuration (set to your local timezone) 
       - TZ=${TZ:-GMT}
       
       # Overseerr Configuration

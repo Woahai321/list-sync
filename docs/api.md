@@ -565,7 +565,7 @@ Validates a timezone identifier.
 
 ## 📁 Response Formats
 
-### Standard Success Response
+### Standard Success Response 
 ```json
 {
   "success": true,

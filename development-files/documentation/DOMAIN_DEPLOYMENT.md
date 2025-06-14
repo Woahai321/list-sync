@@ -189,13 +189,13 @@ server {
 
 ```bash
 # Build and start with domain configuration
-docker-compose -f docker-compose.domain.yml up -d
+docker-compose -f docker-compose.proddomain.yml up -d
 
 # Check status
-docker-compose -f docker-compose.domain.yml ps
+docker-compose -f docker-compose.proddomain.yml ps
 
 # View logs
-docker-compose -f docker-compose.domain.yml logs -f
+docker-compose -f docker-compose.proddomain.yml logs -f
 ```
 
 ### 6. **Verify Deployment**

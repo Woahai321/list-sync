@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash 
 # Shell script to stop ListSync Core-Only mode
 
 echo "🛑 Stopping ListSync Core-Only Mode..."
