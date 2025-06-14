@@ -183,80 +183,81 @@ def load_env_config() -> Tuple[Optional[str], Optional[str], Optional[str], floa
 
 def load_env_lists() -> bool:
     """
-    Load lists from environment variables.
+    Load lists from environment variables and add them to the database.
+    Only adds new lists that don't already exist - preserves existing lists.
     
     Returns:
-        bool: True if any lists were loaded, False otherwise
+        bool: True if any new lists were added, False otherwise
     """
-    from .database import save_list_id, DB_FILE
+    from .database import save_list_id, load_list_ids, DB_FILE
     
     lists_added = False
     
     try:
-        # Clear existing lists first
-        with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM lists")
-            conn.commit()
+        # Get existing lists from database to avoid duplicates
+        existing_lists = load_list_ids()
+        existing_set = {(list_info['type'], list_info['id']) for list_info in existing_lists}
+        
+        import logging
+        logging.info(f"Found {len(existing_lists)} existing lists in database")
+        
+        # Helper function to add list if it doesn't exist
+        def add_list_if_new(list_id: str, list_type: str):
+            nonlocal lists_added
+            if (list_type, list_id) not in existing_set:
+                save_list_id(list_id, list_type)
+                lists_added = True
+                logging.info(f"Added new {list_type.upper()} list: {list_id}")
+                print(f"✅ Added new {list_type.upper()} list: {list_id}")
+            else:
+                logging.info(f"Skipping existing {list_type.upper()} list: {list_id}")
         
         # Process IMDB lists
         if imdb_lists := os.getenv('IMDB_LISTS'):
             for list_id in imdb_lists.split(','):
                 if list_id.strip():
-                    save_list_id(list_id.strip(), "imdb")
-                    lists_added = True
-                    import logging
-                    logging.info(f"Added IMDb list: {list_id.strip()}")
+                    add_list_if_new(list_id.strip(), "imdb")
         
         # Process Trakt lists
         if trakt_lists := os.getenv('TRAKT_LISTS'):
             for list_id in trakt_lists.split(','):
                 if list_id.strip():
-                    save_list_id(list_id.strip(), "trakt")
-                    lists_added = True
-                    import logging
-                    logging.info(f"Added Trakt list: {list_id.strip()}")
+                    add_list_if_new(list_id.strip(), "trakt")
                     
         # Process special Trakt lists
         if trakt_special_lists := os.getenv('TRAKT_SPECIAL_LISTS'):
             for list_id in trakt_special_lists.split(','):
                 if list_id.strip():
-                    save_list_id(list_id.strip(), "trakt_special")
-                    lists_added = True
-                    import logging
-                    trakt_limit = os.getenv('TRAKT_SPECIAL_ITEMS_LIMIT', '20')
-                    logging.info(f"Added special Trakt list: {list_id.strip()} (max {trakt_limit} items)")
+                    add_list_if_new(list_id.strip(), "trakt_special")
+                    if (("trakt_special", list_id.strip()) not in existing_set):
+                        trakt_limit = os.getenv('TRAKT_SPECIAL_ITEMS_LIMIT', '20')
+                        logging.info(f"Special Trakt list configured with max {trakt_limit} items")
         
         # Process Letterboxd lists
         if letterboxd_lists := os.getenv('LETTERBOXD_LISTS'):
             for list_id in letterboxd_lists.split(','):
                 if list_id.strip():
-                    save_list_id(list_id.strip(), "letterboxd")
-                    lists_added = True
-                    import logging
-                    logging.info(f"Added Letterboxd list: {list_id.strip()}")
+                    add_list_if_new(list_id.strip(), "letterboxd")
         
         # Process MDBList lists
         if mdblist_lists := os.getenv('MDBLIST_LISTS'):
             for list_id in mdblist_lists.split(','):
                 if list_id.strip():
-                    save_list_id(list_id.strip(), "mdblist")
-                    lists_added = True
-                    import logging
-                    logging.info(f"Added MDBList list: {list_id.strip()}")
+                    add_list_if_new(list_id.strip(), "mdblist")
         
         # Process Steven Lu lists
         if stevenlu_lists := os.getenv('STEVENLU_LISTS'):
             if 'stevenlu' in stevenlu_lists.lower():
-                save_list_id("stevenlu", "stevenlu")
-                lists_added = True
-                import logging
-                logging.info("Added Steven Lu popular movies list")
+                add_list_if_new("stevenlu", "stevenlu")
+                if (("stevenlu", "stevenlu") not in existing_set):
+                    logging.info("Steven Lu popular movies list configured")
         
-        if not lists_added:
-            import logging
-            logging.warning("No lists found in environment variables")
-            print(color_gradient("\n⚠️  No lists found in environment variables", "#ffaa00", "#ff5500"))
+        if lists_added:
+            logging.info(f"Environment sync complete: {len([l for l in existing_lists])} existing + {sum(1 for _ in [True for _ in range(len(load_list_ids()) - len(existing_lists))])} new lists")
+            print(f"📊 Environment sync complete: preserved {len(existing_lists)} existing lists, added new lists")
+        else:
+            logging.info("No new lists found in environment variables (all existing lists preserved)")
+            print("📊 No new lists to add from environment (all existing lists preserved)")
         
         return lists_added
     except Exception as e:

@@ -1,19 +1,14 @@
 services:
-  listsync-full:
+  listsync-core:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: listsync-full
-    ports:
-      # Frontend (Next.js Dashboard)
-      - "3222:3222"
-      # Backend API (FastAPI)
-      - "4222:4222"
+      dockerfile: Dockerfile.core
+    container_name: listsync-core
     environment:
-      # Timezone Configuration (set to Europe/London for BST/GMT, change as needed)
+      # Timezone Configuration (set to your local timezone)
       - TZ=${TZ:-GMT}
       
-      # Overseerr Configuration 
+      # Overseerr Configuration
       - OVERSEERR_URL=${OVERSEERR_URL}
       - OVERSEERR_API_KEY=${OVERSEERR_API_KEY}
       - OVERSEERR_USER_ID=${OVERSEERR_USER_ID:-1}
@@ -28,13 +23,10 @@ services:
       - MDBLIST_LISTS=${MDBLIST_LISTS}
       - STEVENLU_LISTS=${STEVENLU_LISTS}
       - TRAKT_SPECIAL_LISTS=${TRAKT_SPECIAL_LISTS}
-      - TRAKT_SPECIAL_ITEMS_LIMIT=${TRAKT_SPECIAL_ITEMS_LIMIT}      
+      - TRAKT_SPECIAL_ITEMS_LIMIT=${TRAKT_SPECIAL_ITEMS_LIMIT}
 
-      # Optional Discord webhook
+      # Optional Discord webhook 
       - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
-      
-      # Internal API URL for frontend
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://0.0.0.0:4222/api}
       
       # Docker-specific settings
       - RUNNING_IN_DOCKER=true
@@ -45,17 +37,15 @@ services:
       - ./data:/usr/src/app/data
       # Mount environment file
       - ./.env:/usr/src/app/.env
-      # Optional: Mount logs for debugging
-      - ./logs:/var/log/supervisor
-    restart: unless-stopped 
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4222/api/system/health", "&&", "curl", "-f", "http://localhost:3222"]
+      test: ["CMD", "pgrep", "-f", "python -m list_sync"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
-    # Note: Complete ListSync application with:
-    # - Core sync service (python -m list_sync)
-    # - FastAPI backend (port 4222)
-    # - Next.js frontend (port 3222)
-    # All managed by supervisor for reliability 
+    # Note: Core-only ListSync deployment
+    # - Only the core sync service (python -m list_sync)  
+    # - No web UI or API server
+    # - Minimal resource footprint
+    # - Perfect for headless deployments 

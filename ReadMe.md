@@ -25,6 +25,25 @@ Key Features:
 
 ---
 
+## 🖥️ Modern Web Dashboard
+
+ListSync now includes a **comprehensive web dashboard** built with Next.js 15 and React 19, providing a modern interface to manage all your sync operations.
+
+![ListSync Web Dashboard](https://share.woahlab.com/-Znz4vjsvyW)
+
+
+### **Key Features**
+- 📊 **Real-Time Sync Monitoring** - Live progress bars and status updates
+- 📋 **Intuitive List Management** - Add, edit, and organize your lists with ease
+- 📈 **Comprehensive Analytics** - Success rates, performance metrics, and historical data
+- ⚙️ **Web-Based Configuration** - Manage all settings through the dashboard
+- 🎨 **Modern Responsive UI** - Works perfectly on desktop, tablet, and mobile
+- 🌙 **Dark/Light Themes** - Automatic system preference detection
+
+**Access your dashboard at:** `http://localhost:3222` (frontend) and `http://localhost:4222/api` (API)
+
+---
+
 ## 📚 Quick Links
 
 - [🚀 Installation Guide](#-getting-started)
@@ -51,141 +70,197 @@ Key Features:
 > * [Hobbit](https://store.elfhosted.com/product/hobbit/elf/6929/) Personal Media Streamer [4xHD / 2x4K, semi-dedicated]
 > * [Ranger](https://store.elfhosted.com/product/ranger/elf/6929/) Personal Media Streamer [8xHD / 4x4K, semi-dedicated]
 ---
-## 🎬 Demo
-
-![Bot In Action](https://share.woahlab.com/-BZtwSD96LN)
----
 
 ## 🚀 Getting Started
 
-You can run ListSync in two primary modes: **Interactive Mode** and **Automated Mode**. 
+ListSync offers **flexible deployment options** to suit different use cases, from quick testing to full production deployments with web dashboard.
 
-### 1. **Interactive Mode** (Recommended for Quick Start)
-
-The quickest way to get started is by using our Docker one-liner, which runs ListSync in Interactive Mode. This option will prompt you for all the necessary information during setup:
-
-| Installation Method | Command |
-| :-------------------- | :---------------------------------- |
-| ![Docker](https://img.shields.io/badge/Docker-ready-blue?style=for-the-badge&logo=docker) | `docker pull ghcr.io/woahai321/list-sync:main && docker run -it --rm -v "$(pwd)/data:/usr/src/app/data" -e TERM=xterm-256color ghcr.io/woahai321/list-sync:main` |
-
-### 2. **Automated Mode** (Preferred for Regular Syncing)
-
-For a seamless experience, you can run ListSync in Automated Mode using a .env file and Docker Compose. This mode eliminates the need for manual inputs each time you run the script by automatically pulling list IDs and configurations from your `.env` file:
+## 🐳 Deployment Options
 
 <details>
-<summary>Expand for Docker Compose Instructions 🐳</summary>
+<summary>📦 Full Stack Deployment (Recommended)</summary>
 
-#### Running with Docker Compose
+### **Complete ListSync with Web Dashboard + API + Core Sync**
 
-**Use the provided `.env` file**: We've included a plug-and-play `.env` file in the repository with pre-configured popular lists. Simply:
+The **full deployment** includes everything: the core sync engine, REST API backend, and modern web dashboard for comprehensive management.
 
-1. Copy the `.env.plugnplay` file from the repository
-2. Edit only these three values and rename it to `.env`:
-   ```env
-   DISCORD_WEBHOOK_URL=CHANGE-ME         # Your Discord webhook (optional)
-   OVERSEERR_API_KEY=CHANGE-ME           # Your Overseerr/Jellyseerr API key
-   OVERSEERR_URL=CHANGE-ME               # Your Overseerr/Jellyseerr URL
-   ```
+**What's Included:**
+- 🖥️ **Web Dashboard** (Port 3222) - Modern React interface
+- 🔌 **REST API** (Port 4222) - Full API for automation
+- ⚙️ **Core Sync Engine** - Automated list synchronization
+- 📊 **Real-time Monitoring** - Live sync progress and analytics
+- 🎛️ **Configuration Management** - Web-based settings
 
-The `.env` file comes pre-configured with curated lists including:
-- **IMDb**: [Disney Movies](https://www.imdb.com/chart/top/), [Top 250 Movies](https://www.imdb.com/list/ls026785255)
-- **Trakt**: [Trending Movies](https://trakt.tv/movies/popular), [Popular Movies](https://trakt.tv/movies/trending), [Trending Shows](https://trakt.tv/shows/popular), [Popular Shows](https://trakt.tv/shows/trending)
-- **MDBList**: [Top Weekly Movies](https://mdblist.com/lists/linaspurinis/pixar-movies), [Pixar Movies](https://mdblist.com/lists/garycrawfordgc/top-movies-of-the-week), [Pirated Movies Charts](https://mdblist.com/lists/hdlists/top-ten-pirated-movies-of-the-week-torrent-freak-com)
-- **Steven Lu**: [Popular Movies Collection](https://movies.stevenlu.com/)
-
-**Create a `docker-compose.yml` file**:
-
-```yaml
-services:
-  listsync:
-    image: ghcr.io/woahai321/list-sync:main
-    container_name: listsync
-    environment:
-      - OVERSEERR_URL=${OVERSEERR_URL}
-      - OVERSEERR_API_KEY=${OVERSEERR_API_KEY}
-      - OVERSEERR_USER_ID=${OVERSEERR_USER_ID:-1}
-      - SYNC_INTERVAL=${SYNC_INTERVAL:-24}
-      - AUTOMATED_MODE=true
-      - OVERSEERR_4K=${OVERSEERR_4K:-false}
-      - TRAKT_SPECIAL_ITEMS_LIMIT=${TRAKT_SPECIAL_ITEMS_LIMIT:-20}
-      - IMDB_LISTS=${IMDB_LISTS}
-      - TRAKT_LISTS=${TRAKT_LISTS}
-      - TRAKT_SPECIAL_LISTS=${TRAKT_SPECIAL_LISTS}
-      - LETTERBOXD_LISTS=${LETTERBOXD_LISTS}
-      - MDBLIST_LISTS=${MDBLIST_LISTS}
-      - STEVENLU_LISTS=${STEVENLU_LISTS}
-      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
-    volumes:
-      - ./data:/usr/src/app/data
-      - ./.env:/usr/src/app/.env
-    restart: unless-stopped
+**Deploy with Docker Compose:**
+```bash
+# Copy the example environment file and configure
+cp .env.example .env
+# Edit .env with your settings, then start using the public image
+docker-compose up -d
+# or build from source
+docker-compose -f docker-compose.local.yml up -d
 ```
 
-**Run using Docker Compose**:
-| Installation Method | Command |
-| :----------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------: |
-| ![Docker](https://img.shields.io/badge/Docker-ready-blue?style=for-the-badge&logo=docker) | `docker-compose up` |
+**Access Points:**
+- 🌐 **Web Dashboard:** http://localhost:3222
+- 🔗 **API Docs:** http://localhost:4222/docs
+- 📊 **Health Check:** http://localhost:4222/api/system/health
 
-This setup will trigger *Automated Mode*, meaning it will automatically pull in the added lists based on your configuration, streamlining the syncing process.
 </details>
 
-### 3. **Manual Installation** (Advanced Users)
+<details>
+<summary>⚙️ Core-Only Deployment</summary>
 
-You can also set up ListSync manually if you prefer a more hands-on approach:
+### **Lightweight Core Sync Engine Only**
+
+Perfect for **headless servers** or when you only need the core synchronization functionality without the web interface.
+
+**What's Included:**
+- ⚙️ **Core Sync Engine** - Automated list synchronization only
+- 📝 **Console Logging** - Text-based status updates
+- 🔄 **Scheduled Syncing** - Automated intervals
+- 💾 **Local Database** - SQLite for sync history
+
+**Deploy with Docker Compose:**
+```bash
+# Copy the core environment file and configure
+cp .env.core .env
+# Edit .env with your settings, then start
+docker-compose -f docker-compose.core.yml up -d
+```
+
+**Perfect for:**
+- 🖥️ Headless servers
+- 📦 Minimal resource usage
+- 🔧 Integration with existing systems
+- 🚀 Lightweight automation
+
+</details>
 
 <details>
-<summary>Expand for Manual Installation Instructions 🛠️</summary>
+<summary>🌐 Public Domain Deployment</summary>
 
-#### Manual Installation Methods
+### **Internet-Accessible Deployment with Domain**
+
+Deploy ListSync with **public internet access** using your own domain, perfect for remote management and team access.
+
+**Deploy with Docker Compose:**
+```bash
+# Copy the domain environment file and configure
+cp .env.domain .env
+# Edit .env with your domain settings, then start
+docker-compose -f docker-compose.domain.yml up -d
+```
+
+</details>
+
+
+## 🛠️ Configuration Setup
+
+All deployment options use the same **environment configuration**. Create a `.env` file or use our plug-and-play template:
+
+**Quick Start with Pre-configured Lists**: Use our plug-and-play configuration:
+
+```bash
+# Copy the plug-and-play environment file
+cp .env.plugnplay .env
+# Edit only the essential settings in .env:
+# - OVERSEERR_URL (your Overseerr/Jellyseerr URL)
+# - OVERSEERR_API_KEY (your API key)
+# - DISCORD_WEBHOOK_URL (optional)
+# - TZ (your timezone)
+```
+
+The `.env` file comes pre-configured with curated lists including:
+
+| Provider | List Type | Description |
+|----------|-----------|-------------|
+| **IMDb** | Chart & Lists | [Top 250 Movies](https://www.imdb.com/chart/top), [Disney Movies](https://www.imdb.com/list/ls026785255) |
+| **Trakt** | Trending & Popular | [Trending Movies](https://trakt.tv/movies/trending), [Popular Movies](https://trakt.tv/movies/popular), [Trending Shows](https://trakt.tv/shows/trending), [Popular Shows](https://trakt.tv/shows/popular) |
+| **MDBList** | Curated Collections | [Top Weekly Movies](https://mdblist.com/lists/garycrawfordgc/top-movies-of-the-week), [Pixar Movies](https://mdblist.com/lists/linaspurinis/pixar-movies), [Pirated Movies Charts](https://mdblist.com/lists/hdlists/top-ten-pirated-movies-of-the-week-torrent-freak-com) |
+| **Steven Lu** | Popular Collection | [Popular Movies Collection](https://movies.stevenlu.com/) |
+
+### 🌍 Timezone Configuration
+
+ListSync automatically timestamps all sync activities and displays them in the web interface. To ensure timestamps match your local time, configure your timezone using the examples below.
+
+<details>
+<summary>🕐 Setting Your Timezone</summary>
+
+#### **Quick Setup by Timezone**
+
+Choose your timezone using either **UTC offset** or **regional timezone** format:
+
+##### **🌍 UTC Offset Format (Universal)**
+```yaml
+# docker-compose.yml
+environment:
+  # UTC offsets (recommended for simplicity)
+  - TZ=UTC+0                  # Greenwich Mean Time
+  - TZ=UTC-5                  # US Eastern Time
+  - TZ=UTC-6                  # US Central Time
+  - TZ=UTC-7                  # US Mountain Time
+  - TZ=UTC-8                  # US Pacific Time
+  - TZ=UTC+1                  # Central European Time
+  - TZ=UTC+2                  # Eastern European Time
+  - TZ=UTC+8                  # China/Singapore Time
+  - TZ=UTC+9                  # Japan/Korea Time
+  - TZ=UTC+10                 # Eastern Australia Time
+```
+
+##### **🌐 GMT Format (Alternative)**
+```yaml
+# docker-compose.yml
+environment:
+  # GMT offsets (equivalent to UTC)
+  - TZ=GMT+0                  # Greenwich Mean Time
+  - TZ=GMT-5                  # US Eastern Time
+  - TZ=GMT-8                  # US Pacific Time
+  - TZ=GMT+1                  # Central European Time
+  - TZ=GMT+8                  # Asia-Pacific Time
+```
+
+#### **Finding Your Timezone**
+
+- **🌐 Online**: Visit [timeanddate.com/time/zones](https://www.timeanddate.com/time/zones/) for the complete worldwide list of offsets
+- **🖥️ Linux/macOS**: Run `timedatectl` or `cat /etc/timezone`
+- **🪟 Windows**: Check "Time zone" in Settings → Time & Language
+
+</details>
+</details>
+
+## 🛠️ Manual Installation (Advanced Users)
+
+<details>
+<summary>🔧 Local Development & Manual Setup</summary>
+
+For **developers** or **advanced users** who want to run ListSync without Docker or need a **development environment**.
+
+### **Prerequisites**
+- Python 3.9+
+- Node.js 18+ (for web dashboard)
+- Chrome/Chromium browser
+- Git
+
+### **Quick Manual Setup**
 
 | Installation Method | Command |
 | :------------------ | :------------------------------------------------------------ |
 | ![Poetry](https://img.shields.io/badge/Poetry-ready-blue?style=for-the-badge&logo=poetry) | `git clone https://github.com/Woahai321/list-sync.git && cd list-sync && poetry install && poetry run python -m list_sync` |
 | ![Python](https://img.shields.io/badge/Python-3.7%2B-blue?style=for-the-badge&logo=python) | `git clone https://github.com/Woahai321/list-sync.git && cd list-sync && pip install -r requirements.txt && python -m list_sync` |
 
-Refer to our [Installation Guide](/docs/installation.md) for detailed instructions.
+**Additional Resources:**
+- 📖 [Detailed Installation Guide](docs/installation.md)
+- 👥 [Contributing Guide](docs/contributing.md)
+- 🏗️ [Architecture Overview](docs/architecture.md)
+
 </details>
 
 ---
 
-### Currently in Development for v0.6.0
+### Currently in Development for v0.7.0
 
-For the most stable experience, use the source code from the latest release [here](https://github.com/Woahai321/list-sync/releases/tag/v0.5.9).
-
-<details>
-<summary>How Does It Work?</summary>
-
-ListSync seamlessly syncs your watchlists with your media server in three simple steps:
-
-#### 1. **Fetch Watchlists**
-
-ListSync retrieves your watchlists from various sources using different methods:
-- **IMDb**: Regular lists, watchlists, and charts using Selenium web scraping
-- **Trakt**: Regular lists using Selenium web scraping 
-- **Trakt Special Lists**: Trending, popular, anticipated lists with a 20-item limit
-- **Letterboxd**: Lists and watchlists with improved pagination support
-- **MDBList**: Handles infinite scrolling to extract complete lists
-- **Steven Lu's Popular Movies**: Direct API fetching from JSON endpoint
-
-#### 2. **Search Media on Media Server**
-
-ListSync searches for each item on your media server (**Overseerr** or **Jellyseerr**) using its API. It handles edge cases like special characters or multiple results for accurate matches.
-
-#### 3. **Request Media**
-
-ListSync checks if the media is already available or requested. If not, it automatically requests the item:
-
-- For **Movies**, it requests the title.
-- For **TV Shows**, it requests all available seasons.
-</details>
-<details>
-<summary>Why Use ListSync?</summary>
-
-- **Save Time**: Automates adding movies and TV shows to your media server.
-- **Stay Organized**: Keeps your media server in sync with your watchlists.
-- **Flexible**: Works with IMDb, Trakt, Letterboxd, Overseerr, and Jellyseerr.
-- **Customizable**: Set sync intervals to match your preferences.
-</details>
+For the most stable experience, use the source code from the latest release [here](https://github.com/Woahai321/list-sync/releases/tag/v0.6.0).
 
 ---
 ## 📊 Compatibility
@@ -360,17 +435,19 @@ Thank you for your support!
 
 ---
 
-## 🔎 How it Works
+## 📖 Documentation
 
-For detailed information on how ListSync works, please refer to our [How it Works](/docs/how-it-works.md) document.
+For comprehensive documentation, visit our [Documentation Hub](/docs/index.md) or explore specific guides:
+
+- **[User Guide](/docs/user-guide.md)** - Complete usage guide with examples
+- **[Installation Guide](/docs/installation.md)** - Detailed installation instructions
+- **[Configuration Guide](/docs/configuration.md)** - Environment setup and configuration
+- **[API Documentation](/docs/api.md)** - Complete REST API reference
+- **[Architecture Overview](/docs/architecture.md)** - Technical architecture and design
 
 ## 🛠 Troubleshooting
 
 If you encounter any issues while using ListSync, please check our [Troubleshooting Guide](/docs/troubleshooting.md) for solutions to common problems.
-
-## 🛤️ Roadmap
-
-To see our plans for future development and features, visit our [Roadmap](/docs/roadmap.md).
 
 ## 🤝 Contributing
 
@@ -380,9 +457,9 @@ We welcome contributions! For guidelines on how to contribute, please see our [C
 
 This project is licensed under the [MIT License](https://opensource.org/license/mit). Review the LICENSE file for more details.
 
-## 🛡️ Legal Disclaimer
+## 🛡️ Legal Information
 
-For important legal information about using ListSync, please refer to our [Legal Disclaimer](/docs/legal-disclaimer.md).
+For important legal information about using ListSync, please refer to our [Legal Disclaimer](/docs/legal.md).
 
 ## Star History
 

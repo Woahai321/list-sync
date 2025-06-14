@@ -164,126 +164,164 @@ def fetch_trakt_special_list(url_or_shortcut: str) -> List[Dict[str, Any]]:
             logging.info(f"Fetching special Trakt list: {url} (limit: {TRAKT_SPECIAL_ITEMS_LIMIT} items)")
             sb.open(url)
             
-            # Wait for page to load - looking for multiple possible elements
-            # Use a longer timeout
-            try:
-                # First try the row fanarts container
-                sb.wait_for_element_present(".row.fanarts", timeout=15)
-                logging.info("Found .row.fanarts container")
-            except Exception:
-                # If that fails, try looking for any grid items directly
+            page_number = 1
+            total_items_scraped = 0
+            
+            # Continue scraping pages until we reach the limit or run out of pages
+            while total_items_scraped < TRAKT_SPECIAL_ITEMS_LIMIT:
+                logging.info(f"Processing page {page_number}...")
+                
+                # Wait for page to load - looking for multiple possible elements
                 try:
-                    sb.wait_for_element_present("[data-type='movie'], [data-type='show']", timeout=15)
-                    logging.info("Found grid items by data-type attribute")
+                    # First try the row fanarts container
+                    sb.wait_for_element_present(".row.fanarts", timeout=15)
+                    logging.info("Found .row.fanarts container")
                 except Exception:
-                    # Try one more general selector for divs with grid-item class
-                    sb.wait_for_element_present(".grid-item", timeout=15)
-                    logging.info("Found grid items by .grid-item class")
-            
-            # Add a small wait to ensure the page is fully loaded
-            sb.sleep(3)
-            
-            # Now try to get all grid items
-            # Try multiple selectors since the grid classes seem to vary
-            items = []
-            selectors_to_try = [
-                ".grid-item",
-                "[data-type='movie'], [data-type='show']",
-                ".row.fanarts > div"
-            ]
-            
-            for selector in selectors_to_try:
-                items = sb.find_elements(selector)
-                if items and len(items) > 0:
-                    logging.info(f"Found {len(items)} items using selector: {selector}")
-                    break
-            
-            if not items or len(items) == 0:
-                raise ValueError("Could not find any list items on the page")
-            
-            logging.info(f"Found {len(items)} items on page, will grab up to {TRAKT_SPECIAL_ITEMS_LIMIT}")
-            
-            # Process only up to TRAKT_SPECIAL_ITEMS_LIMIT items
-            item_count = 0
-            for item in items:
-                if item_count >= TRAKT_SPECIAL_ITEMS_LIMIT:
-                    break
-                    
-                try:
-                    # Extract media type
-                    media_type = item.get_attribute("data-type")
-                    if not media_type:
-                        # Try to determine from the URL
-                        links = item.find_elements("css selector", "a")
-                        for link in links:
-                            href = link.get_attribute("href")
-                            if href:
-                                if "/movies/" in href:
-                                    media_type = "movie"
-                                    break
-                                elif "/shows/" in href:
-                                    media_type = "show"
-                                    break
-                    
-                    # If still no media type, skip this item
-                    if not media_type:
-                        continue
-                    
-                    # Extract title and year - try different selectors
-                    title_elem = None
-                    title_selectors = [
-                        ".titles h3",
-                        ".fanart .titles h3"
-                    ]
-                    
-                    for selector in title_selectors:
-                        try:
-                            title_elem = item.find_element("css selector", selector)
-                            if title_elem:
-                                break
-                        except Exception:
-                            continue
-                    
-                    if not title_elem:
-                        logging.warning("Could not find title element, skipping item")
-                        continue
-                    
-                    # Title format is typically "Title <span class="year">Year</span>"
-                    full_title = title_elem.text
-                    year = None
-                    
-                    # Try to extract year from span.year
+                    # If that fails, try looking for any grid items directly
                     try:
-                        year_span = title_elem.find_element("css selector", "span.year")
-                        if year_span:
-                            year_text = year_span.text.strip()
-                            if year_text.isdigit():
-                                year = int(year_text)
-                            # Remove the year span from the title
-                            full_title = full_title.replace(year_span.text, "").strip()
+                        sb.wait_for_element_present("[data-type='movie'], [data-type='show']", timeout=15)
+                        logging.info("Found grid items by data-type attribute")
                     except Exception:
-                        # If we can't find the year span, try to extract from the full title
-                        if " (" in full_title and ")" in full_title:
-                            title_parts = full_title.split(" (")
-                            full_title = title_parts[0].strip()
-                            year_part = title_parts[1].strip(")")
-                            if year_part.isdigit():
-                                year = int(year_part)
+                        # Try one more general selector for divs with grid-item class
+                        sb.wait_for_element_present(".grid-item", timeout=15)
+                        logging.info("Found grid items by .grid-item class")
+                
+                # Add a small wait to ensure the page is fully loaded
+                sb.sleep(3)
+                
+                # Now try to get all grid items
+                # Try multiple selectors since the grid classes seem to vary
+                items = []
+                selectors_to_try = [
+                    ".grid-item",
+                    "[data-type='movie'], [data-type='show']",
+                    ".row.fanarts > div"
+                ]
+                
+                for selector in selectors_to_try:
+                    items = sb.find_elements(selector)
+                    if items and len(items) > 0:
+                        logging.info(f"Found {len(items)} items on page {page_number} using selector: {selector}")
+                        break
+                
+                if not items or len(items) == 0:
+                    logging.warning(f"Could not find any list items on page {page_number}")
+                    break
+                
+                # Process items on current page
+                items_processed_this_page = 0
+                for item in items:
+                    if total_items_scraped >= TRAKT_SPECIAL_ITEMS_LIMIT:
+                        break
+                        
+                    try:
+                        # Extract media type
+                        media_type = item.get_attribute("data-type")
+                        if not media_type:
+                            # Try to determine from the URL
+                            links = item.find_elements("css selector", "a")
+                            for link in links:
+                                href = link.get_attribute("href")
+                                if href:
+                                    if "/movies/" in href:
+                                        media_type = "movie"
+                                        break
+                                    elif "/shows/" in href:
+                                        media_type = "show"
+                                        break
+                        
+                        # If still no media type, skip this item
+                        if not media_type:
+                            continue
+                        
+                        # Extract title and year - try different selectors
+                        title_elem = None
+                        title_selectors = [
+                            ".titles h3",
+                            ".fanart .titles h3"
+                        ]
+                        
+                        for selector in title_selectors:
+                            try:
+                                title_elem = item.find_element("css selector", selector)
+                                if title_elem:
+                                    break
+                            except Exception:
+                                continue
+                        
+                        if not title_elem:
+                            logging.warning("Could not find title element, skipping item")
+                            continue
+                        
+                        # Title format is typically "Title <span class="year">Year</span>"
+                        full_title = title_elem.text
+                        year = None
+                        
+                        # Try to extract year from span.year
+                        try:
+                            year_span = title_elem.find_element("css selector", "span.year")
+                            if year_span:
+                                year_text = year_span.text.strip()
+                                if year_text.isdigit():
+                                    year = int(year_text)
+                                # Remove the year span from the title
+                                full_title = full_title.replace(year_span.text, "").strip()
+                        except Exception:
+                            # If we can't find the year span, try to extract from the full title
+                            if " (" in full_title and ")" in full_title:
+                                title_parts = full_title.split(" (")
+                                full_title = title_parts[0].strip()
+                                year_part = title_parts[1].strip(")")
+                                if year_part.isdigit():
+                                    year = int(year_part)
+                        
+                        media_items.append({
+                            "title": full_title.strip(),
+                            "media_type": "tv" if media_type == "show" else "movie",
+                            "year": year
+                        })
+                        
+                        total_items_scraped += 1
+                        items_processed_this_page += 1
+                        logging.info(f"Added {media_type}: {full_title} ({year if year else 'unknown year'}) [{total_items_scraped}/{TRAKT_SPECIAL_ITEMS_LIMIT}]")
+                        
+                    except Exception as e:
+                        logging.warning(f"Failed to parse Trakt special list item: {str(e)}")
+                        continue
+                
+                logging.info(f"Processed {items_processed_this_page} items on page {page_number}")
+                
+                # Check if we've reached our limit
+                if total_items_scraped >= TRAKT_SPECIAL_ITEMS_LIMIT:
+                    logging.info(f"Reached target limit of {TRAKT_SPECIAL_ITEMS_LIMIT} items")
+                    break
+                
+                # Look for next page button
+                try:
+                    # Look for the next page button that's not disabled
+                    next_button = sb.find_element(".next a")
+                    if not next_button:
+                        logging.info("No next page button found, reached end of list")
+                        break
                     
-                    media_items.append({
-                        "title": full_title.strip(),
-                        "media_type": "tv" if media_type == "show" else "movie",
-                        "year": year
-                    })
+                    # Check if the next button is actually clickable (not disabled)
+                    next_container = sb.find_element(".next")
+                    if "no-link" in next_container.get_attribute("class"):
+                        logging.info("Next page button is disabled, reached end of list")
+                        break
                     
-                    item_count += 1
-                    logging.info(f"Added {media_type}: {full_title} ({year if year else 'unknown year'}) [{item_count}/{TRAKT_SPECIAL_ITEMS_LIMIT}]")
+                    logging.info(f"Clicking next page button to go to page {page_number + 1}")
+                    next_button.click()
+                    
+                    # Wait for the new page to load
+                    sb.sleep(3)
+                    page_number += 1
                     
                 except Exception as e:
-                    logging.warning(f"Failed to parse Trakt special list item: {str(e)}")
-                    continue
+                    logging.info(f"No more pages available or error clicking next: {str(e)}")
+                    break
             
-            logging.info(f"Special Trakt list fetched successfully. Got {len(media_items)} items (max: {TRAKT_SPECIAL_ITEMS_LIMIT}).")
+            logging.info(f"Special Trakt list fetched successfully. Got {len(media_items)} items across {page_number} pages (target: {TRAKT_SPECIAL_ITEMS_LIMIT}).")
             return media_items
         
     except Exception as e:

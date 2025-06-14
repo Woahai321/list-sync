@@ -35,8 +35,8 @@ FROM node:${NODE_VERSION}-slim AS node-builder
 WORKDIR /app/frontend
 
 # Accept API URL as build argument and set as environment variable
-ARG NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:4222/api}
-ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:4222/api}
+ARG NEXT_PUBLIC_API_URL=https://back.list.fin.hub22.uk/api
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
 # Copy package files
 COPY listsync-web/package*.json ./

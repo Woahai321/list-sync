@@ -1,0 +1,132 @@
+# Core-Only ListSync Dockerfile
+# Contains only the core Python synchronization application
+# Excludes: FastAPI backend, Next.js frontend, Node.js dependencies
+
+ARG PYTHON_VERSION=3.9
+
+FROM python:${PYTHON_VERSION}-slim AS runtime
+
+# Install system dependencies for Chrome and process management
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Chrome dependencies
+    wget \
+    unzip \
+    libnss3 \
+    libxss1 \
+    libasound2 \
+    fonts-liberation \
+    libappindicator3-1 \
+    libgbm-dev \
+    libgtk-3-0 \
+    libx11-xcb1 \
+    libxtst6 \
+    xdg-utils \
+    libglib2.0-0 \
+    libdrm2 \
+    libxrandr2 \
+    ca-certificates \
+    xvfb \
+    dbus-x11 \
+    xauth \
+    # Timezone support
+    tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set timezone - use environment variable if provided, otherwise UTC
+ENV TZ=${TZ:-UTC}
+
+# Enhanced timezone setup
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# Download and install Chrome and ChromeDriver
+RUN wget -O /tmp/chrome-linux64.zip https://storage.googleapis.com/chrome-for-testing-public/131.0.6778.204/linux64/chrome-linux64.zip && \
+    unzip /tmp/chrome-linux64.zip -d /opt/ && \
+    mv /opt/chrome-linux64 /opt/chrome && \
+    ln -sf /opt/chrome/chrome /usr/bin/google-chrome && \
+    chmod +x /usr/bin/google-chrome && \
+    rm /tmp/chrome-linux64.zip && \
+    \
+    wget -O /tmp/chromedriver-linux64.zip https://storage.googleapis.com/chrome-for-testing-public/131.0.6778.204/linux64/chromedriver-linux64.zip && \
+    unzip /tmp/chromedriver-linux64.zip -d /opt/ && \
+    mv /opt/chromedriver-linux64/chromedriver /usr/local/bin/ && \
+    chmod +x /usr/local/bin/chromedriver && \
+    rm /tmp/chromedriver-linux64.zip
+
+# Set environment variables for the final image
+ENV TZ=GMT \
+    SELENIUM_HOST=localhost \
+    SELENIUM_PORT=4444 \
+    RUNNING_IN_DOCKER=true \
+    DISPLAY=:99 \
+    SELENIUM_DRIVER_PATH=/usr/local/bin/chromedriver \
+    PYTHONPATH=/usr/src/app \
+    NO_SANDBOX=1
+
+# Set working directory
+WORKDIR /usr/src/app
+
+# Install Poetry
+RUN pip install poetry==1.8.3
+
+# Copy Poetry configuration
+COPY pyproject.toml poetry.lock ./
+
+# Poetry settings
+ENV POETRY_NO_INTERACTION=1 \
+    POETRY_VIRTUALENVS_IN_PROJECT=1 \
+    POETRY_VIRTUALENVS_CREATE=true \
+    POETRY_CACHE_DIR=/tmp/poetry_cache
+
+# Build virtual environment with core dependencies only
+RUN --mount=type=cache,target=/tmp/poetry_cache poetry install --only main --no-root
+
+# Copy only the core application files
+COPY list_sync/ ./list_sync/
+COPY requirements.txt ./
+
+# Install any additional core requirements
+RUN .venv/bin/pip install -r requirements.txt
+
+# "activate" Python venv
+ENV PATH="/usr/src/app/.venv/bin:$PATH"
+
+# Create necessary directories
+RUN mkdir -p /usr/src/app/data /tmp/.X11-unix && \
+    chmod 1777 /tmp/.X11-unix
+
+# Create simplified timezone setup script for core mode
+RUN echo '#!/bin/bash' > /usr/src/app/setup-timezone-core.sh && \
+    echo '# Simple timezone setup for core mode' >> /usr/src/app/setup-timezone-core.sh && \
+    echo 'echo "🕐 Core Mode - Using timezone: $TZ"' >> /usr/src/app/setup-timezone-core.sh && \
+    echo 'if [ ! -z "$TZ" ] && [ "$TZ" != "UTC" ]; then' >> /usr/src/app/setup-timezone-core.sh && \
+    echo '    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime 2>/dev/null || echo "⚠️  Invalid timezone $TZ, using UTC"' >> /usr/src/app/setup-timezone-core.sh && \
+    echo '    echo $TZ > /etc/timezone 2>/dev/null || true' >> /usr/src/app/setup-timezone-core.sh && \
+    echo 'fi' >> /usr/src/app/setup-timezone-core.sh && \
+    chmod +x /usr/src/app/setup-timezone-core.sh
+
+# Create startup script for core mode
+RUN echo '#!/bin/bash' > /usr/src/app/start-core.sh && \
+    echo 'echo "🚀 Starting ListSync Core Mode..."' >> /usr/src/app/start-core.sh && \
+    echo 'echo "📦 Core-only deployment (no web UI or API server)"' >> /usr/src/app/start-core.sh && \
+    echo '' >> /usr/src/app/start-core.sh && \
+    echo '# Setup timezone' >> /usr/src/app/start-core.sh && \
+    echo '/usr/src/app/setup-timezone-core.sh' >> /usr/src/app/start-core.sh && \
+    echo '' >> /usr/src/app/start-core.sh && \
+    echo '# Start virtual display for Chrome' >> /usr/src/app/start-core.sh && \
+    echo 'Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &' >> /usr/src/app/start-core.sh && \
+    echo 'sleep 2' >> /usr/src/app/start-core.sh && \
+    echo '' >> /usr/src/app/start-core.sh && \
+    echo '# Run the core ListSync application' >> /usr/src/app/start-core.sh && \
+    echo 'echo "🔄 Starting sync process..."' >> /usr/src/app/start-core.sh && \
+    echo 'cd /usr/src/app' >> /usr/src/app/start-core.sh && \
+    echo 'exec /usr/src/app/.venv/bin/python -m list_sync' >> /usr/src/app/start-core.sh && \
+    chmod +x /usr/src/app/start-core.sh
+
+# Expose no ports (core mode doesn't need them)
+
+# Health check for core mode (check if process is running and can connect to overseerr)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD pgrep -f "python -m list_sync" > /dev/null || exit 1
+
+# Default command
+CMD ["/usr/src/app/start-core.sh"] 

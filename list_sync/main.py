@@ -21,7 +21,7 @@ from .config import (
 from .database import (
     init_database, load_list_ids, save_list_id, delete_list,
     load_sync_interval, configure_sync_interval, should_sync_item,
-    save_sync_result, DB_FILE
+    save_sync_result, update_list_item_count, update_list_sync_info, DB_FILE
 )
 from .notifications.discord import send_to_discord_webhook
 from .providers import get_provider, get_available_providers
@@ -39,6 +39,34 @@ def startup():
     ensure_data_directory_exists()
     init_database()
     init_selenium_driver()
+
+
+def initialize_sync_interval():
+    """Initialize sync interval from environment and save to database if needed."""
+    try:
+        # Check if there's already a sync interval in the database
+        db_interval = load_sync_interval()
+        
+        if db_interval > 0:
+            logging.info(f"Using existing sync interval from database: {db_interval} hours")
+            return db_interval
+        
+        # No database interval, check environment
+        _, _, _, env_interval, _, _ = load_env_config()
+        
+        if env_interval > 0:
+            # Save environment interval to database
+            configure_sync_interval(env_interval)
+            logging.info(f"Initialized sync interval from environment: {env_interval} hours (saved to database)")
+            return env_interval
+        
+        # No interval found anywhere, return 0 (will need to be set manually)
+        logging.info("No sync interval configured in database or environment")
+        return 0
+        
+    except Exception as e:
+        logging.warning(f"Error initializing sync interval: {e}")
+        return 0
 
 
 def get_credentials() -> tuple:
@@ -214,16 +242,16 @@ def process_media_item(item: Dict[str, Any], overseerr_client: OverseerrClient, 
             
             # Check if we should skip this item based on last sync time
             if not should_sync_item(overseerr_id):
-                save_sync_result(title, media_type, None, overseerr_id, "skipped")
+                save_sync_result(title, media_type, None, overseerr_id, "skipped", year)
                 return {"title": title, "status": "skipped", "year": year, "media_type": media_type}
 
             is_available, is_requested, number_of_seasons = overseerr_client.get_media_status(overseerr_id, search_result["mediaType"])
             
             if is_available:
-                save_sync_result(title, media_type, None, overseerr_id, "already_available")
+                save_sync_result(title, media_type, None, overseerr_id, "already_available", year)
                 return {"title": title, "status": "already_available", "year": year, "media_type": media_type}
             elif is_requested:
-                save_sync_result(title, media_type, None, overseerr_id, "already_requested")
+                save_sync_result(title, media_type, None, overseerr_id, "already_requested", year)
                 return {"title": title, "status": "already_requested", "year": year, "media_type": media_type}
             else:
                 if search_result["mediaType"] == 'tv':
@@ -232,13 +260,13 @@ def process_media_item(item: Dict[str, Any], overseerr_client: OverseerrClient, 
                     request_status = overseerr_client.request_media(overseerr_id, search_result["mediaType"], is_4k)
                 
                 if request_status == "success":
-                    save_sync_result(title, media_type, None, overseerr_id, "requested")
+                    save_sync_result(title, media_type, None, overseerr_id, "requested", year)
                     return {"title": title, "status": "requested", "year": year, "media_type": media_type}
                 else:
-                    save_sync_result(title, media_type, None, overseerr_id, "request_failed")
+                    save_sync_result(title, media_type, None, overseerr_id, "request_failed", year)
                     return {"title": title, "status": "request_failed", "year": year, "media_type": media_type}
         else:
-            save_sync_result(title, media_type, None, None, "not_found")
+            save_sync_result(title, media_type, None, None, "not_found", year)
             return {"title": title, "status": "not_found", "year": year, "media_type": media_type}
     except Exception as e:
         result["status"] = "error"
@@ -336,7 +364,7 @@ def sync_media_to_overseerr(
 
 def automated_sync(
     overseerr_client: OverseerrClient,
-    interval_hours: float,
+    initial_interval_hours: float,
     is_4k: bool = False,
     automated_mode: bool = True
 ):
@@ -345,64 +373,214 @@ def automated_sync(
     
     Args:
         overseerr_client (OverseerrClient): Overseerr API client
-        interval_hours (float): Sync interval in hours (can be decimal like 0.5)
+        initial_interval_hours (float): Initial sync interval in hours (can be decimal like 0.5)
         is_4k (bool, optional): Whether to request 4K. Defaults to False.
         automated_mode (bool, optional): Whether to run in automated mode. Defaults to True.
     """
-    def signal_handler(sig, frame):
-        logging.info("Received signal to terminate, exiting...")
-        sys.exit(0)
+    # Current interval - will be updated from database
+    current_interval_hours = initial_interval_hours
     
+    # Global flag to trigger immediate sync
+    immediate_sync_requested = threading.Event()
+    
+    def signal_handler(sig, frame):
+        if sig == signal.SIGTERM or sig == signal.SIGINT:
+            logging.info("Received signal to terminate, exiting...")
+            sys.exit(0)
+        elif sig == signal.SIGUSR1:
+            logging.info("Received SIGUSR1 signal - triggering immediate sync")
+            immediate_sync_requested.set()
+    
+    def get_current_interval():
+        """Get the current sync interval from database."""
+        try:
+            db_interval = load_sync_interval()
+            if db_interval > 0:
+                return db_interval
+            return current_interval_hours  # Fallback to current
+        except Exception as e:
+            logging.warning(f"Error loading sync interval from database: {e}")
+            return current_interval_hours  # Fallback to current
+    
+    def perform_sync():
+        """Perform a single sync operation"""
+        try:
+            # Check for single list sync request file
+            import os
+            import json
+            single_list_request_file = "data/single_list_sync_request.json"
+            
+            if os.path.exists(single_list_request_file):
+                try:
+                    with open(single_list_request_file, 'r') as f:
+                        request_data = json.load(f)
+                    
+                    # Remove the request file after reading
+                    os.remove(single_list_request_file)
+                    
+                    list_type = request_data.get("list_type")
+                    list_id = request_data.get("list_id")
+                    
+                    if list_type and list_id:
+                        logging.info(f"Single list sync requested via file: {list_type}:{list_id}")
+                        
+                        # Use the sync_single_list function
+                        try:
+                            # Get environment config for single list sync
+                            from list_sync.config import load_env_config
+                            overseerr_url, overseerr_api_key, user_id, _, _, is_4k_env = load_env_config()
+                            
+                            result = sync_single_list(
+                                list_type,
+                                list_id,
+                                overseerr_url,
+                                overseerr_api_key,
+                                user_id,
+                                is_4k_env or is_4k,  # Use environment 4K setting or current setting
+                                False  # dry_run=False
+                            )
+                            
+                            if result.get("success", False):
+                                logging.info(f"Single list sync completed successfully: {result}")
+                                return True
+                            else:
+                                logging.error(f"Single list sync failed: {result}")
+                                return False
+                                
+                        except Exception as e:
+                            logging.error(f"Error in single list sync: {str(e)}")
+                            return False
+                    else:
+                        logging.warning("Invalid single list sync request: missing list_type or list_id")
+                        
+                except Exception as e:
+                    logging.error(f"Error reading single list sync request file: {e}")
+                    # Continue with normal sync if file is corrupted
+            
+            # Check for single list sync environment variables (fallback method)
+            single_list_sync = os.environ.get("SINGLE_LIST_SYNC", "").lower() == "true"
+            single_list_type = os.environ.get("SINGLE_LIST_TYPE")
+            single_list_id = os.environ.get("SINGLE_LIST_ID")
+            
+            if single_list_sync and single_list_type and single_list_id:
+                logging.info(f"Single list sync requested via environment: {single_list_type}:{single_list_id}")
+                
+                # Clear environment variables after reading them
+                os.environ.pop("SINGLE_LIST_SYNC", None)
+                os.environ.pop("SINGLE_LIST_TYPE", None)
+                os.environ.pop("SINGLE_LIST_ID", None)
+                
+                # Use the sync_single_list function
+                try:
+                    # Get environment config for single list sync
+                    from list_sync.config import load_env_config
+                    overseerr_url, overseerr_api_key, user_id, _, _, is_4k_env = load_env_config()
+                    
+                    result = sync_single_list(
+                        single_list_type,
+                        single_list_id,
+                        overseerr_url,
+                        overseerr_api_key,
+                        user_id,
+                        is_4k_env or is_4k,  # Use environment 4K setting or current setting
+                        False  # dry_run=False
+                    )
+                    
+                    if result.get("success", False):
+                        logging.info(f"Single list sync completed successfully: {result}")
+                        return True
+                    else:
+                        logging.error(f"Single list sync failed: {result}")
+                        return False
+                        
+                except Exception as e:
+                    logging.error(f"Error in single list sync: {str(e)}")
+                    return False
+            else:
+                # Regular full sync
+                logging.info("Starting full sync operation")
+                list_ids = load_list_ids()
+                
+                if not list_ids:
+                    logging.warning("No lists configured, checking for environment variables")
+                    # Try to load from environment
+                    lists_loaded = load_env_lists()
+                    if lists_loaded:
+                        list_ids = load_list_ids()
+                        logging.info(f"Loaded {len(list_ids)} lists from environment variables")
+                    else:
+                        logging.error("No lists configured in database or environment")
+                        return False
+                
+                media_items, synced_lists = fetch_media_from_lists(list_ids)
+                
+                if not media_items:
+                    logging.warning("No media items found in configured lists")
+                    return False
+                
+                # Update item counts and last_synced timestamps in database for all processed lists
+                for list_info in synced_lists:
+                    try:
+                        update_list_sync_info(list_info['type'], list_info['id'], list_info['item_count'])
+                        logging.info(f"Updated sync info for {list_info['type']} list {list_info['id']}: {list_info['item_count']} items")
+                    except Exception as e:
+                        logging.warning(f"Failed to update sync info for {list_info['type']} list {list_info['id']}: {e}")
+                
+                # Perform the sync
+                sync_results = sync_media_to_overseerr(
+                    media_items,
+                    overseerr_client,
+                    synced_lists=synced_lists,
+                    is_4k=is_4k,
+                    automated_mode=automated_mode
+                )
+                
+                # Display summary
+                summary_text = str(sync_results)
+                display_summary(sync_results)
+                
+                # Send to Discord webhook if configured
+                send_to_discord_webhook(summary_text, sync_results)
+                
+                logging.info("Full sync operation completed successfully")
+                return True
+            
+        except Exception as e:
+            logging.error(f"Error in sync operation: {str(e)}")
+            return False
+    
+    # Set up signal handlers
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGUSR1, signal_handler)
+    
+    logging.info(f"Starting automated sync mode (initial interval: {current_interval_hours} hours)")
+    logging.info(f"Process PID: {os.getpid()} - Send SIGUSR1 to trigger immediate sync")
+    
+    # Perform initial sync
+    perform_sync()
     
     while True:
         try:
-            logging.info(f"Starting automated sync (interval: {interval_hours} hours)")
-            list_ids = load_list_ids()
+            # Check for updated interval from database before each wait
+            new_interval = get_current_interval()
+            if new_interval != current_interval_hours:
+                logging.info(f"Sync interval updated from {current_interval_hours} to {new_interval} hours")
+                current_interval_hours = new_interval
             
-            if not list_ids:
-                logging.warning("No lists configured, checking for environment variables")
-                # Try to load from environment
-                lists_loaded = load_env_lists()
-                if lists_loaded:
-                    list_ids = load_list_ids()
-                    logging.info(f"Loaded {len(list_ids)} lists from environment variables")
-                else:
-                    logging.error("No lists configured in database or environment")
-                    time.sleep(3600)  # Wait an hour before checking again
-                    continue
-            
-            media_items, synced_lists = fetch_media_from_lists(list_ids)
-            
-            if not media_items:
-                logging.warning("No media items found in configured lists")
-                # Sleep for the interval or at least an hour
-                time.sleep(max(interval_hours * 3600, 3600))
-                continue
-            
-            # Perform the sync
-            sync_results = sync_media_to_overseerr(
-                media_items,
-                overseerr_client,
-                synced_lists=synced_lists,
-                is_4k=is_4k,
-                automated_mode=automated_mode
-            )
-            
-            # Display summary
-            summary_text = str(sync_results)
-            display_summary(sync_results)
-            
-            # Send to Discord webhook if configured
-            send_to_discord_webhook(summary_text, sync_results)
-            
-            logging.info(f"Automated sync complete, sleeping for {interval_hours} hours")
-            
-            # Sleep for the configured interval
-            time.sleep(interval_hours * 3600)
+            # Wait for the interval or immediate sync signal
+            if immediate_sync_requested.wait(timeout=current_interval_hours * 3600):
+                # Signal received - perform immediate sync
+                logging.info("Immediate sync requested via signal")
+                immediate_sync_requested.clear()  # Reset the flag
+                perform_sync()
+            else:
+                # Timeout reached - perform scheduled sync
+                logging.info(f"Scheduled sync interval reached ({current_interval_hours} hours)")
+                perform_sync()
+                
         except Exception as e:
-            logging.error(f"Error in automated sync: {str(e)}")
+            logging.error(f"Error in automated sync loop: {str(e)}")
             # Sleep for an hour before retrying on error
             time.sleep(3600)
 
@@ -466,6 +644,14 @@ def run_sync(
         print("\n⚠️  No media items found in configured lists.")
         return
     
+    # Update item counts and last_synced timestamps in database for all processed lists
+    for list_info in synced_lists:
+        try:
+            update_list_sync_info(list_info['type'], list_info['id'], list_info['item_count'])
+            logging.info(f"Updated sync info for {list_info['type']} list {list_info['id']}: {list_info['item_count']} items")
+        except Exception as e:
+            logging.warning(f"Failed to update sync info for {list_info['type']} list {list_info['id']}: {e}")
+    
     # Perform the sync
     sync_results = sync_media_to_overseerr(
         media_items,
@@ -485,6 +671,105 @@ def run_sync(
         send_to_discord_webhook(summary_text, sync_results)
 
 
+def sync_single_list(
+    list_type: str,
+    list_id: str,
+    overseerr_url: str,
+    overseerr_api_key: str,
+    user_id: Optional[str] = None,
+    is_4k: bool = False,
+    dry_run: bool = False
+) -> Dict[str, Any]:
+    """
+    Sync a single specific list instead of all configured lists.
+    
+    Args:
+        list_type (str): Type of list (e.g., 'imdb', 'trakt')
+        list_id (str): ID of the specific list to sync
+        overseerr_url (str): Overseerr URL
+        overseerr_api_key (str): Overseerr API key
+        user_id (Optional[str]): User ID for requests
+        is_4k (bool): Whether to request 4K versions
+        dry_run (bool): Whether to run in dry-run mode
+        
+    Returns:
+        Dict[str, Any]: Sync results
+    """
+    try:
+        logging.info(f"Starting single list sync for {list_type}:{list_id}")
+        print(color_gradient(f"\n🎯  Single List Sync: {list_type.upper()}:{list_id}", "#00aaff", "#00ffaa"))
+        
+        # Create Overseerr client
+        overseerr_client = OverseerrClient(overseerr_url, overseerr_api_key, user_id)
+        
+        # Create a single list info dictionary
+        single_list_info = [{"type": list_type, "id": list_id}]
+        
+        # Fetch media from the single list
+        media_items, synced_lists = fetch_media_from_lists(single_list_info)
+        
+        if not media_items:
+            result = {
+                "success": True,
+                "message": f"No items found in {list_type}:{list_id}",
+                "items_processed": 0,
+                "items_requested": 0,
+                "errors": 0,
+                "list_info": synced_lists[0] if synced_lists else None
+            }
+            logging.info(f"Single list sync completed - no items found")
+            return result
+        
+        # Sync the media items to Overseerr
+        sync_results = sync_media_to_overseerr(
+            media_items=media_items,
+            overseerr_client=overseerr_client,
+            synced_lists=synced_lists,
+            is_4k=is_4k,
+            dry_run=dry_run,
+            automated_mode=True  # Treat single sync as automated to avoid interactive prompts
+        )
+        
+        # Update item count for the synced list
+        if synced_lists:
+            list_info = synced_lists[0]
+            update_list_sync_info(list_type, list_id, list_info.get('item_count', 0))
+        
+        # Convert sync results to return format
+        result = {
+            "success": True,
+            "message": f"Single list sync completed for {list_type}:{list_id}",
+            "items_processed": sync_results.total_items,
+            "items_requested": sync_results.results["requested"],
+            "items_already_available": sync_results.results["already_available"],
+            "items_already_requested": sync_results.results["already_requested"],
+            "items_skipped": sync_results.results["skipped"],
+            "items_not_found": sync_results.results["not_found"],
+            "errors": sync_results.results["error"],
+            "list_info": synced_lists[0] if synced_lists else None,
+            "dry_run": dry_run
+        }
+        
+        logging.info(f"Single list sync completed successfully: {result}")
+        print(color_gradient(f"✅  Single list sync completed: {sync_results.results['requested']} requested, {sync_results.results['error']} errors", "#00ff00", "#00aa00"))
+        
+        return result
+        
+    except Exception as e:
+        error_message = f"Error in single list sync for {list_type}:{list_id}: {str(e)}"
+        logging.error(error_message)
+        print(color_gradient(f"❌  {error_message}", "#ff0000", "#aa0000"))
+        
+        return {
+            "success": False,
+            "message": error_message,
+            "error": str(e),
+            "items_processed": 0,
+            "items_requested": 0,
+            "errors": 1
+        }
+
+
 def main():
     """Main entry point for the application."""
     try:
@@ -492,12 +777,15 @@ def main():
         startup()
         added_logger = setup_logging()
         
+        # Initialize sync interval (environment -> database if needed)
+        sync_interval = initialize_sync_interval()
+        
         # Display splash screen
         display_ascii_art()
         display_banner()
         
         # Check for Docker environment variables
-        url, api_key, user_id, sync_interval, automated_mode, is_4k = load_env_config()
+        url, api_key, user_id, _, automated_mode, is_4k = load_env_config()
         
         # If in automated mode, bypass menu and start syncing
         if url and api_key and automated_mode:
@@ -508,11 +796,13 @@ def main():
                 overseerr_client.test_connection()
                 # Try to load lists from environment if none exist
                 load_env_lists()
+                
+                # Always use the database sync interval (which was initialized from env if needed)
                 if sync_interval > 0:
-                    logging.info(f"Starting automated sync with {sync_interval} hour interval")
+                    logging.info(f"Starting automated sync with {sync_interval} hour interval (from database)")
                     automated_sync(overseerr_client, sync_interval, is_4k, automated_mode)
                 else:
-                    logging.info("Running one-time sync in automated mode")
+                    logging.info("Running one-time sync in automated mode (no interval configured)")
                     run_sync(overseerr_client, is_4k=is_4k, automated_mode=automated_mode)
                     sys.exit(0)
             except Exception as e:

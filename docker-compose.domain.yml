@@ -1,17 +1,23 @@
 services:
-  listsync-full:
+  listsync-domain:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: listsync-full
+      dockerfile: Dockerfile.domain
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://back.list.fin.hub22.uk/api}
+    container_name: listsync-domain
     ports:
-      # Frontend (Next.js Dashboard)
+      # Frontend (Next.js Dashboard) - point your-domain.com here
       - "3222:3222"
-      # Backend API (FastAPI)
+      # Backend API (FastAPI) - point back.your-domain.com here
       - "4222:4222"
     environment:
-      # Timezone Configuration (set to Europe/London for BST/GMT, change as needed)
+      # Timezone Configuration
       - TZ=${TZ:-GMT}
+      
+      # Domain Configuration
+      - FRONTEND_DOMAIN=${FRONTEND_DOMAIN:-your-domain.com}
+      - BACKEND_DOMAIN=${BACKEND_DOMAIN:-back.your-domain.com}
       
       # Overseerr Configuration 
       - OVERSEERR_URL=${OVERSEERR_URL}
@@ -33,8 +39,14 @@ services:
       # Optional Discord webhook
       - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
       
-      # Internal API URL for frontend
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://0.0.0.0:4222/api}
+      # API URL Configuration - frontend calls backend subdomain
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://back.your-domain.com/api}
+      
+      # CORS configuration - allow frontend domain to access backend domain
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-https://your-domain.com,https://www.your-domain.com}
+      
+      # Production settings
+      - NODE_ENV=production
       
       # Docker-specific settings
       - RUNNING_IN_DOCKER=true
@@ -54,8 +66,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    # Note: Complete ListSync application with:
-    # - Core sync service (python -m list_sync)
-    # - FastAPI backend (port 4222)
-    # - Next.js frontend (port 3222)
-    # All managed by supervisor for reliability 
+    # DNS Configuration for domain resolution
+    extra_hosts:
+      - "${FRONTEND_DOMAIN}:127.0.0.1"
+      - "${BACKEND_DOMAIN}:127.0.0.1" 
