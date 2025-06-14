@@ -147,9 +147,9 @@ Deploy ListSync with **public internet access** using your own domain, perfect f
 **Deploy with Docker Compose:**
 ```bash
 # Copy the domain environment file and configure
-cp .env.domain .env
+cp .env.proddomain .env
 # Edit .env with your domain settings, then start
-docker-compose -f docker-compose.domain.yml up -d
+docker-compose -f docker-compose.proddomain.yml up -d
 ```
 
 </details>
