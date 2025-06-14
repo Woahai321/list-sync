@@ -10,6 +10,13 @@ FROM python:${PYTHON_VERSION}-slim AS python-builder
 
 WORKDIR /usr/src/app
 
+# Install build dependencies for Python packages that need compilation
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    python3-dev \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install Poetry
 RUN pip install poetry==1.8.3
 

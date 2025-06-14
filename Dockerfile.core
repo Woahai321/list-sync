@@ -6,7 +6,7 @@ ARG PYTHON_VERSION=3.9
 
 FROM python:${PYTHON_VERSION}-slim AS runtime
 
-# Install system dependencies for Chrome and process management
+# Install system dependencies for Chrome, process management, and Python package compilation
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # Chrome dependencies
     wget \
@@ -30,6 +30,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xauth \
     # Timezone support
     tzdata \
+    # Build dependencies for Python packages that need compilation
+    gcc \
+    python3-dev \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # Set timezone - use environment variable if provided, otherwise UTC
