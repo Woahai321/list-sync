@@ -25,26 +25,31 @@ Key Features:
 
 ---
 
-## 📚 Quick Links
-
-- [🚀 Installation Guide](#-getting-started)
-- [📋 List Setup Guide](#-obtaining-list-ids)
-- [🛠️ Troubleshooting](#-troubleshooting)
-- [📖 Documentation](docs/)
-
----
-
 ## 🖥️ Modern Web Dashboard
 
 ListSync now includes a **comprehensive web dashboard** built with Next.js 15 and React 19, providing a modern interface to manage all your sync operations.
 
 ![ListSync Web Dashboard](https://share.woahlab.com/-Znz4vjsvyW)
 
+
 ### **Key Features**
 - 📊 **Real-Time Sync Monitoring** - Live progress bars and status updates
 - 📋 **Intuitive List Management** - Add, edit, and organize your lists with ease
 - 📈 **Comprehensive Analytics** - Success rates, performance metrics, and historical data
-- ⚙️ **Web-Based Configuration** - Manage lists through the dashboard
+- ⚙️ **Web-Based Configuration** - Manage all settings through the dashboard
+- 🎨 **Modern Responsive UI** - Works perfectly on desktop, tablet, and mobile
+- 🌙 **Dark/Light Themes** - Automatic system preference detection
+
+**Access your dashboard at:** `http://localhost:3222` (frontend) and `http://localhost:4222/api` (API)
+
+---
+
+## 📚 Quick Links
+
+- [🚀 Installation Guide](#-getting-started)
+- [📋 List Setup Guide](#-obtaining-list-ids)
+- [🛠️ Troubleshooting](#-troubleshooting)
+- [📖 Documentation](docs/)
 
 ---
 
@@ -142,9 +147,9 @@ Deploy ListSync with **public internet access** using your own domain, perfect f
 **Deploy with Docker Compose:**
 ```bash
 # Copy the domain environment file and configure
-cp .env.proddomain .env
+cp .env.domain .env
 # Edit .env with your domain settings, then start
-docker-compose -f docker-compose.proddomain.yml up -d
+docker-compose -f docker-compose.domain.yml up -d
 ```
 
 </details>
@@ -191,16 +196,29 @@ Choose your timezone using either **UTC offset** or **regional timezone** format
 # docker-compose.yml
 environment:
   # UTC offsets (recommended for simplicity)
-  - TZ=UTC+0 # Greenwich Mean Time
-  - TZ=UTC-5 # US Eastern Time
-  - TZ=UTC-6 # US Central Time
-  - TZ=UTC-7 # US Mountain Time
-  - TZ=UTC-8 # US Pacific Time
-  - TZ=UTC+1 # Central European Time
-  - TZ=UTC+2 # Eastern European Time
-  - TZ=UTC+8 # China/Singapore Time
-  - TZ=UTC+9 # Japan/Korea Time
-  - TZ=UTC+10 # Eastern Australia Time
+  - TZ=UTC+0                  # Greenwich Mean Time
+  - TZ=UTC-5                  # US Eastern Time
+  - TZ=UTC-6                  # US Central Time
+  - TZ=UTC-7                  # US Mountain Time
+  - TZ=UTC-8                  # US Pacific Time
+  - TZ=UTC+1                  # Central European Time
+  - TZ=UTC+2                  # Eastern European Time
+  - TZ=UTC+8                  # China/Singapore Time
+  - TZ=UTC+9                  # Japan/Korea Time
+  - TZ=UTC+10                 # Eastern Australia Time
+```
+
+##### **🌐 GMT Format (Alternative)**
+```yaml
+# docker-compose.yml
+environment:
+  # GMT offsets (equivalent to UTC)
+  - TZ=GMT+0                  # Greenwich Mean Time
+  - TZ=GMT-5                  # US Eastern Time
+  - TZ=GMT-8                  # US Pacific Time
+  - TZ=GMT+1                  # Central European Time
+  - TZ=GMT+8                  # Asia-Pacific Time
+```
 
 #### **Finding Your Timezone**
 
