@@ -2138,7 +2138,7 @@ async def add_list(list_add: ListAdd):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.delete("/api/lists/{list_type}/{list_id}")
+@app.delete("/api/lists/{list_type}/{list_id:path}")
 async def delete_list_endpoint(list_type: str, list_id: str):
     """Delete list"""
     try:
