@@ -43,7 +43,7 @@ Docker installation provides the easiest setup with all dependencies pre-configu
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/soluify/list-sync.git
+   git clone https://github.com/Woahai321/list-sync.git
    cd list-sync
    ```
 
@@ -73,6 +73,51 @@ Docker installation provides the easiest setup with all dependencies pre-configu
    - Web Dashboard: http://localhost:3222
    - API Backend: http://localhost:4222
 
+### Deployment Decision Guide
+
+```mermaid
+flowchart TD
+    Start[Choose Deployment] --> UseCase{What's your goal?}
+    
+    UseCase -->|Production use| Prod[Production Setup]
+    UseCase -->|Development| Dev[Development Setup]
+    UseCase -->|Just testing| Test[Quick Test]
+    
+    Prod --> NeedDashboard{Need web<br/>dashboard?}
+    NeedDashboard -->|Yes| FullDocker[Full Stack<br/>docker-compose.yml<br/>✓ Dashboard :3222<br/>✓ API :4222<br/>✓ Core Sync]
+    NeedDashboard -->|No| CoreDocker[Core Only<br/>docker-compose.core.yml<br/>✓ API :4222<br/>✓ Core Sync]
+    
+    Dev --> LocalOrDocker{Docker or<br/>native?}
+    LocalOrDocker -->|Docker| DevDocker[Local Build<br/>docker-compose.local.yml<br/>Build from source]
+    LocalOrDocker -->|Native| ManualSetup[Manual Installation<br/>Python + Node.js<br/>Full control]
+    
+    Test --> QuickDocker[Core Deployment<br/>Fastest setup<br/>API access only]
+    
+    FullDocker --> DeployFull[docker-compose up -d]
+    CoreDocker --> DeployCore[docker-compose -f<br/>docker-compose.core.yml up -d]
+    DevDocker --> DeployDev[docker-compose -f<br/>docker-compose.local.yml up -d]
+    QuickDocker --> DeployCore
+    ManualSetup --> ManualSteps[Follow manual<br/>installation steps]
+    
+    DeployFull --> Success[✓ Deployment complete]
+    DeployCore --> Success
+    DeployDev --> Success
+    ManualSteps --> Success
+    
+    Success --> Access{Can access?}
+    Access -->|Yes| TestIt[Test sync operation]
+    Access -->|No| TroubleshootInstall[See Troubleshooting]
+    TestIt --> Working{Works?}
+    Working -->|Yes| Done[Ready to use!]
+    Working -->|No| TroubleshootInstall
+    
+    style Start fill:#4CAF50
+    style Done fill:#4CAF50
+    style FullDocker fill:#2196F3
+    style CoreDocker fill:#2196F3
+    style TroubleshootInstall fill:#FF9800
+```
+
 ### Docker Deployment Options
 
 #### Production Deployment
@@ -96,12 +141,14 @@ docker-compose -f docker-compose.local.yml up -d
 Deploy only specific components:
 
 ```bash
-# Core sync functionality only
+# Core sync functionality only (no web UI)
 docker-compose -f docker-compose.core.yml up -d
 
-# Domain services (Web UI + API)
-docker-compose -f docker-compose.proddomain.yml up -d
+# Full application (recommended)
+docker-compose up -d
 ```
+
+**Note:** With Nuxt 3's CORS-free architecture, you only need the standard `docker-compose.yml` for production deployments. The frontend's built-in Nitro proxy eliminates the need for complex CORS configurations.
 
 ### Docker Configuration
 
@@ -123,7 +170,7 @@ volumes:
 #### Port Configuration
 
 Default ports:
-- **3222**: Web Dashboard (Next.js frontend)
+- **3222**: Web Dashboard (Nuxt 3 frontend)
 - **4222**: API Backend (FastAPI)
 
 To change ports, modify the `docker-compose.yml`:
@@ -184,7 +231,7 @@ brew install --cask google-chrome
 
 1. **Clone and setup**:
    ```bash
-   git clone https://github.com/soluify/list-sync.git
+   git clone https://github.com/Woahai321/list-sync.git
    cd list-sync
    ```
 
@@ -214,7 +261,7 @@ brew install --cask google-chrome
 
 1. **Navigate to frontend directory**:
    ```bash
-   cd listsync-web
+   cd listsync-nuxt
    ```
 
 2. **Install Node.js dependencies**:
@@ -224,8 +271,8 @@ brew install --cask google-chrome
 
 3. **Configure environment**:
    ```bash
-   cp .env.example .env.local
-   # Edit .env.local with your API URL
+   # Nuxt 3 uses runtime config, main configuration is in .env at root
+   # API URL is configured via nuxt.config.ts proxy settings
    ```
 
 4. **Build frontend**:
@@ -266,9 +313,10 @@ After=network.target
 [Service]
 Type=simple
 User=your-username
-WorkingDirectory=/path/to/list-sync/listsync-web
+WorkingDirectory=/path/to/list-sync/listsync-nuxt
 ExecStart=/usr/bin/npm start
 Restart=always
+Environment=NODE_ENV=production
 
 [Install]
 WantedBy=multi-user.target
@@ -290,7 +338,7 @@ npm install -g pm2
 pm2 start "python -m list_sync" --name listsync-backend --cwd /path/to/list-sync
 
 # Start frontend
-pm2 start npm --name listsync-frontend --cwd /path/to/list-sync/listsync-web -- start
+pm2 start npm --name listsync-frontend --cwd /path/to/list-sync/listsync-nuxt -- start
 
 # Save PM2 configuration
 pm2 save
@@ -353,6 +401,73 @@ server {
 ```
 
 ## ✅ Verification
+
+### Post-Installation Verification Workflow
+
+```mermaid
+flowchart TD
+    Start[Installation Complete] --> Step1[Check container status]
+    
+    Step1 --> Docker{Using Docker?}
+    Docker -->|Yes| CheckPS[docker-compose ps<br/>All services Up?]
+    Docker -->|No| CheckProc[Check processes<br/>ps aux grep listsync]
+    
+    CheckPS --> AllUp{All up?}
+    AllUp -->|No| StartServices[docker-compose up -d]
+    AllUp -->|Yes| TestAPI[Test API Health]
+    CheckProc --> TestAPI
+    StartServices --> TestAPI
+    
+    TestAPI --> CURL1[curl localhost:4222/api/system/health]
+    CURL1 --> APIWorks{API responds?}
+    APIWorks -->|No| CheckAPIPort[Check port 4222<br/>Check firewall]
+    APIWorks -->|Yes| TestDB[Test Database]
+    
+    TestDB --> CURL2[curl localhost:4222/api/lists]
+    CURL2 --> DBWorks{Database OK?}
+    DBWorks -->|No| CheckDBFile[Check ./data/list_sync.db<br/>exists & writable]
+    DBWorks -->|Yes| TestDashboard[Test Dashboard]
+    
+    TestDashboard --> OpenBrowser[Open localhost:3222<br/>in browser]
+    OpenBrowser --> DashWorks{Dashboard loads?}
+    DashWorks -->|No| CheckFrontend[Check port 3222<br/>Check frontend logs]
+    DashWorks -->|Yes| TestOverseerr[Test Overseerr Connection]
+    
+    TestOverseerr --> ConfigOverseerr[Check .env:<br/>OVERSEERR_URL<br/>OVERSEERR_API_KEY]
+    ConfigOverseerr --> ConnTest{Connection OK<br/>in dashboard?}
+    ConnTest -->|No| FixCreds[Update credentials<br/>Restart: docker-compose restart]
+    ConnTest -->|Yes| AddList[Add Test List]
+    
+    AddList --> AddIMDB[Add IMDb Top list<br/>via dashboard or .env]
+    AddIMDB --> TriggerSync[Trigger manual sync]
+    TriggerSync --> SyncWorks{Sync completes<br/>successfully?}
+    
+    SyncWorks -->|No| CheckLogs[Check logs:<br/>docker-compose logs]
+    SyncWorks -->|Yes| VerifyResults[Verify results<br/>in dashboard]
+    
+    VerifyResults --> ItemsReq{Items<br/>requested?}
+    ItemsReq -->|Yes| AllGood[✓ Installation verified!<br/>Ready for production]
+    ItemsReq -->|No| CheckWhy[Check why:<br/>- Already available?<br/>- Matching issues?]
+    
+    CheckAPIPort --> FixPort[Fix and retry]
+    CheckDBFile --> FixDB[Fix and retry]
+    CheckFrontend --> FixFrontend[Fix and retry]
+    FixCreds --> TestOverseerr
+    CheckLogs --> FixIssues[Fix issues]
+    CheckWhy --> ReviewConfig[Review configuration]
+    FixPort --> TestAPI
+    FixDB --> TestDB
+    FixFrontend --> TestDashboard
+    FixIssues --> TriggerSync
+    ReviewConfig --> Docs[Check documentation]
+    
+    style Start fill:#4CAF50
+    style AllGood fill:#4CAF50
+    style CheckAPIPort fill:#FF9800
+    style CheckDBFile fill:#FF9800
+    style CheckFrontend fill:#FF9800
+    style CheckLogs fill:#FF9800
+```
 
 ### Health Checks
 
@@ -419,7 +534,7 @@ source venv/bin/activate
 pip install -r requirements.txt --upgrade
 
 # Update frontend dependencies
-cd listsync-web
+cd listsync-nuxt
 npm install
 npm run build
 cd ..

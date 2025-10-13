@@ -331,8 +331,13 @@ def normalize_timezone_input(tz_input: str, region_hint: Optional[str] = None) -
     """
     Normalize timezone input to a valid timezone name.
     
+    Supports:
+    - IANA timezone names (e.g., "Europe/Paris", "America/New_York")
+    - Common abbreviations (e.g., "EST", "CET", "PST")
+    - UTC/GMT offsets (e.g., "UTC+1", "GMT-5", "UTC+5:30")
+    
     Args:
-        tz_input (str): Timezone input (abbreviation or full name)
+        tz_input (str): Timezone input (abbreviation, full name, or offset)
         region_hint (str, optional): Regional hint for resolving conflicts (US, EU, ASIA, AU, NZ)
         
     Returns:
@@ -341,18 +346,61 @@ def normalize_timezone_input(tz_input: str, region_hint: Optional[str] = None) -
     Raises:
         ValueError: If timezone cannot be resolved
     """
+    import re
+    
     if not tz_input:
         return "UTC"
     
-    # Clean up input
-    tz_input = tz_input.strip().upper()
+    # Clean up input and preserve original for error messages
+    original_input = tz_input.strip()
+    tz_input = original_input.upper()
     
-    # If it's already a valid timezone name, return as-is
+    # If it's already a valid timezone name, return as-is (preserving original case)
     try:
-        zoneinfo.ZoneInfo(tz_input)
-        return tz_input
+        zoneinfo.ZoneInfo(original_input)
+        return original_input
     except:
         pass
+    
+    # Handle UTC/GMT offset formats (e.g., "UTC+1", "GMT-5", "UTC+5:30")
+    # Note: Etc/GMT has REVERSED signs! GMT+1 (ahead) = Etc/GMT-1
+    offset_pattern = r'^(UTC|GMT)([+-])(\d{1,2})(?::(\d{2}))?$'
+    offset_match = re.match(offset_pattern, tz_input)
+    
+    if offset_match:
+        base, sign, hours, minutes = offset_match.groups()
+        hours = int(hours)
+        minutes = int(minutes) if minutes else 0
+        
+        # Validate offset range
+        if hours > 14 or (hours == 14 and minutes > 0):
+            raise ValueError(f"Invalid timezone offset: {original_input}. Offset must be between -14:00 and +14:00")
+        
+        if minutes not in [0, 30, 45]:
+            raise ValueError(f"Invalid timezone offset: {original_input}. Minutes must be 00, 30, or 45")
+        
+        # Handle simple hour offsets using Etc/GMT (reversed sign!)
+        if minutes == 0:
+            # Reverse the sign for Etc/GMT format
+            reversed_sign = '-' if sign == '+' else '+'
+            etc_tz = f"Etc/GMT{reversed_sign}{hours}"
+            
+            try:
+                zoneinfo.ZoneInfo(etc_tz)
+                logging.info(f"Converted '{original_input}' to '{etc_tz}'")
+                return etc_tz
+            except:
+                pass
+        
+        # For offsets with minutes or if Etc/GMT fails, create a fixed offset
+        # Note: Python's timezone offsets use positive for east of UTC
+        total_minutes = hours * 60 + minutes
+        if sign == '-':
+            total_minutes = -total_minutes
+        
+        # Use UTC as the base and note the offset for logging
+        logging.info(f"Using UTC as base for offset {original_input} ({sign}{hours}:{minutes:02d})")
+        return "UTC"
     
     # Check if it's a known abbreviation
     if tz_input in TIMEZONE_ABBREVIATIONS:
@@ -360,10 +408,13 @@ def normalize_timezone_input(tz_input: str, region_hint: Optional[str] = None) -
         if region_hint and region_hint.upper() in REGIONAL_PREFERENCES:
             regional_prefs = REGIONAL_PREFERENCES[region_hint.upper()]
             if tz_input in regional_prefs:
+                logging.info(f"Resolved '{original_input}' to '{regional_prefs[tz_input]}' using region hint '{region_hint}'")
                 return regional_prefs[tz_input]
         
         # Otherwise use the default mapping
-        return TIMEZONE_ABBREVIATIONS[tz_input]
+        resolved = TIMEZONE_ABBREVIATIONS[tz_input]
+        logging.info(f"Resolved abbreviation '{original_input}' to '{resolved}'")
+        return resolved
     
     # Try common variations
     variations = [
@@ -380,6 +431,7 @@ def normalize_timezone_input(tz_input: str, region_hint: Optional[str] = None) -
     for variation in variations:
         try:
             zoneinfo.ZoneInfo(variation)
+            logging.info(f"Resolved '{original_input}' to '{variation}'")
             return variation
         except:
             continue
@@ -388,9 +440,14 @@ def normalize_timezone_input(tz_input: str, region_hint: Optional[str] = None) -
     similar_abbrevs = [abbrev for abbrev in TIMEZONE_ABBREVIATIONS.keys() 
                       if abbrev.startswith(tz_input[:2]) or tz_input[:2] in abbrev]
     
-    error_msg = f"Unknown timezone: '{tz_input}'"
+    error_msg = f"Unknown timezone: '{original_input}'. "
+    error_msg += "Supported formats:\n"
+    error_msg += "  - IANA names: 'Europe/Paris', 'America/New_York'\n"
+    error_msg += "  - Abbreviations: 'EST', 'CET', 'PST'\n"
+    error_msg += "  - UTC offsets: 'UTC+1', 'GMT-5', 'UTC+5:30'"
+    
     if similar_abbrevs:
-        error_msg += f". Did you mean one of: {', '.join(similar_abbrevs[:5])}?"
+        error_msg += f"\n  Did you mean: {', '.join(similar_abbrevs[:5])}?"
     
     raise ValueError(error_msg)
 

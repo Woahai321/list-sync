@@ -217,7 +217,13 @@ def process_media_item(item: Dict[str, Any], overseerr_client: OverseerrClient, 
     year = item.get('year')
     
     # Strip any year from the title (e.g., "Cinderella 1997" -> "Cinderella")
+    # But only if there's text remaining after removal (to handle titles like "1917")
     search_title = re.sub(r'\s*\(?(?:19|20)\d{2}\)?$', '', title).strip()
+    
+    # If stripping the year left us with nothing, use the original title
+    # This handles movies whose title IS a year (e.g., "1917", "2012")
+    if not search_title:
+        search_title = title
     
     # Add year and media_type to the return data
     result = {

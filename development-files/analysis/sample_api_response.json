@@ -1,0 +1,365 @@
+{
+  "sessions": [
+    {
+      "id": "sync_2025-10-12T04:37:18_single",
+      "type": "single",
+      "start_timestamp": "2025-10-12T04:37:18",
+      "end_timestamp": "2025-10-12T04:37:18",
+      "duration": 0.0,
+      "version": null,
+      "total_items": 0,
+      "processed_items": 0,
+      "lists": [
+        {
+          "type": "TRAKT_SPECIAL",
+          "id": "watched:shows",
+          "url": null,
+          "item_count": 30
+        }
+      ],
+      "results": {
+        "requested": 0,
+        "already_available": 0,
+        "already_requested": 0,
+        "skipped": 0,
+        "not_found": 0,
+        "error": 0
+      },
+      "items": [],
+      "errors": [],
+      "not_found_items": [],
+      "average_time_ms": null,
+      "total_time_seconds": null,
+      "status": "completed"
+    },
+    {
+      "id": "sync_2025-10-12T04:37:18_full",
+      "type": "full",
+      "start_timestamp": "2025-10-12T04:37:18",
+      "end_timestamp": "2025-10-12T04:37:19",
+      "duration": 1.0,
+      "version": null,
+      "total_items": 30,
+      "processed_items": 30,
+      "lists": [],
+      "results": {
+        "requested": 3,
+        "already_available": 26,
+        "already_requested": 1,
+        "skipped": 0,
+        "not_found": 0,
+        "error": 0
+      },
+      "items": [
+        {
+          "title": "Tulsa King",
+          "status": "already_available",
+          "progress_number": 1,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:18",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "Peacemaker",
+          "status": "already_available",
+          "progress_number": 2,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:18",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "Gen V",
+          "status": "already_available",
+          "progress_number": 3,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:18",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "High Potential",
+          "status": "already_available",
+          "progress_number": 4,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:18",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "Only Murders in the Building",
+          "status": "already_available",
+          "progress_number": 5,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:18",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "Monster: The Ed Gein Story",
+          "status": "already_requested",
+          "progress_number": 6,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:18",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "Task",
+          "status": "already_available",
+          "progress_number": 7,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:18",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "Invasion",
+          "status": "already_available",
+          "progress_number": 8,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:18",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "Alien: Earth",
+          "status": "already_available",
+          "progress_number": 9,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:18",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "Slow Horses",
+          "status": "already_available",
+          "progress_number": 10,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:18",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "The Morning Show",
+          "status": "already_available",
+          "progress_number": 11,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:18",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "Wednesday",
+          "status": "already_available",
+          "progress_number": 12,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:18",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "Alice in Borderland",
+          "status": "already_available",
+          "progress_number": 13,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:19",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "The Simpsons",
+          "status": "already_available",
+          "progress_number": 14,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:19",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "The Walking Dead: Daryl Dixon",
+          "status": "already_available",
+          "progress_number": 15,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:19",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "Chicago Fire",
+          "status": "already_available",
+          "progress_number": 16,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:19",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "Abbott Elementary",
+          "status": "already_available",
+          "progress_number": 17,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:19",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "South Park",
+          "status": "already_available",
+          "progress_number": 18,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:19",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "Last Week Tonight with John Oliver",
+          "status": "already_available",
+          "progress_number": 19,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:19",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "Chicago P.D.",
+          "status": "already_available",
+          "progress_number": 20,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:19",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "The Rainmaker",
+          "status": "already_available",
+          "progress_number": 21,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:19",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "Bob's Burgers",
+          "status": "already_available",
+          "progress_number": 22,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:19",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "Chicago Med",
+          "status": "already_available",
+          "progress_number": 23,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:19",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "Law & Order: Special Victims Unit",
+          "status": "already_available",
+          "progress_number": 24,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:19",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "Taskmaster",
+          "status": "already_available",
+          "progress_number": 25,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:19",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "NCIS: Tony & Ziva",
+          "status": "already_available",
+          "progress_number": 26,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:19",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "Chad Powers",
+          "status": "requested",
+          "progress_number": 27,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:19",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "House of Guinness",
+          "status": "requested",
+          "progress_number": 28,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:19",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "Black Rabbit",
+          "status": "requested",
+          "progress_number": 29,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:19",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        },
+        {
+          "title": "Grey's Anatomy",
+          "status": "already_available",
+          "progress_number": 30,
+          "progress_total": 30,
+          "timestamp": "2025-10-12T04:37:19",
+          "year": null,
+          "media_type": "movie",
+          "error_details": null
+        }
+      ],
+      "errors": [],
+      "not_found_items": [],
+      "average_time_ms": null,
+      "total_time_seconds": null,
+      "status": "in_progress"
+    }
+  ],
+  "total": 7,
+  "limit": 50,
+  "offset": 0
+}

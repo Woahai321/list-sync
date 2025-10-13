@@ -5,8 +5,8 @@ services:
       dockerfile: Dockerfile.core
     container_name: listsync-core
     environment:
-      # Timezone Configuration (set to your local timezone) 
-      - TZ=${TZ:-GMT}
+      # Timezone - Supports: IANA names (Europe/Paris), abbreviations (CET), offsets (UTC+1, GMT-5)
+      - TZ=${TZ:-UTC}
       
       # Overseerr Configuration
       - OVERSEERR_URL=${OVERSEERR_URL}
@@ -24,6 +24,9 @@ services:
       - STEVENLU_LISTS=${STEVENLU_LISTS}
       - TRAKT_SPECIAL_LISTS=${TRAKT_SPECIAL_LISTS}
       - TRAKT_SPECIAL_ITEMS_LIMIT=${TRAKT_SPECIAL_ITEMS_LIMIT}
+      
+      # Trakt API Configuration
+      - TRAKT_CLIENT_ID=${TRAKT_CLIENT_ID}
 
       # Optional Discord webhook 
       - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}

@@ -1,23 +1,149 @@
 """
-Trakt provider for ListSync.
+Trakt provider for ListSync - using Trakt API v2.
 """
 
 import logging
-import re
 import os
-from typing import List, Dict, Any
+import re
+from typing import List, Dict, Any, Optional
 
-from seleniumbase import SB
+import requests
+from dotenv import load_dotenv
 
 from . import register_provider
+
+# Load environment variables
+if os.path.exists('.env'):
+    load_dotenv()
+
+# Trakt API configuration
+TRAKT_CLIENT_ID = os.getenv('TRAKT_CLIENT_ID')
+TRAKT_BASE_URL = "https://api.trakt.tv"
+TRAKT_API_VERSION = "2"
 
 # Get configurable limit for special Trakt lists from environment variable
 TRAKT_SPECIAL_ITEMS_LIMIT = int(os.getenv('TRAKT_SPECIAL_ITEMS_LIMIT', '20'))
 
+
+def get_trakt_headers() -> Dict[str, str]:
+    """
+    Get headers for Trakt API requests.
+    
+    Returns:
+        Dict[str, str]: Headers including API key
+        
+    Raises:
+        ValueError: If TRAKT_CLIENT_ID is not set
+    """
+    if not TRAKT_CLIENT_ID:
+        raise ValueError(
+            "TRAKT_CLIENT_ID environment variable is not set. "
+            "Please set it in your .env file or environment variables. "
+            "Get your Client ID from: https://trakt.tv/oauth/applications"
+        )
+    
+    return {
+        "Content-Type": "application/json",
+        "trakt-api-version": TRAKT_API_VERSION,
+        "trakt-api-key": TRAKT_CLIENT_ID
+    }
+
+
+def parse_trakt_list_url(list_id: str) -> str:
+    """
+    Parse Trakt list URL to extract API endpoint path.
+    
+    Args:
+        list_id (str): Trakt list ID (numeric), list slug, or full URL
+        
+    Returns:
+        str: API endpoint path (e.g., '/users/username/lists/list-slug/items')
+        
+    Raises:
+        ValueError: If list ID format is invalid
+    """
+    # Handle full URLs
+    if list_id.startswith(('http://', 'https://')):
+        # Remove query parameters if present
+        url = list_id.split('?')[0].rstrip('/')
+        
+        # Pattern 1: /users/{username}/lists/{list-slug}
+        pattern1 = r'trakt\.tv/users/([^/]+)/lists/([^/?]+)'
+        match = re.search(pattern1, url)
+        if match:
+            username, list_slug = match.groups()
+            return f"/users/{username}/lists/{list_slug}/items"
+        
+        # Pattern 2: /lists/{numeric-id}
+        pattern2 = r'trakt\.tv/lists/(\d+)'
+        match = re.search(pattern2, url)
+        if match:
+            list_id = match.group(1)
+            return f"/lists/{list_id}/items"
+        
+        raise ValueError(f"Invalid Trakt URL format: {list_id}")
+    
+    # Handle numeric list IDs (legacy format)
+    if list_id.isdigit():
+        return f"/lists/{list_id}/items"
+    
+    raise ValueError(
+        f"Invalid Trakt list ID format: {list_id}. "
+        "Expected a numeric ID, list URL, or full Trakt URL."
+    )
+
+
+def extract_media_from_list_item(item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """
+    Extract media information from a Trakt list item.
+    
+    Args:
+        item (Dict[str, Any]): Trakt API list item
+        
+    Returns:
+        Optional[Dict[str, Any]]: Normalized media item or None if parsing fails
+    """
+    try:
+        item_type = item.get('type')
+        
+        # Get the media object (nested under 'movie' or 'show' key)
+        if item_type == 'movie':
+            media = item.get('movie', {})
+        elif item_type == 'show':
+            media = item.get('show', {})
+        else:
+            logging.warning(f"Unknown item type: {item_type}")
+            return None
+        
+        if not media:
+            logging.warning(f"No media object found in item: {item}")
+            return None
+        
+        title = media.get('title')
+        year = media.get('year')
+        ids = media.get('ids', {})
+        
+        if not title:
+            logging.warning(f"No title found in media: {media}")
+            return None
+        
+        return {
+            "title": title,
+            "year": year,
+            "media_type": "tv" if item_type == "show" else "movie",
+            "tmdb_id": ids.get('tmdb'),
+            "imdb_id": ids.get('imdb')
+        }
+        
+    except Exception as e:
+        logging.warning(f"Failed to parse Trakt list item: {str(e)}")
+        return None
+
+
 @register_provider("trakt")
 def fetch_trakt_list(list_id: str) -> List[Dict[str, Any]]:
     """
-    Fetch Trakt list using Selenium with pagination
+    Fetch Trakt list using Trakt API v2.
     
     Args:
         list_id (str): Trakt list ID (numeric) or full URL
@@ -26,78 +152,54 @@ def fetch_trakt_list(list_id: str) -> List[Dict[str, Any]]:
         List[Dict[str, Any]]: List of media items
         
     Raises:
-        ValueError: If list ID format is invalid
+        ValueError: If list ID format is invalid or API credentials not set
+        requests.HTTPError: If API request fails
     """
     media_items = []
     logging.info(f"Fetching Trakt list: {list_id}")
     
     try:
-        with SB(uc=True, headless=True) as sb:
-            # Handle full URLs vs list IDs
-            if list_id.startswith(('http://', 'https://')):
-                url = list_id.rstrip('/')  # Use the provided URL directly
-                if not ('trakt.tv/lists/' in url or 'trakt.tv/users/' in url):
-                    raise ValueError("Invalid Trakt URL format")
-            else:
-                # Existing logic for numeric list IDs
-                if not list_id.isdigit():
-                    raise ValueError("Invalid Trakt list ID format - must be numeric")
-                url = f"https://trakt.tv/lists/{list_id}"
-            
-            logging.info(f"Attempting to load URL: {url}")
-            sb.open(url)
-            
-            # Wait for container to load
-            sb.wait_for_element_present(".container", timeout=10)
-            
-            while True:
-                # Wait for either movies or shows container to load
-                sb.wait_for_element_present(".row.posters", timeout=10)
-                
-                # Get all items on current page (both movies and shows)
-                items = sb.find_elements(".grid-item.col-xs-6.col-md-2.col-sm-3")
-                logging.info(f"Found {len(items)} items on current page")
-                
-                for item in items:
-                    try:
-                        # Get the full title and media type
-                        watch_button = item.find_element("css selector", "a.watch")
-                        full_title = watch_button.get_attribute("data-full-title")
-                        media_type = item.get_attribute("data-type")
-                        
-                        # Remove year from title if present (movies only typically have years)
-                        title = full_title
-                        if " (" in full_title and media_type == "movie":
-                            title = full_title.split(" (")[0]
-                        
-                        media_items.append({
-                            "title": title.strip(),
-                            "media_type": "tv" if media_type == "show" else "movie"
-                        })
-                        logging.info(f"Added {media_type}: {title}")
-                        
-                    except Exception as e:
-                        logging.warning(f"Failed to parse Trakt item: {str(e)}")
-                        continue
-                
-                # Check for next page button
-                try:
-                    next_button = sb.find_element(".pagination-top .next:not(.disabled)")
-                    if not next_button:
-                        logging.info("No more pages to process")
-                        break
-                    
-                    next_link = next_button.find_element("css selector", "a")
-                    next_link.click()
-                    sb.sleep(3)  # Wait for new page to load
-                    
-                except Exception as e:
-                    logging.info(f"No more pages available: {str(e)}")
-                    break
-            
-            logging.info(f"Trakt list {list_id} fetched successfully. Found {len(media_items)} items.")
-            return media_items
+        # Parse the list ID to get API endpoint
+        endpoint = parse_trakt_list_url(list_id)
+        url = f"{TRAKT_BASE_URL}{endpoint}"
         
+        logging.info(f"Fetching from API endpoint: {url}")
+        
+        # Make API request
+        response = requests.get(url, headers=get_trakt_headers(), timeout=30)
+        response.raise_for_status()
+        
+        items = response.json()
+        
+        if not isinstance(items, list):
+            raise ValueError(f"Unexpected API response format: expected list, got {type(items)}")
+        
+        logging.info(f"Found {len(items)} items in list")
+        
+        # Parse each item
+        for item in items:
+            media = extract_media_from_list_item(item)
+            if media:
+                media_items.append({
+                    "title": media["title"],
+                    "media_type": media["media_type"],
+                    "year": media.get("year")
+                })
+                logging.info(f"Added {media['media_type']}: {media['title']} ({media.get('year', 'unknown year')})")
+        
+        logging.info(f"Trakt list {list_id} fetched successfully. Found {len(media_items)} items.")
+        return media_items
+        
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 404:
+            logging.error(f"Trakt list not found: {list_id}")
+            raise ValueError(f"Trakt list not found: {list_id}. Please check the list URL or ID.")
+        elif e.response.status_code == 401:
+            logging.error("Trakt API authentication failed. Please check TRAKT_CLIENT_ID.")
+            raise ValueError("Trakt API authentication failed. Please check your TRAKT_CLIENT_ID.")
+        else:
+            logging.error(f"Trakt API error: {e.response.status_code} - {e.response.text}")
+            raise
     except Exception as e:
         logging.error(f"Error fetching Trakt list {list_id}: {str(e)}")
         raise
@@ -106,7 +208,7 @@ def fetch_trakt_list(list_id: str) -> List[Dict[str, Any]]:
 @register_provider("trakt_special")
 def fetch_trakt_special_list(url_or_shortcut: str) -> List[Dict[str, Any]]:
     """
-    Fetch special Trakt list (trending, popular, etc.) with configurable item limit
+    Fetch special Trakt list (trending, popular, etc.) using Trakt API v2.
     
     Args:
         url_or_shortcut (str): Trakt special list URL or shortcut format (e.g., "trending:movies")
@@ -115,215 +217,182 @@ def fetch_trakt_special_list(url_or_shortcut: str) -> List[Dict[str, Any]]:
         List[Dict[str, Any]]: List of media items (max: TRAKT_SPECIAL_ITEMS_LIMIT from env var, default 20)
         
     Raises:
-        ValueError: If URL format is invalid
+        ValueError: If URL format is invalid or API credentials not set
+        requests.HTTPError: If API request fails
     """
     media_items = []
     logging.info(f"Fetching special Trakt list: {url_or_shortcut}")
     
     try:
-        with SB(uc=True, headless=True) as sb:
-            # Handle shortcut format like "trending:movies"
-            if ':' in url_or_shortcut and not url_or_shortcut.startswith(('http://', 'https://')):
-                parts = url_or_shortcut.split(':')
-                if len(parts) == 2:
-                    list_type, media_type = parts
-                    # Convert shorthand to URL (e.g., "trending:movies" -> "https://trakt.tv/movies/trending")
-                    if media_type.lower() in ['movies', 'movie']:
-                        url = f"https://trakt.tv/movies/{list_type}"
-                    elif media_type.lower() in ['shows', 'show', 'tv']:
-                        url = f"https://trakt.tv/shows/{list_type}"
-                    else:
-                        raise ValueError(f"Invalid media type in special list format: {url_or_shortcut}")
-                else:
-                    raise ValueError(f"Invalid special list format: {url_or_shortcut}")
-            else:
-                # Clean the URL
-                url = url_or_shortcut.rstrip('/')
-            
-            # Check if URL is in the correct format
-            valid_patterns = [
-                # Movies
-                'trakt.tv/movies/trending', 'trakt.tv/movies/recommendations', 'trakt.tv/movies/streaming',
-                'trakt.tv/movies/anticipated', 'trakt.tv/movies/popular', 'trakt.tv/movies/favorited',
-                'trakt.tv/movies/watched', 'trakt.tv/movies/collected', 'trakt.tv/movies/boxoffice',
-                # TV Shows
-                'trakt.tv/shows/trending', 'trakt.tv/shows/recommendations', 'trakt.tv/shows/streaming',
-                'trakt.tv/shows/anticipated', 'trakt.tv/shows/popular', 'trakt.tv/shows/favorited',
-                'trakt.tv/shows/watched', 'trakt.tv/shows/collected'
-            ]
-            
-            valid_url = False
-            for pattern in valid_patterns:
-                if pattern in url:
-                    valid_url = True
-                    break
-            
-            if not valid_url:
-                raise ValueError(f"Invalid Trakt special list URL: {url}")
-                
-            logging.info(f"Fetching special Trakt list: {url} (limit: {TRAKT_SPECIAL_ITEMS_LIMIT} items)")
-            sb.open(url)
-            
-            page_number = 1
-            total_items_scraped = 0
-            
-            # Continue scraping pages until we reach the limit or run out of pages
-            while total_items_scraped < TRAKT_SPECIAL_ITEMS_LIMIT:
-                logging.info(f"Processing page {page_number}...")
-                
-                # Wait for page to load - looking for multiple possible elements
-                try:
-                    # First try the row fanarts container
-                    sb.wait_for_element_present(".row.fanarts", timeout=15)
-                    logging.info("Found .row.fanarts container")
-                except Exception:
-                    # If that fails, try looking for any grid items directly
-                    try:
-                        sb.wait_for_element_present("[data-type='movie'], [data-type='show']", timeout=15)
-                        logging.info("Found grid items by data-type attribute")
-                    except Exception:
-                        # Try one more general selector for divs with grid-item class
-                        sb.wait_for_element_present(".grid-item", timeout=15)
-                        logging.info("Found grid items by .grid-item class")
-                
-                # Add a small wait to ensure the page is fully loaded
-                sb.sleep(3)
-                
-                # Now try to get all grid items
-                # Try multiple selectors since the grid classes seem to vary
-                items = []
-                selectors_to_try = [
-                    ".grid-item",
-                    "[data-type='movie'], [data-type='show']",
-                    ".row.fanarts > div"
-                ]
-                
-                for selector in selectors_to_try:
-                    items = sb.find_elements(selector)
-                    if items and len(items) > 0:
-                        logging.info(f"Found {len(items)} items on page {page_number} using selector: {selector}")
-                        break
-                
-                if not items or len(items) == 0:
-                    logging.warning(f"Could not find any list items on page {page_number}")
-                    break
-                
-                # Process items on current page
-                items_processed_this_page = 0
-                for item in items:
-                    if total_items_scraped >= TRAKT_SPECIAL_ITEMS_LIMIT:
-                        break
-                        
-                    try:
-                        # Extract media type
-                        media_type = item.get_attribute("data-type")
-                        if not media_type:
-                            # Try to determine from the URL
-                            links = item.find_elements("css selector", "a")
-                            for link in links:
-                                href = link.get_attribute("href")
-                                if href:
-                                    if "/movies/" in href:
-                                        media_type = "movie"
-                                        break
-                                    elif "/shows/" in href:
-                                        media_type = "show"
-                                        break
-                        
-                        # If still no media type, skip this item
-                        if not media_type:
-                            continue
-                        
-                        # Extract title and year - try different selectors
-                        title_elem = None
-                        title_selectors = [
-                            ".titles h3",
-                            ".fanart .titles h3"
-                        ]
-                        
-                        for selector in title_selectors:
-                            try:
-                                title_elem = item.find_element("css selector", selector)
-                                if title_elem:
-                                    break
-                            except Exception:
-                                continue
-                        
-                        if not title_elem:
-                            logging.warning("Could not find title element, skipping item")
-                            continue
-                        
-                        # Title format is typically "Title <span class="year">Year</span>"
-                        full_title = title_elem.text
-                        year = None
-                        
-                        # Try to extract year from span.year
-                        try:
-                            year_span = title_elem.find_element("css selector", "span.year")
-                            if year_span:
-                                year_text = year_span.text.strip()
-                                if year_text.isdigit():
-                                    year = int(year_text)
-                                # Remove the year span from the title
-                                full_title = full_title.replace(year_span.text, "").strip()
-                        except Exception:
-                            # If we can't find the year span, try to extract from the full title
-                            if " (" in full_title and ")" in full_title:
-                                title_parts = full_title.split(" (")
-                                full_title = title_parts[0].strip()
-                                year_part = title_parts[1].strip(")")
-                                if year_part.isdigit():
-                                    year = int(year_part)
-                        
-                        media_items.append({
-                            "title": full_title.strip(),
-                            "media_type": "tv" if media_type == "show" else "movie",
-                            "year": year
-                        })
-                        
-                        total_items_scraped += 1
-                        items_processed_this_page += 1
-                        logging.info(f"Added {media_type}: {full_title} ({year if year else 'unknown year'}) [{total_items_scraped}/{TRAKT_SPECIAL_ITEMS_LIMIT}]")
-                        
-                    except Exception as e:
-                        logging.warning(f"Failed to parse Trakt special list item: {str(e)}")
-                        continue
-                
-                logging.info(f"Processed {items_processed_this_page} items on page {page_number}")
-                
-                # Check if we've reached our limit
-                if total_items_scraped >= TRAKT_SPECIAL_ITEMS_LIMIT:
-                    logging.info(f"Reached target limit of {TRAKT_SPECIAL_ITEMS_LIMIT} items")
-                    break
-                
-                # Look for next page button
-                try:
-                    # Look for the next page button that's not disabled
-                    next_button = sb.find_element(".next a")
-                    if not next_button:
-                        logging.info("No next page button found, reached end of list")
-                        break
-                    
-                    # Check if the next button is actually clickable (not disabled)
-                    next_container = sb.find_element(".next")
-                    if "no-link" in next_container.get_attribute("class"):
-                        logging.info("Next page button is disabled, reached end of list")
-                        break
-                    
-                    logging.info(f"Clicking next page button to go to page {page_number + 1}")
-                    next_button.click()
-                    
-                    # Wait for the new page to load
-                    sb.sleep(3)
-                    page_number += 1
-                    
-                except Exception as e:
-                    logging.info(f"No more pages available or error clicking next: {str(e)}")
-                    break
-            
-            logging.info(f"Special Trakt list fetched successfully. Got {len(media_items)} items across {page_number} pages (target: {TRAKT_SPECIAL_ITEMS_LIMIT}).")
-            return media_items
+        # Parse URL or shortcut to get endpoint
+        endpoint = parse_special_list_url(url_or_shortcut)
         
+        logging.info(f"Fetching special list from endpoint: {endpoint} (limit: {TRAKT_SPECIAL_ITEMS_LIMIT} items)")
+        
+        # Fetch items with pagination
+        page = 1
+        total_items_fetched = 0
+        
+        while total_items_fetched < TRAKT_SPECIAL_ITEMS_LIMIT:
+            # Calculate how many items we need for this page
+            items_needed = TRAKT_SPECIAL_ITEMS_LIMIT - total_items_fetched
+            page_limit = min(items_needed, 100)  # API max is typically 100 per page
+            
+            url = f"{TRAKT_BASE_URL}{endpoint}"
+            params = {
+                "page": page,
+                "limit": page_limit
+            }
+            
+            logging.info(f"Fetching page {page} with limit {page_limit}...")
+            
+            response = requests.get(url, headers=get_trakt_headers(), params=params, timeout=30)
+            response.raise_for_status()
+            
+            items = response.json()
+            
+            if not isinstance(items, list) or len(items) == 0:
+                logging.info(f"No more items available (page {page})")
+                break
+            
+            logging.info(f"Found {len(items)} items on page {page}")
+            
+            # Parse items from this page
+            for item in items:
+                if total_items_fetched >= TRAKT_SPECIAL_ITEMS_LIMIT:
+                    break
+                
+                media = extract_media_from_special_list_item(item, endpoint)
+                if media:
+                    media_items.append({
+                        "title": media["title"],
+                        "media_type": media["media_type"],
+                        "year": media.get("year")
+                    })
+                    total_items_fetched += 1
+                    logging.info(
+                        f"Added {media['media_type']}: {media['title']} ({media.get('year', 'unknown year')}) "
+                        f"[{total_items_fetched}/{TRAKT_SPECIAL_ITEMS_LIMIT}]"
+                    )
+            
+            # Check if we got fewer items than requested (end of list)
+            if len(items) < page_limit:
+                logging.info(f"Reached end of list at page {page}")
+                break
+            
+            page += 1
+        
+        logging.info(
+            f"Special Trakt list fetched successfully. Got {len(media_items)} items "
+            f"(target: {TRAKT_SPECIAL_ITEMS_LIMIT})."
+        )
+        return media_items
+        
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 401:
+            logging.error("Trakt API authentication failed. Please check TRAKT_CLIENT_ID.")
+            raise ValueError("Trakt API authentication failed. Please check your TRAKT_CLIENT_ID.")
+        else:
+            logging.error(f"Trakt API error: {e.response.status_code} - {e.response.text}")
+            raise
     except Exception as e:
         logging.error(f"Error fetching special Trakt list: {str(e)}")
         raise
+
+
+def parse_special_list_url(url_or_shortcut: str) -> str:
+    """
+    Parse special list URL or shortcut to API endpoint.
+    
+    Args:
+        url_or_shortcut (str): URL or shortcut like "trending:movies"
+        
+    Returns:
+        str: API endpoint path (e.g., '/movies/trending')
+        
+    Raises:
+        ValueError: If format is invalid
+    """
+    # Handle shortcut format like "trending:movies"
+    if ':' in url_or_shortcut and not url_or_shortcut.startswith(('http://', 'https://')):
+        parts = url_or_shortcut.split(':')
+        if len(parts) == 2:
+            list_type, media_type = parts
+            
+            # Normalize media type
+            if media_type.lower() in ['movies', 'movie']:
+                return f"/movies/{list_type.lower()}"
+            elif media_type.lower() in ['shows', 'show', 'tv']:
+                return f"/shows/{list_type.lower()}"
+            else:
+                raise ValueError(f"Invalid media type in shortcut: {media_type}")
+        else:
+            raise ValueError(f"Invalid shortcut format: {url_or_shortcut}")
+    
+    # Handle full URLs
+    if url_or_shortcut.startswith(('http://', 'https://')):
+        url = url_or_shortcut.rstrip('/')
+        
+        # Valid patterns for special lists
+        valid_patterns = [
+            # Movies
+            (r'trakt\.tv/movies/(trending|recommendations|streaming|anticipated|popular|favorited|watched|collected|boxoffice)', r'/movies/\1'),
+            # Shows
+            (r'trakt\.tv/shows/(trending|recommendations|streaming|anticipated|popular|favorited|watched|collected)', r'/shows/\1'),
+        ]
+        
+        for pattern, replacement in valid_patterns:
+            match = re.search(pattern, url)
+            if match:
+                return match.expand(replacement)
+        
+        raise ValueError(f"Invalid Trakt special list URL: {url_or_shortcut}")
+    
+    raise ValueError(f"Invalid format: {url_or_shortcut}")
+
+
+def extract_media_from_special_list_item(item: Dict[str, Any], endpoint: str) -> Optional[Dict[str, Any]]:
+    """
+    Extract media information from a special list item.
+    Special lists can have different formats (trending vs popular, etc.)
+    
+    Args:
+        item (Dict[str, Any]): API response item
+        endpoint (str): The API endpoint to help determine format
+        
+    Returns:
+        Optional[Dict[str, Any]]: Normalized media item or None if parsing fails
+    """
+    try:
+        # Determine if this is movies or shows from endpoint
+        is_movie = '/movies/' in endpoint
+        media_key = 'movie' if is_movie else 'show'
+        media_type = 'movie' if is_movie else 'tv'
+        
+        # Some endpoints (like trending) wrap the media object, others don't
+        if media_key in item:
+            # Wrapped format (e.g., trending)
+            media = item[media_key]
+        else:
+            # Direct format (e.g., popular)
+            media = item
+        
+        title = media.get('title')
+        year = media.get('year')
+        ids = media.get('ids', {})
+        
+        if not title:
+            logging.warning(f"No title found in media: {media}")
+            return None
+        
+        return {
+            "title": title,
+            "year": year,
+            "media_type": media_type,
+            "tmdb_id": ids.get('tmdb'),
+            "imdb_id": ids.get('imdb')
+        }
+        
+    except Exception as e:
+        logging.warning(f"Failed to parse special list item: {str(e)}")
+        return None

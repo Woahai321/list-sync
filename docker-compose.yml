@@ -3,13 +3,14 @@ services:
     image: ghcr.io/woahai321/list-sync:main
     container_name: listsync-full
     ports:
-      # Frontend (Next.js Dashboard) 
+      # Frontend (Nuxt 3 Dashboard) 
       - "3222:3222"
       # Backend API (FastAPI)
       - "4222:4222"
     environment:
       # Timezone Configuration (set to Europe/London for BST/GMT, change as needed)
-      - TZ=${TZ:-GMT}
+      # Timezone - Supports: IANA names (Europe/Paris), abbreviations (CET), offsets (UTC+1, GMT-5)
+      - TZ=${TZ:-UTC}
       
       # Overseerr Configuration 
       - OVERSEERR_URL=${OVERSEERR_URL}
@@ -26,13 +27,16 @@ services:
       - MDBLIST_LISTS=${MDBLIST_LISTS}
       - STEVENLU_LISTS=${STEVENLU_LISTS}
       - TRAKT_SPECIAL_LISTS=${TRAKT_SPECIAL_LISTS}
-      - TRAKT_SPECIAL_ITEMS_LIMIT=${TRAKT_SPECIAL_ITEMS_LIMIT}      
+      - TRAKT_SPECIAL_ITEMS_LIMIT=${TRAKT_SPECIAL_ITEMS_LIMIT}
+      
+      # Trakt API Configuration
+      - TRAKT_CLIENT_ID=${TRAKT_CLIENT_ID}      
 
       # Optional Discord webhook
       - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
       
-      # Internal API URL for frontend
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://0.0.0.0:4222/api}
+      # Internal API URL for frontend (Nuxt Nitro proxy handles /api internally)
+      - NUXT_PUBLIC_API_URL=${NUXT_PUBLIC_API_URL:-http://0.0.0.0:4222}
       
       # Docker-specific settings
       - RUNNING_IN_DOCKER=true
@@ -55,5 +59,5 @@ services:
     # Note: Complete ListSync application with:
     # - Core sync service (python -m list_sync)
     # - FastAPI backend (port 4222)
-    # - Next.js frontend (port 3222)
+    # - Nuxt 3 frontend (port 3222)
     # All managed by supervisor for reliability 

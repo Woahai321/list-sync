@@ -111,7 +111,7 @@ def display_banner():
     """Display the application banner."""
     banner = """
 ==============================================================
-Soluify - {servarr-tools_list-sync_v0.5.9}
+Soluify - {servarr-tools_list-sync_v0.6.1}
 ==============================================================
 """
     print(color_gradient(banner, "#00aaff", "#00ffaa"))
@@ -168,7 +168,12 @@ def display_item_status(result: Dict, current_item: int, total_items: int, dry_r
         
         emoji, status_text, start_color, end_color = status_info
         message = f"{result['title']}: {status_text} ({current_item}/{total_items})"
-        print(f"{emoji} {color_gradient(message, start_color, end_color)}\n")
+        print(f"{emoji} {color_gradient(message, start_color, end_color)}")
+        
+        # If there's an error message, log it too for the failures page to pick up
+        if result.get("status") in ["error", "not_found"] and result.get("error_message"):
+            import logging
+            logging.info(f"    └─ {result['error_message']}")
 
 def display_summary(sync_results: SyncResults):
     """Display sync results in a formatted summary."""

@@ -6,6 +6,7 @@ import json
 import logging
 import requests
 from typing import Dict, Any, Tuple, Optional
+from urllib.parse import quote
 
 from ..utils.helpers import calculate_title_similarity, custom_input, color_gradient
 
@@ -94,10 +95,13 @@ class OverseerrClient:
         
         while True:
             try:
-                encoded_query = requests.utils.quote(search_title)
+                # Use quote to properly encode all special characters including forward slashes
+                # quote() encodes spaces as %20 and slashes as %2F (unlike requests.utils.quote which doesn't encode /)
+                encoded_query = quote(search_title, safe='')
                 url = f"{search_url}?query={encoded_query}&page={page}&language=en"
                 
                 logging.debug(f"Searching for '{search_title}' (Year: {release_year})")
+                logging.debug(f"Encoded URL: {url}")
                 response = requests.get(url, headers=self.headers, timeout=10)
                 
                 if response.status_code == 429:

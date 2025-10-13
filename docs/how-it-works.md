@@ -29,10 +29,18 @@ ListSync is a sophisticated automation tool that bridges your watchlists from va
 
 ### 1. Initialization Phase
 
-```
-startup() → ensure_data_directory_exists() → init_database() → init_selenium_driver()
+```mermaid
+flowchart LR
+    A[Startup] --> B[Ensure Data Directory]
+    B --> C[Initialize Database]
+    C --> D[Init Selenium Driver]
+    D --> E[Ready]
+    
+    style A fill:#4CAF50
+    style E fill:#2196F3
 ```
 
+**Process Steps:**
 - Creates necessary directories (`data/`)
 - Initializes SQLite database with required tables:
   - `lists`: Stores configured list information
@@ -42,19 +50,56 @@ startup() → ensure_data_directory_exists() → init_database() → init_seleni
 
 ### 2. Configuration and Authentication
 
-```
-get_credentials() → load_env_config() | load_config() | prompt_user_input()
+```mermaid
+flowchart TD
+    A[Get Credentials] --> B{Environment Variables?}
+    B -->|Yes| C[Load from ENV]
+    B -->|No| D{Encrypted Config?}
+    D -->|Yes| E[Load from File]
+    D -->|No| F[Prompt User Input]
+    C --> G[Validate API Connection]
+    E --> G
+    F --> G
+    G --> H{Connection OK?}
+    H -->|Yes| I[Set Requester User]
+    H -->|No| J[Error: Invalid Config]
+    I --> K[Ready to Sync]
+    
+    style C fill:#4CAF50
+    style E fill:#FF9800
+    style F fill:#2196F3
+    style K fill:#4CAF50
+    style J fill:#f44336
 ```
 
-- **Environment Variables**: Prioritizes Docker/environment-based configuration
+**Configuration Hierarchy:**
+- **Environment Variables**: Prioritizes Docker/environment-based configuration (highest priority)
 - **Encrypted Storage**: Falls back to encrypted local config file using Fernet encryption
-- **Interactive Setup**: Prompts for credentials if none found
+- **Interactive Setup**: Prompts for credentials if none found (lowest priority)
 - **API Validation**: Tests Overseerr connection and sets requester user
 
 ### 3. List Processing Pipeline
 
-```
-fetch_media_from_lists() → [provider_functions] → deduplicate() → return_unique_media
+```mermaid
+flowchart LR
+    A[Fetch Media from Lists] --> B[IMDb Provider]
+    A --> C[Trakt Provider]
+    A --> D[Letterboxd Provider]
+    A --> E[MDBList Provider]
+    A --> F[Steven Lu Provider]
+    
+    B --> G[Collect All Media]
+    C --> G
+    D --> G
+    E --> G
+    F --> G
+    
+    G --> H[Deduplicate by IMDb ID]
+    H --> I[Return Unique Media]
+    
+    style A fill:#4CAF50
+    style G fill:#FF9800
+    style I fill:#2196F3
 ```
 
 #### Provider Registration System
@@ -98,8 +143,34 @@ def fetch_imdb_list(list_id: str) -> List[Dict[str, Any]]:
 
 ### 4. Media Search and Resolution
 
-```
-process_media_item() → search_media() → calculate_similarity() → return_best_match()
+```mermaid
+sequenceDiagram
+    participant P as Process Media
+    participant O as Overseerr API
+    participant M as Match Engine
+    
+    P->>O: Search by Title & Year
+    O-->>P: Return Results (Page 1)
+    
+    loop For Each Result
+        P->>M: Calculate Similarity
+        M->>M: Levenshtein Distance
+        M->>M: Apply Year Multiplier
+        M-->>P: Similarity Score
+    end
+    
+    P->>P: Check if More Pages
+    alt Has More Pages
+        P->>O: Fetch Next Page
+        O-->>P: Return Results (Page N)
+    end
+    
+    P->>P: Select Best Match
+    alt Score > Threshold
+        P-->>P: Return Match (ID + Score)
+    else Score Too Low
+        P-->>P: No Match Found
+    end
 ```
 
 #### Search Algorithm
@@ -124,8 +195,34 @@ min_similarity = 0.5 if exact_year_match else 0.7
 
 ### 5. Request Processing and Status Management
 
-```
-sync_media_to_overseerr() → check_status() → request_if_needed() → track_result()
+```mermaid
+flowchart TD
+    A[Sync Media to Overseerr] --> B[Check Media Status]
+    B --> C{Already Available?}
+    C -->|Yes| D[Mark as Available]
+    C -->|No| E{Already Requested?}
+    E -->|Yes| F[Mark as Requested]
+    E -->|No| G{Media Type?}
+    
+    G -->|Movie| H[Request Movie]
+    G -->|TV| I[Get Season Count]
+    I --> J[Request All Seasons]
+    
+    H --> K[Track Result]
+    J --> K
+    D --> K
+    F --> K
+    
+    K --> L[Save to Database]
+    L --> M{More Items?}
+    M -->|Yes| B
+    M -->|No| N[Sync Complete]
+    
+    style D fill:#4CAF50
+    style F fill:#FF9800
+    style H fill:#2196F3
+    style J fill:#2196F3
+    style N fill:#4CAF50
 ```
 
 #### Status Checking

@@ -18,6 +18,48 @@ This guide helps you diagnose and resolve common issues with ListSync. Follow th
 
 ## 🔍 Quick Diagnostics
 
+### Diagnostic Decision Tree
+
+```mermaid
+flowchart TD
+    Start[Problem with ListSync?] --> CheckType{What's the issue?}
+    
+    CheckType -->|Can't access dashboard| WebIssue[Web Interface Problem]
+    CheckType -->|Sync not working| SyncIssue[Sync Problem]
+    CheckType -->|Can't connect| ConnIssue[Connection Problem]
+    CheckType -->|Slow performance| PerfIssue[Performance Problem]
+    
+    WebIssue --> CheckPort{Port 3222 accessible?}
+    CheckPort -->|No| FixPort[Check port mapping<br/>& firewall]
+    CheckPort -->|Yes| CheckContainer{Container running?}
+    CheckContainer -->|No| StartContainer[Start container:<br/>docker-compose up -d]
+    CheckContainer -->|Yes| CheckLogs[Check frontend logs]
+    
+    SyncIssue --> CheckLists{Lists configured?}
+    CheckLists -->|No| AddLists[Add lists via<br/>web UI or .env]
+    CheckLists -->|Yes| CheckOverseerr{Overseerr connected?}
+    CheckOverseerr -->|No| FixConnection[Fix connection<br/>see Connection Problems]
+    CheckOverseerr -->|Yes| CheckItems[Check for errors<br/>in specific items]
+    
+    ConnIssue --> TestAPI{API responds?}
+    TestAPI -->|No| CheckService[Check if services<br/>are running]
+    TestAPI -->|Yes| CheckCreds{Credentials valid?}
+    CheckCreds -->|No| UpdateCreds[Update API key<br/>and URL in .env]
+    CheckCreds -->|Yes| CheckNetwork[Check network<br/>& firewall settings]
+    
+    PerfIssue --> CheckResources{High resource usage?}
+    CheckResources -->|Yes| OptimizeResources[Reduce sync interval<br/>or list sizes]
+    CheckResources -->|No| CheckDatabase[Check database<br/>for issues]
+    
+    style Start fill:#4CAF50
+    style FixPort fill:#2196F3
+    style StartContainer fill:#2196F3
+    style AddLists fill:#2196F3
+    style FixConnection fill:#FF9800
+    style UpdateCreds fill:#2196F3
+    style OptimizeResources fill:#2196F3
+```
+
 ### Health Check Checklist
 
 Run these quick checks to identify the issue category:
@@ -141,6 +183,42 @@ curl -H "X-Api-Key: your-api-key" http://your-overseerr-url/api/v1/status
 
 ## 🔌 Connection Problems
 
+### Connection Troubleshooting Flowchart
+
+```mermaid
+flowchart TD
+    Start[Cannot Connect to Overseerr] --> TestURL{Can you access<br/>Overseerr URL<br/>in browser?}
+    
+    TestURL -->|No| CheckOverseerr[Overseerr is down<br/>or URL is wrong]
+    TestURL -->|Yes| TestAPI{Does API<br/>endpoint work?}
+    
+    TestAPI -->|No| CheckAPIKey{Is API key valid?}
+    TestAPI -->|Yes| CheckFromContainer{Can container<br/>reach Overseerr?}
+    
+    CheckAPIKey -->|No| GetNewKey[Get new API key from<br/>Overseerr Settings]
+    CheckAPIKey -->|Yes| CheckFormat{Is URL format<br/>correct?}
+    
+    CheckFormat -->|No| FixFormat[Add http:// or https://<br/>Remove trailing slash]
+    CheckFormat -->|Yes| CheckNetwork[Check network<br/>& firewall]
+    
+    CheckFromContainer -->|No| FixDockerNet[Check Docker network<br/>Use container name<br/>or host.docker.internal]
+    CheckFromContainer -->|Yes| Success[Connection OK!<br/>Check other issues]
+    
+    CheckOverseerr --> FixOverseerr[Start Overseerr<br/>Verify URL in .env]
+    GetNewKey --> UpdateEnv[Update .env with<br/>new API key]
+    FixFormat --> UpdateEnv
+    UpdateEnv --> Restart[Restart ListSync<br/>docker-compose restart]
+    FixDockerNet --> Restart
+    CheckNetwork --> ContactAdmin[Contact network admin<br/>or check firewall rules]
+    
+    style Start fill:#f44336
+    style Success fill:#4CAF50
+    style GetNewKey fill:#2196F3
+    style FixFormat fill:#2196F3
+    style FixDockerNet fill:#FF9800
+    style Restart fill:#4CAF50
+```
+
 ### Cannot Connect to Overseerr
 
 **Error Messages**:
@@ -224,6 +302,57 @@ curl -H "X-Api-Key: your-api-key" http://your-overseerr-url/api/v1/status
    ```
 
 ## 🔄 Sync Issues
+
+### Sync Failure Diagnostic
+
+```mermaid
+flowchart TD
+    Start[Sync Not Working] --> CheckStatus{Check sync status<br/>in dashboard}
+    
+    CheckStatus -->|No lists| NoLists[No lists configured]
+    CheckStatus -->|Lists fetching fails| FetchFail[List fetch failure]
+    CheckStatus -->|Items not requesting| RequestFail[Request failure]
+    CheckStatus -->|Everything available| AlreadyAvail[Items already available]
+    
+    NoLists --> AddLists[Add lists via:<br/>1. Web UI Dashboard<br/>2. Environment variables<br/>3. API]
+    
+    FetchFail --> CheckAccess{Can you access<br/>list URL manually?}
+    CheckAccess -->|No| ListPrivate[List is private<br/>or deleted]
+    CheckAccess -->|Yes| CheckFormat{Is list ID<br/>format correct?}
+    CheckFormat -->|No| FixFormat[Check documentation<br/>for correct format]
+    CheckFormat -->|Yes| CheckSelenium[Check Selenium/Chrome<br/>in container logs]
+    
+    RequestFail --> CheckOverseerr{Overseerr<br/>connected?}
+    CheckOverseerr -->|No| FixOverseerr[Fix Overseerr connection<br/>See Connection Problems]
+    CheckOverseerr -->|Yes| CheckMatching{Items found<br/>in Overseerr?}
+    CheckMatching -->|No| MatchingIssue[Title matching issue<br/>Check year/title format]
+    CheckMatching -->|Yes| CheckLogs[Check logs for<br/>specific errors]
+    
+    AlreadyAvail --> VerifyOverseerr[Check items in<br/>Overseerr directly]
+    VerifyOverseerr --> TrueAvail{Actually available?}
+    TrueAvail -->|Yes| Working[Working as expected!<br/>Items already in library]
+    TrueAvail -->|No| ClearCache[Clear cache:<br/>docker-compose restart]
+    
+    ListPrivate --> MakePublic[Make list public<br/>or use different list]
+    FixFormat --> RetrySync[Retry sync operation]
+    CheckSelenium --> RestartContainer[Restart container<br/>to reset Selenium]
+    MatchingIssue --> EnableDebug[Enable debug logging:<br/>LOG_LEVEL=DEBUG]
+    CheckLogs --> FixIssues[Fix specific errors<br/>from logs]
+    ClearCache --> RetrySync
+    
+    AddLists --> RetrySync
+    MakePublic --> RetrySync
+    RestartContainer --> RetrySync
+    EnableDebug --> RetrySync
+    FixIssues --> RetrySync
+    RetrySync --> Success[Sync working!]
+    
+    style Start fill:#FF9800
+    style Success fill:#4CAF50
+    style Working fill:#4CAF50
+    style RetrySync fill:#2196F3
+    style FixOverseerr fill:#f44336
+```
 
 ### Lists Not Being Fetched
 
@@ -482,6 +611,64 @@ curl -H "X-Api-Key: your-api-key" http://your-overseerr-url/api/v1/status
 
 ## 🐳 Docker-Specific Issues
 
+### Docker Troubleshooting Flowchart
+
+```mermaid
+flowchart TD
+    Start[Docker Issue] --> IssueType{What's the problem?}
+    
+    IssueType -->|Won't start| WontStart[Container won't start]
+    IssueType -->|Keeps restarting| Restarting[Container restarts]
+    IssueType -->|Volume issues| VolumeIssue[Volume/data issues]
+    IssueType -->|Network issues| NetworkIssue[Network problems]
+    
+    WontStart --> CheckPort{Port conflict?}
+    CheckPort -->|Yes| ChangePort[Change port in<br/>docker-compose.yml:<br/>8080:3222]
+    CheckPort -->|No| CheckPerms{Permission denied?}
+    CheckPerms -->|Yes| FixPerms[Add user to docker group:<br/>sudo usermod -aG docker $USER]
+    CheckPerms -->|No| CheckImage{Image exists?}
+    CheckImage -->|No| PullImage[Pull image:<br/>docker-compose pull]
+    CheckImage -->|Yes| CheckLogs[Check container logs:<br/>docker-compose logs]
+    
+    Restarting --> CheckExit[Check exit code:<br/>docker-compose ps]
+    CheckExit --> ViewLogs[View container logs:<br/>docker logs listsync-full]
+    ViewLogs --> FixError{Identify error<br/>in logs?}
+    FixError -->|Yes| ApplyFix[Apply specific fix<br/>based on error]
+    FixError -->|No| RunInteractive[Run interactive:<br/>docker-compose up]
+    
+    VolumeIssue --> CheckMount{Volume mounted?}
+    CheckMount -->|No| FixMount[Check docker-compose.yml<br/>volumes section]
+    CheckMount -->|Yes| CheckPermissions{Write permissions?}
+    CheckPermissions -->|No| ChmodData[Fix permissions:<br/>chmod 755 ./data]
+    CheckPermissions -->|Yes| CheckSELinux[Check SELinux:<br/>ls -laZ ./data]
+    
+    NetworkIssue --> CheckNetworking{Can ping host?}
+    CheckNetworking -->|No| FixNetwork[Check Docker network:<br/>docker network inspect]
+    CheckNetworking -->|Yes| CheckDNS{DNS working?}
+    CheckDNS -->|No| FixDNS[Add DNS to<br/>docker-compose.yml]
+    CheckDNS -->|Yes| CheckFirewall[Check firewall rules]
+    
+    ChangePort --> Restart[Restart container:<br/>docker-compose up -d]
+    FixPerms --> Restart
+    PullImage --> Restart
+    CheckLogs --> ApplyFix
+    RunInteractive --> ApplyFix
+    FixMount --> Restart
+    ChmodData --> Restart
+    CheckSELinux --> FixSELinux[Disable SELinux or<br/>add :Z to volume mount]
+    FixSELinux --> Restart
+    FixNetwork --> Restart
+    FixDNS --> Restart
+    CheckFirewall --> OpenPorts[Open required ports:<br/>3222, 4222]
+    OpenPorts --> Restart
+    ApplyFix --> Restart
+    Restart --> Success[Container running!]
+    
+    style Start fill:#FF9800
+    style Success fill:#4CAF50
+    style Restart fill:#2196F3
+```
+
 ### Container Won't Start
 
 **Error Messages**:
@@ -616,7 +803,7 @@ curl -H "X-Api-Key: your-api-key" http://your-overseerr-url/api/v1/status
 
 2. **Clean installation**:
    ```bash
-   cd listsync-web
+   cd listsync-nuxt
    rm -rf node_modules package-lock.json
    npm cache clean --force
    npm install

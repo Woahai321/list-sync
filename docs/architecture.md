@@ -4,41 +4,46 @@ ListSync is a multi-component application designed to automatically synchronize 
 
 ## System Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              ListSync Application                           │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────────────┐  │
-│  │   Core Sync     │    │   FastAPI       │    │   Next.js Frontend      │  │
-│  │   Service       │    │   Backend       │    │   (React 19)            │  │
-│  │   (Python)      │    │   (4222)        │    │   (3222)                │  │
-│  └─────────────────┘    └─────────────────┘    └─────────────────────────┘  │
-│           │                       │                       │                 │
-│           │                       │                       │                 │
-│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────────────┐  │
-│  │   SQLite        │    │   Discord       │    │   Chrome/WebDriver      │  │
-│  │   Database      │    │   Notifications │    │   (Selenium)            │  │
-│  └─────────────────┘    └─────────────────┘    └─────────────────────────┘  │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        External Services & APIs                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
-│  │   IMDb      │  │   Trakt     │  │ Letterboxd  │  │    Overseerr/       │ │
-│  │   Lists     │  │   Lists     │  │   Lists     │  │   Jellyseerr        │ │
-│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────────────┘ │
-│                                                                             │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                          │
-│  │   MDBList   │  │  Steven Lu  │  │   Discord   │                          │
-│  │   Lists     │  │   Lists     │  │   Webhooks  │                          │
-│  └─────────────┘  └─────────────┘  └─────────────┘                          │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph "ListSync Application"
+        CoreSync[Core Sync Service<br/>Python]
+        API[FastAPI Backend<br/>Port 4222]
+        Frontend[Nuxt 3 Frontend<br/>Vue 3<br/>Port 3222]
+        DB[(SQLite<br/>Database)]
+        Discord[Discord<br/>Notifications]
+        Selenium[Chrome/WebDriver<br/>Selenium]
+        
+        CoreSync --> DB
+        CoreSync --> Selenium
+        API --> DB
+        API --> CoreSync
+        Frontend --> API
+        CoreSync --> Discord
+    end
+    
+    subgraph "External Services"
+        IMDb[IMDb Lists]
+        Trakt[Trakt Lists]
+        Letterboxd[Letterboxd Lists]
+        MDBList[MDBList]
+        StevenLu[Steven Lu Lists]
+        Overseerr[Overseerr/Jellyseerr]
+        DiscordWebhook[Discord Webhooks]
+    end
+    
+    Selenium --> IMDb
+    Selenium --> Trakt
+    Selenium --> Letterboxd
+    Selenium --> MDBList
+    CoreSync --> StevenLu
+    CoreSync --> Overseerr
+    Discord --> DiscordWebhook
+    
+    style Frontend fill:#42b883
+    style API fill:#009688
+    style CoreSync fill:#3776ab
+    style DB fill:#003b57
 ```
 
 ## Core Components
@@ -98,25 +103,25 @@ REST API service providing comprehensive system management capabilities.
 - Real-time sync status monitoring
 - Comprehensive error handling
 
-### 4. Next.js Frontend (`listsync-web/`)
+### 4. Nuxt 3 Frontend (`listsync-nuxt/`)
 
-Modern web dashboard built with React 19 and Next.js 15.
+Modern web dashboard built with Vue 3 and Nuxt 3.
 
 **Technology Stack:**
-- **React 19** - Component framework with latest features
-- **Next.js 15** - App Router with server components
+- **Vue 3** - Progressive JavaScript framework
+- **Nuxt 3** - Vue.js framework with server-side rendering
 - **TypeScript** - Type-safe development
 - **Tailwind CSS** - Utility-first styling
-- **Radix UI** - Accessible component primitives
-- **Shadcn/ui** - Modern UI components
+- **Radix Vue** - Accessible component primitives
+- **Shadcn Vue** - Modern UI components
 
 **Dashboard Features:**
-- Real-time sync monitoring
+- Real-time sync monitoring with composables
 - List management interface
 - Analytics and statistics visualization
 - System health monitoring
 - Configuration management
-- Responsive design
+- Responsive design with mobile support
 
 ### 5. Database Layer (`list_sync/database.py`)
 
@@ -187,14 +192,34 @@ graph TD
 ### Web Interface Flow
 
 ```mermaid
-graph TD
-    A[Next.js Frontend] --> B[FastAPI Backend]
-    B --> C[Core Sync Service]
-    C --> D[SQLite Database]
-    B --> E[External APIs]
-    A --> F[Real-time Updates]
-    F --> G[WebSocket/Polling]
-    G --> B
+sequenceDiagram
+    participant User
+    participant Nuxt as Nuxt 3 Frontend
+    participant API as FastAPI Backend
+    participant Core as Core Sync Service
+    participant DB as SQLite Database
+    participant Overseerr
+    
+    User->>Nuxt: Access Dashboard
+    Nuxt->>API: GET /api/system/health
+    API->>DB: Query Status
+    DB-->>API: Return Status
+    API-->>Nuxt: Status Response
+    Nuxt-->>User: Display Dashboard
+    
+    User->>Nuxt: Trigger Sync
+    Nuxt->>API: POST /api/sync/trigger
+    API->>Core: Start Sync Process
+    Core->>DB: Load Lists
+    DB-->>Core: Return Lists
+    Core->>Core: Fetch Media Items
+    Core->>Overseerr: Request Media
+    Overseerr-->>Core: Confirmation
+    Core->>DB: Save Results
+    DB-->>Core: Saved
+    Core-->>API: Sync Complete
+    API-->>Nuxt: Results
+    Nuxt-->>User: Update Display
 ```
 
 ## Deployment Architecture
@@ -205,7 +230,7 @@ The application is containerized using a multi-stage Dockerfile:
 
 **Build Stages:**
 1. **Python Builder** - Poetry dependency resolution
-2. **Node.js Builder** - Next.js application build
+2. **Node.js Builder** - Nuxt 3 application build
 3. **Runtime Image** - Final production image
 
 **Runtime Environment:**
@@ -217,26 +242,46 @@ The application is containerized using a multi-stage Dockerfile:
 
 ### Container Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    ListSync Container                           │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌─────────────────┐    ┌─────────────────┐                     │
-│  │   Supervisor    │────│   Xvfb Display  │                     │
-│  │   (Process Mgr) │    │   (:99)         │                     │
-│  └─────────────────┘    └─────────────────┘                     │
-│           │                                                     │
-│           ├─── Core Sync Service (Python)                       │
-│           ├─── FastAPI Backend (Port 4222)                      │
-│           └─── Next.js Frontend (Port 3222)                     │
-│                                                                 │
-│  ┌─────────────────┐    ┌─────────────────┐                     │
-│  │   Chrome        │    │   SQLite        │                     │
-│  │   WebDriver     │    │   Database      │                     │
-│  └─────────────────┘    └─────────────────┘                     │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph Container["ListSync Docker Container"]
+        Supervisor[Supervisor Process Manager]
+        Xvfb[Xvfb Display :99]
+        
+        subgraph Services["Services"]
+            CoreSync[Core Sync Service<br/>Python]
+            FastAPI[FastAPI Backend<br/>:4222]
+            Nuxt[Nuxt 3 Frontend<br/>:3222]
+        end
+        
+        subgraph Resources["Resources"]
+            Chrome[Chrome WebDriver]
+            SQLite[(SQLite Database<br/>/data)]
+        end
+        
+        Supervisor --> CoreSync
+        Supervisor --> FastAPI
+        Supervisor --> Nuxt
+        Supervisor --> Xvfb
+        
+        CoreSync --> SQLite
+        CoreSync --> Chrome
+        FastAPI --> SQLite
+        Chrome --> Xvfb
+    end
+    
+    subgraph Volumes["Volume Mounts"]
+        DataVol[./data:/usr/src/app/data]
+        EnvVol[./.env:/usr/src/app/.env]
+        LogVol[./logs:/var/log/supervisor]
+    end
+    
+    SQLite -.-> DataVol
+    
+    style Container fill:#e3f2fd
+    style Services fill:#bbdefb
+    style Resources fill:#90caf9
+    style Volumes fill:#fff3e0
 ```
 
 ### Volume Mounts
@@ -280,10 +325,11 @@ Multi-endpoint health checks:
 
 ### Web Performance
 
-- **Server-Side Rendering** - Fast initial page loads
+- **Server-Side Rendering** - Fast initial page loads with Nuxt SSR
 - **Static Generation** - Pre-built pages where possible
-- **Component Optimization** - React 19 optimizations
-- **Bundle Optimization** - Code splitting and lazy loading
+- **Component Optimization** - Vue 3 reactivity and tree-shaking
+- **Bundle Optimization** - Auto code-splitting and lazy loading
+- **Nitro Engine** - Optimized server with built-in caching
 
 ### Database Performance
 
@@ -347,8 +393,8 @@ Multi-endpoint health checks:
 
 ### Frontend Technology
 
-- **React 19** - Latest React features and optimizations
-- **Next.js 15** - Full-stack React framework
+- **Vue 3** - Progressive JavaScript framework with Composition API
+- **Nuxt 3** - Full-stack Vue framework with auto-imports
 - **TypeScript** - Type safety and developer experience
 - **Tailwind CSS** - Utility-first styling approach
 

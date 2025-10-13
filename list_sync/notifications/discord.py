@@ -203,7 +203,7 @@ def send_to_discord_webhook(summary_text, sync_results, webhook_url: Optional[st
         embed.set_timestamp()
         
         # Add footer
-        embed.set_footer(text="Soluify List Sync Tool | v0.5.9")
+        embed.set_footer(text="Soluify List Sync Tool | v0.6.1")
         
         # Add embed to webhook
         webhook.add_embed(embed)

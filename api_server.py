@@ -657,8 +657,9 @@ def parse_failures_from_logs():
     
     # Look for the "Not Found Items" section at the end of sync
     in_not_found_section = False
+    last_error_item = None  # Track last error to attach detail lines
     
-    for line in lines:
+    for i, line in enumerate(lines):
         # Extract timestamp
         timestamp_match = re.match(r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})', line)
         timestamp_str = timestamp_match.group(1) if timestamp_match else None
@@ -689,10 +690,20 @@ def parse_failures_from_logs():
                 continue
             
             # Look for HTTP errors like: "• Star Wars: Andor (2022) (Error: 404 Not Found)"
-            error_match = re.search(r'•\s+(.+?)\s+\(Error:\s+(.+?)\)', line)
+            # Capture everything after "Error:" to get full error message with nested parentheses
+            error_match = re.search(r'•\s+(.+?)\s+\(Error:\s+(.+)$', line)
             if error_match:
                 item_name = error_match.group(1).strip()
                 error_details = error_match.group(2).strip()
+                
+                # Remove trailing closing parenthesis that's part of the log format
+                if error_details.endswith(')'):
+                    # Count parentheses to remove only the outer log format one
+                    open_count = error_details.count('(')
+                    close_count = error_details.count(')')
+                    if close_count > open_count:
+                        error_details = error_details[:-1]
+                
                 failures_data["errors"].append({
                     "name": item_name,
                     "timestamp": timestamp_str,
@@ -717,14 +728,45 @@ def parse_failures_from_logs():
             
             # Check if we already have this item (avoid duplicates)
             if not any(item["name"] == item_name for item in failures_data["not_found"]):
-                failures_data["not_found"].append({
+                new_item = {
                     "name": item_name,
                     "timestamp": timestamp_str,
                     "item_number": item_num,
                     "total_items": total_items,
                     "sync_session": None,
                     "error_details": "Item not found during sync processing"
-                })
+                }
+                failures_data["not_found"].append(new_item)
+                last_error_item = new_item
+        
+        # Pattern: "❌ Item Name: Error (X/Y)"
+        error_realtime = re.search(r'❌\s+(.+?):\s*(?:Error|Failed)\s*\((\d+)/(\d+)\)', line)
+        if error_realtime:
+            item_name = error_realtime.group(1).strip()
+            item_num = int(error_realtime.group(2))
+            total_items = int(error_realtime.group(3))
+            
+            # Check if we already have this item (avoid duplicates)
+            if not any(item["name"] == item_name for item in failures_data["errors"]):
+                new_item = {
+                    "name": item_name,
+                    "timestamp": timestamp_str,
+                    "item_number": item_num,
+                    "total_items": total_items,
+                    "sync_session": None,
+                    "error_details": "Processing error during sync"
+                }
+                failures_data["errors"].append(new_item)
+                last_error_item = new_item
+        
+        # Look for error detail lines that follow error items (format: "    └─ error message")
+        if last_error_item and re.match(r'\s+└─\s+(.+)', line):
+            error_detail_match = re.match(r'\s+└─\s+(.+)', line)
+            if error_detail_match:
+                error_detail = error_detail_match.group(1).strip()
+                # Update the last error item with this detail
+                last_error_item["error_details"] = error_detail
+                last_error_item = None  # Reset after attaching details
     
     # Calculate total failures
     failures_data["total_failures"] = len(failures_data["not_found"]) + len(failures_data["errors"])
@@ -832,6 +874,25 @@ def parse_historic_items_from_logs():
                 # Clean up title
                 title = re.sub(r'\s+', ' ', title).strip()
                 
+                # Extract year from title (look for patterns like "Movie Name (2023)" or "Movie Name 2023")
+                year = None
+                year_patterns = [
+                    r'\((\d{4})\)',  # (2023)
+                    r'\s(\d{4})\s',  # 2023 with spaces
+                    r'\s(\d{4})$',   # 2023 at end
+                ]
+                
+                for pattern in year_patterns:
+                    year_match = re.search(pattern, title)
+                    if year_match:
+                        year = int(year_match.group(1))
+                        # Remove year from title for cleaner display
+                        title = re.sub(pattern, '', title).strip()
+                        # Clean up any double spaces or trailing punctuation
+                        title = re.sub(r'\s+', ' ', title).strip()
+                        title = re.sub(r'\s*,\s*$', '', title)  # Remove trailing comma
+                        break
+                
                 # Determine media type
                 media_type = "movie"  # default
                 tv_indicators = [
@@ -860,6 +921,7 @@ def parse_historic_items_from_logs():
                 item_data = {
                     "id": f"historic-{item_num}-{timestamp_str or 'unknown'}",
                     "title": title,
+                    "year": year,
                     "media_type": media_type,
                     "status": status,
                     "category": category,
@@ -1024,41 +1086,41 @@ def categorize_log_entry(message: str, level: str) -> str:
     
     # Sync operations (patterns 14, 21, 29)
     if any(keyword in message_lower for keyword in [
-        'starting automated sync', 'starting in automated mode', 'sync operation completed'
+        'starting automated sync', 'starting in automated mode', 'sync operation completed',
+        'full sync', 'sync complete'
     ]):
         return 'sync'
     
-    # List fetching operations (patterns 6, 7, 18, 28)
+    # Web scraping operations - IMDb, Letterboxd, MDBList, Trakt (patterns 6, 7, 8, 9, 16, 18, 23, 24, 25, 26, 27, 28)
     elif any(keyword in message_lower for keyword in [
-        'fetching imdb list', 'fetching trakt list', 'fetching special trakt list',
-        'attempting to load url', 'list fetched successfully'
-    ]):
-        return 'fetching'
-    
-    # Item addition operations (patterns 3, 4, 5)
-    elif any(keyword in message_lower for keyword in [
-        'added tv:', 'added movie:'
-    ]):
-        return 'items'
-    
-    # Web scraping operations (patterns 8, 9, 16, 23, 24, 25, 26, 27)
-    elif any(keyword in message_lower for keyword in [
+        'fetching imdb list', 'fetching letterboxd', 'fetching mdblist', 
+        'attempting to load url', 'list fetched successfully',
         'found', 'items using selector', 'processing page', 'trying to find chart',
-        'chart parent found', 'clicking next page', 'processed', 'total items in chart'
+        'chart parent found', 'clicking next page', 'total items in chart',
+        'beautifulsoup', 'selenium', 'scraping'
     ]):
-        return 'scraping'
+        return 'web_scraping'
     
-    # Title matching operations (patterns 10, 11, 12, 20)
+    # API Calls - Overseerr, TMDb, Trakt API (pattern 13, 19)
     elif any(keyword in message_lower for keyword in [
-        'searching for', 'match candidate', 'final match', 'truncated'
-    ]):
-        return 'matching'
+        'overseerr api', 'api connection', 'tmdb', 'detailed response for movie id',
+        'fetching trakt', 'trakt api', 'api request', 'api call',
+        '"id":', 'response for'
+    ]) or ('{' in message and ('"id"' in message or 'tmdbId' in message or 'imdbId' in message)):
+        return 'api_calls'
     
-    # API and connection operations (pattern 13)
+    # Database operations - Title matching, searching (patterns 10, 11, 12, 20)
     elif any(keyword in message_lower for keyword in [
-        'overseerr api connection', 'api connection'
+        'searching for', 'match candidate', 'final match for', 'score:', 
+        'database', 'exact year match', 'close year match'
     ]):
-        return 'api'
+        return 'database'
+    
+    # Item processing operations (patterns 3, 4, 5)
+    elif any(keyword in message_lower for keyword in [
+        'added tv:', 'added movie:', 'processing item', 'requesting'
+    ]):
+        return 'item_processing'
     
     # Webhook and notification operations (patterns 15, 30)
     elif any(keyword in message_lower for keyword in [
@@ -1068,7 +1130,7 @@ def categorize_log_entry(message: str, level: str) -> str:
     
     # Pagination operations (pattern 17)
     elif any(keyword in message_lower for keyword in [
-        'no more pages available'
+        'no more pages available', 'pagination'
     ]):
         return 'pagination'
     
@@ -1077,12 +1139,6 @@ def categorize_log_entry(message: str, level: str) -> str:
         'process pid', 'sigusr1'
     ]):
         return 'process'
-    
-    # Detailed metadata (pattern 19)
-    elif any(keyword in message_lower for keyword in [
-        'detailed response for movie id'
-    ]):
-        return 'metadata'
     
     # Default category
     else:
@@ -1774,37 +1830,20 @@ async def get_sync_stats():
         # Get duplicates from the most recent sync session in logs
         duplicates_in_current_sync = get_duplicates_from_current_sync()
         
-        # Check Docker logs for additional errors that might not be in database
-        additional_errors = 0
+        # Get actual failures from the failures endpoint (same source as /failures page)
         try:
-            log_file_paths = [
-                "logs/listsync-core.log",
-                "/var/log/supervisor/listsync-core.log",
-                "data/list_sync.log"
-            ]
-            
-            for log_path in log_file_paths:
-                if os.path.exists(log_path):
-                    with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
-                        log_content = f.read()
-                        
-                        # Look for HTTP errors in the "Not Found Items" section
-                        # Pattern: "• Title (Error: HTTP status message)"
-                        http_error_pattern = r'•\s+.+?\s+\(Error:\s+\d+\s+.+?\)'
-                        http_errors = re.findall(http_error_pattern, log_content)
-                        additional_errors = len(http_errors)
-                        
-                        if additional_errors > 0:
-                            print(f"DEBUG - Found {additional_errors} additional HTTP errors in logs")
-                        break
+            failures = parse_failures_from_logs()
+            log_based_errors = failures["total_failures"]
+            print(f"DEBUG - Found {log_based_errors} failures from logs (same as /failures page)")
         except Exception as e:
-            print(f"DEBUG - Could not check logs for additional errors: {e}")
+            print(f"DEBUG - Could not parse failures from logs: {e}")
+            log_based_errors = error_count
         
         # Calculate simplified metrics
         total_processed = len(unique_items)
         successful_items = newly_requested_count + already_requested_count + available_count + skipped_count  # All non-error items
         total_requested = newly_requested_count  # Only items actually requested during this sync
-        total_errors = error_count + additional_errors  # Include both database errors and log-detected HTTP errors
+        total_errors = log_based_errors  # Use same count as /failures page for consistency
         
         # Success rate based on non-error items
         success_rate = (successful_items / total_processed * 100) if total_processed > 0 else 0
@@ -1815,7 +1854,7 @@ async def get_sync_stats():
         print(f"  Successful: {successful_items} (newly requested: {newly_requested_count}, already requested: {already_requested_count}, available: {available_count}, skipped: {skipped_count})")
         print(f"  Total Requested (NEW): {total_requested}")
         print(f"  Already Requested: {already_requested_count}")
-        print(f"  Errors: {total_errors} (database: {error_count}, additional: {additional_errors})")
+        print(f"  Errors: {total_errors} (from logs, same as /failures page)")
         print(f"  Success Rate: {success_rate:.1f}%")
         print(f"  Duplicates in current sync: {duplicates_in_current_sync}")
         
@@ -1837,8 +1876,7 @@ async def get_sync_stats():
                 "already_requested": already_requested_count,
                 "available": available_count,
                 "skipped": skipped_count,
-                "errors": error_count,
-                "additional_errors": additional_errors
+                "errors": log_based_errors  # Use log-based errors for consistency with /failures
             }
         }
     except Exception as e:
@@ -2118,20 +2156,32 @@ async def get_lists():
 
 @app.post("/api/lists")
 async def add_list(list_add: ListAdd):
-    """Add new list with URL generation"""
+    """Add new list with URL generation and auto-detection of special Trakt lists"""
     try:
         # Import the construct_list_url function
         from list_sync.utils.helpers import construct_list_url
         
+        list_type = list_add.list_type
+        list_id = list_add.list_id
+        
+        # Auto-detect special Trakt lists (trending:movies, popular:shows, etc.)
+        if list_type == "trakt" and ':' in list_id:
+            parts = list_id.split(':')
+            if len(parts) == 2:
+                category, media_type = parts
+                if media_type.lower() in ['movies', 'movie', 'shows', 'show', 'tv']:
+                    list_type = "trakt_special"
+                    logging.info(f"Auto-detected special Trakt list: {list_id}")
+        
         # Generate the URL for the list
-        list_url = construct_list_url(list_add.list_type, list_add.list_id)
+        list_url = construct_list_url(list_type, list_id)
         
         # Save with the generated URL and default item count of 0
-        save_list_id(list_add.list_id, list_add.list_type, list_url, item_count=0)
+        save_list_id(list_id, list_type, list_url, item_count=0)
         
         return {
             "success": True,
-            "message": f"Added {list_add.list_type} list: {list_add.list_id}",
+            "message": f"Added {list_type} list: {list_id}",
             "list_url": list_url,
             "item_count": 0
         }
@@ -2643,12 +2693,32 @@ async def get_failures(
         for item in failures["not_found"]:
             item_with_type = item.copy()
             item_with_type["failure_type"] = "not_found"
+            # Map 'name' to 'title' for frontend compatibility
+            if "name" in item_with_type and "title" not in item_with_type:
+                item_with_type["title"] = item_with_type["name"]
+            # Add missing fields for frontend
+            item_with_type["media_type"] = item_with_type.get("media_type", "movie")
+            item_with_type["year"] = item_with_type.get("year")
+            item_with_type["error_type"] = "not_found"
+            item_with_type["error_message"] = item_with_type.get("error_details", "Not found in database")
+            item_with_type["retryable"] = False
+            item_with_type["failed_at"] = item_with_type.get("timestamp", "")
             all_failures.append(item_with_type)
         
         # Add error items
         for item in failures["errors"]:
             item_with_type = item.copy()
             item_with_type["failure_type"] = "error"
+            # Map 'name' to 'title' for frontend compatibility
+            if "name" in item_with_type and "title" not in item_with_type:
+                item_with_type["title"] = item_with_type["name"]
+            # Add missing fields for frontend
+            item_with_type["media_type"] = item_with_type.get("media_type", "movie")
+            item_with_type["year"] = item_with_type.get("year")
+            item_with_type["error_type"] = "error"
+            item_with_type["error_message"] = item_with_type.get("error_details", "Processing error")
+            item_with_type["retryable"] = True
+            item_with_type["failed_at"] = item_with_type.get("timestamp", "")
             all_failures.append(item_with_type)
         
         # Apply filters BEFORE pagination
@@ -2659,7 +2729,7 @@ async def get_failures(
             search_term = search.strip().lower()
             filtered_failures = [
                 item for item in filtered_failures 
-                if search_term in item["title"].lower()
+                if search_term in item.get("title", item.get("name", "")).lower()
             ]
         
         # Failure type filter
@@ -2748,6 +2818,20 @@ async def get_processed_items(
         # Enrich with database information for Overseerr/IMDb links
         all_items = enrich_historic_data_with_database(all_items)
         
+        # Get Overseerr base URL for generating item links
+        try:
+            overseerr_base_url, _, _, _, _, _ = load_env_config()
+            overseerr_base_url = overseerr_base_url.rstrip('/') if overseerr_base_url else None
+        except:
+            overseerr_base_url = None
+        
+        # Add overseerr_url to items
+        for item in all_items:
+            if overseerr_base_url and item.get('overseerr_id'):
+                item['overseerr_url'] = f"{overseerr_base_url}/{item['media_type']}/{item['overseerr_id']}"
+            else:
+                item['overseerr_url'] = None
+        
         # Apply filters BEFORE pagination
         filtered_items = all_items
         
@@ -2822,6 +2906,20 @@ async def get_successful_items(
         # Enrich with database information for Overseerr/IMDb links
         all_items = enrich_historic_data_with_database(all_items)
         
+        # Get Overseerr base URL for generating item links
+        try:
+            overseerr_base_url, _, _, _, _, _ = load_env_config()
+            overseerr_base_url = overseerr_base_url.rstrip('/') if overseerr_base_url else None
+        except:
+            overseerr_base_url = None
+        
+        # Add overseerr_url to items
+        for item in all_items:
+            if overseerr_base_url and item.get('overseerr_id'):
+                item['overseerr_url'] = f"{overseerr_base_url}/{item['media_type']}/{item['overseerr_id']}"
+            else:
+                item['overseerr_url'] = None
+        
         # Apply filters BEFORE pagination
         filtered_items = all_items
         
@@ -2856,10 +2954,16 @@ async def get_successful_items(
         # Get paginated items from filtered results
         paginated_items = filtered_items[start:end]
         
+        # Calculate media type counts from ALL filtered items (not just current page)
+        movie_count = sum(1 for item in filtered_items if item.get("media_type") == "movie")
+        tv_count = sum(1 for item in filtered_items if item.get("media_type") == "tv")
+        
         return {
             "items": paginated_items,
             "total_count": historic_data["total_unique_successful"],
             "filtered_count": total_items,  # Count after filtering
+            "movie_count": movie_count,  # Total movies in filtered results
+            "tv_count": tv_count,  # Total TV shows in filtered results
             "sync_sessions": historic_data["sync_sessions"],
             "log_file_exists": historic_data["log_file_exists"],
             "filters": {
@@ -2957,9 +3061,22 @@ async def get_requested_items(
         
         conn.close()
         
+        # Get Overseerr base URL for generating item links
+        try:
+            overseerr_base_url, _, _, _, _, _ = load_env_config()
+            overseerr_base_url = overseerr_base_url.rstrip('/') if overseerr_base_url else None
+        except:
+            overseerr_base_url = None
+        
         formatted_items = []
         for item in items:
             item_id, title, media_type, imdb_id, overseerr_id, status, last_synced = item
+            
+            # Generate Overseerr URL if we have the base URL and overseerr_id
+            overseerr_url = None
+            if overseerr_base_url and overseerr_id:
+                overseerr_url = f"{overseerr_base_url}/{media_type}/{overseerr_id}"
+            
             formatted_items.append({
                 "id": item_id,
                 "title": title,
@@ -2968,7 +3085,8 @@ async def get_requested_items(
                 "overseerr_id": overseerr_id,
                 "status": status,
                 "timestamp": last_synced,
-                "action": "Requested"  # Since we only show 'requested' status now
+                "action": "Requested",  # Since we only show 'requested' status now
+                "overseerr_url": overseerr_url
             })
         
         return {
@@ -4270,8 +4388,179 @@ async def get_overseerr_config():
             "error": f"Configuration error: {str(e)}"
         }
 
+@app.get("/api/settings/config")
+async def get_settings():
+    """Get all application settings for the settings page"""
+    try:
+        # Load environment configuration
+        config_tuple = load_env_config()
+        overseerr_url, overseerr_api_key, user_id, sync_interval, automated_mode, is_4k = config_tuple
+        
+        # Get Discord webhook from environment
+        discord_webhook = os.getenv('DISCORD_WEBHOOK_URL', '')
+        
+        # Get timezone from environment
+        timezone = os.getenv('TZ', 'UTC')
+        
+        return {
+            "overseerr_url": overseerr_url or '',
+            "overseerr_api_key": overseerr_api_key or '',
+            "overseerr_user_id": user_id or '1',
+            "overseerr_4k": is_4k,
+            "sync_interval": sync_interval,
+            "auto_sync": automated_mode,
+            "timezone": timezone,
+            "discord_webhook": discord_webhook,
+            "discord_enabled": bool(discord_webhook)
+        }
+    except Exception as e:
+        logging.error(f"Error loading settings: {e}")
+        return {
+            "overseerr_url": '',
+            "overseerr_api_key": '',
+            "overseerr_user_id": '1',
+            "overseerr_4k": False,
+            "sync_interval": 24,
+            "auto_sync": True,
+            "timezone": 'UTC',
+            "discord_webhook": '',
+            "discord_enabled": False
+        }
+
+@app.post("/api/settings/config")
+async def update_settings(settings: dict):
+    """
+    Update application settings.
+    Note: These are stored in environment variables, so changes require container restart.
+    In production, consider database-backed config.
+    """
+    try:
+        # For now, return a message that settings need to be updated in .env
+        # In a real production app, you'd store these in a database
+        return {
+            "success": True,
+            "message": "Settings received. Please update your .env file and restart the container for changes to take effect.",
+            "note": "Runtime configuration updates require database-backed settings (planned feature)"
+        }
+    except Exception as e:
+        logging.error(f"Error updating settings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/notifications/test")
+async def test_discord_notification(payload: dict = None):
+    """Send a test Discord notification to verify webhook configuration"""
+    try:
+        # Get Discord webhook URL from request body or environment
+        webhook_url = None
+        if payload and 'webhook_url' in payload:
+            webhook_url = payload['webhook_url']
+        
+        if not webhook_url:
+            webhook_url = os.getenv('DISCORD_WEBHOOK_URL', '')
+        
+        if not webhook_url:
+            raise HTTPException(
+                status_code=400, 
+                detail="Discord webhook URL is required. Please provide a webhook URL or set DISCORD_WEBHOOK_URL in your environment variables."
+            )
+        
+        # Try to use the discord-webhook library if available
+        try:
+            from discord_webhook import DiscordWebhook, DiscordEmbed
+            from datetime import datetime
+            
+            # Create webhook instance
+            webhook = DiscordWebhook(url=webhook_url, username="ListSync Test")
+            
+            # Create embed with test message
+            current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            embed = DiscordEmbed(
+                title="🧪 Discord Integration Test",
+                description="If you see this message, Discord notifications are working correctly! ✅",
+                color=10181046  # Purple color
+            )
+            
+            embed.add_embed_field(
+                name="Test Time",
+                value=current_time,
+                inline=True
+            )
+            
+            embed.add_embed_field(
+                name="Status",
+                value="✅ Connected",
+                inline=True
+            )
+            
+            embed.set_footer(text="ListSync Notification System")
+            embed.set_timestamp()
+            
+            # Add embed to webhook
+            webhook.add_embed(embed)
+            
+            # Send webhook
+            response = webhook.execute()
+            
+            return {
+                "success": True,
+                "message": "Test notification sent successfully! Check your Discord channel.",
+                "timestamp": current_time
+            }
+            
+        except ImportError:
+            # Fallback to using requests directly
+            from datetime import datetime
+            current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            payload = {
+                "content": "🧪 **Test Notification from ListSync**",
+                "embeds": [{
+                    "title": "Discord Integration Test",
+                    "description": "If you see this message, Discord notifications are working correctly! ✅",
+                    "color": 10181046,
+                    "fields": [
+                        {
+                            "name": "Test Time",
+                            "value": current_time,
+                            "inline": True
+                        },
+                        {
+                            "name": "Status",
+                            "value": "✅ Connected",
+                            "inline": True
+                        }
+                    ],
+                    "footer": {
+                        "text": "ListSync Notification System"
+                    },
+                    "timestamp": datetime.utcnow().isoformat()
+                }]
+            }
+            
+            response = requests.post(webhook_url, json=payload, timeout=10)
+            response.raise_for_status()
+            
+            return {
+                "success": True,
+                "message": "Test notification sent successfully! Check your Discord channel.",
+                "timestamp": current_time
+            }
+        
+    except requests.exceptions.Timeout:
+        raise HTTPException(status_code=504, detail="Discord webhook request timed out")
+    except requests.exceptions.RequestException as e:
+        error_msg = f"Failed to send Discord notification: {str(e)}"
+        if hasattr(e, 'response') and e.response is not None:
+            error_msg += f" (Status: {e.response.status_code})"
+        raise HTTPException(status_code=500, detail=error_msg)
+    except Exception as e:
+        import traceback
+        error_detail = f"Failed to send test notification: {str(e)}\n{traceback.format_exc()}"
+        logging.error(error_detail)
+        raise HTTPException(status_code=500, detail=f"Failed to send test notification: {str(e)}")
+
 def enrich_historic_data_with_database(historic_items):
-    """Enrich historic log data with database fields (overseerr_id, imdb_id)"""
+    """Enrich historic log data with database fields (overseerr_id, imdb_id, year, media_type)"""
     if not os.path.exists(DB_FILE):
         return historic_items
     
@@ -4279,45 +4568,759 @@ def enrich_historic_data_with_database(historic_items):
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
         
-        # Get all database items with their IDs
-        cursor.execute("SELECT title, media_type, imdb_id, overseerr_id, status FROM synced_items")
-        db_items = cursor.fetchall()
+        # Get all database items with their IDs and year
+        try:
+            cursor.execute("SELECT title, media_type, imdb_id, overseerr_id, status, year FROM synced_items")
+            db_items = cursor.fetchall()
+        except sqlite3.OperationalError as e:
+            # If year column doesn't exist, try without it
+            print(f"Warning: Could not fetch year from database: {e}")
+            cursor.execute("SELECT title, media_type, imdb_id, overseerr_id, status FROM synced_items")
+            db_items_without_year = cursor.fetchall()
+            # Convert to format with year=None
+            db_items = [(title, media_type, imdb_id, overseerr_id, status, None) 
+                       for title, media_type, imdb_id, overseerr_id, status in db_items_without_year]
+        
         conn.close()
         
-        # Create a lookup dictionary for database items
+        # Create lookup dictionaries for database items
+        # Try both possible media types since log parsing might be wrong
         db_lookup = {}
-        for title, media_type, imdb_id, overseerr_id, status in db_items:
+        db_lookup_by_title = {}  # Fallback lookup by title only
+        
+        for title, media_type, imdb_id, overseerr_id, status, year in db_items:
             key = f"{title.lower().strip()}_{media_type}"
+            title_key = title.lower().strip()
+            
             if key not in db_lookup:
                 db_lookup[key] = {
+                    "media_type": media_type,
                     "imdb_id": imdb_id,
                     "overseerr_id": overseerr_id,
-                    "db_status": status
+                    "db_status": status,
+                    "year": year
                 }
+            
+            # Store by title only as fallback (prefer more recent entries)
+            if title_key not in db_lookup_by_title:
+                db_lookup_by_title[title_key] = {
+                    "media_type": media_type,
+                    "imdb_id": imdb_id,
+                    "overseerr_id": overseerr_id,
+                    "db_status": status,
+                    "year": year
+                }
+        
+        print(f"DEBUG: Loaded {len(db_lookup)} items from database, sample years: {[v['year'] for v in list(db_lookup.values())[:5]]}")
         
         # Enrich historic items with database information
         for item in historic_items:
             lookup_key = f"{item['title'].lower().strip()}_{item['media_type']}"
+            title_only_key = item['title'].lower().strip()
+            
+            db_data = None
+            
+            # First try exact match (title + media_type)
             if lookup_key in db_lookup:
                 db_data = db_lookup[lookup_key]
+            # Fallback to title-only match (media_type might be wrong from log parsing)
+            elif title_only_key in db_lookup_by_title:
+                db_data = db_lookup_by_title[title_only_key]
+                print(f"DEBUG: Using title-only match for '{item['title']}': log={item['media_type']}, db={db_data['media_type']}")
+            
+            if db_data:
+                # Use database media_type as the authoritative source
+                item['media_type'] = db_data['media_type']
                 item['imdb_id'] = db_data['imdb_id']
                 item['overseerr_id'] = db_data['overseerr_id']
                 item['db_status'] = db_data['db_status']
+                # Use database year if available (it's more reliable than log parsing)
+                if db_data['year']:
+                    item['year'] = db_data['year']
             else:
                 item['imdb_id'] = None
                 item['overseerr_id'] = None
                 item['db_status'] = None
+                # Keep the media_type and year from log parsing if no database match
         
         return historic_items
         
     except Exception as e:
         print(f"Error enriching historic data with database: {e}")
+        import traceback
+        traceback.print_exc()
         # Return original data if enrichment fails
         for item in historic_items:
-            item['imdb_id'] = None
-            item['overseerr_id'] = None
-            item['db_status'] = None
+            if not item.get('imdb_id'):
+                item['imdb_id'] = None
+            if not item.get('overseerr_id'):
+                item['overseerr_id'] = None
+            if not item.get('db_status'):
+                item['db_status'] = None
         return historic_items
+
+
+# ==========================================
+# SYNC HISTORY - Log Parser
+# ==========================================
+
+from dataclasses import dataclass, field, asdict
+from enum import Enum
+
+class SyncType(Enum):
+    FULL = "full"
+    SINGLE = "single"
+
+class ItemStatus(Enum):
+    REQUESTED = "requested"
+    ALREADY_AVAILABLE = "already_available"
+    ALREADY_REQUESTED = "already_requested"
+    SKIPPED = "skipped"
+    NOT_FOUND = "not_found"
+    ERROR = "error"
+
+@dataclass
+class SyncList:
+    """Represents a list that was synced."""
+    type: str
+    id: str
+    url: Optional[str] = None
+    item_count: int = 0
+
+@dataclass
+class SyncItem:
+    """Represents an individual item processed during sync."""
+    title: str
+    status: str
+    progress_number: int
+    progress_total: int
+    timestamp: str
+    year: Optional[int] = None
+    media_type: str = "movie"
+    error_details: Optional[str] = None
+
+@dataclass
+class SyncResults:
+    """Results summary for a sync session."""
+    requested: int = 0
+    already_available: int = 0
+    already_requested: int = 0
+    skipped: int = 0
+    not_found: int = 0
+    error: int = 0
+
+@dataclass
+class SyncSession:
+    """Complete sync session data."""
+    id: str
+    type: SyncType
+    start_timestamp: str
+    end_timestamp: Optional[str] = None
+    duration: Optional[float] = None
+    version: Optional[str] = None
+    total_items: int = 0
+    processed_items: int = 0
+    lists: List[SyncList] = field(default_factory=list)
+    results: SyncResults = field(default_factory=SyncResults)
+    items: List[SyncItem] = field(default_factory=list)
+    errors: List[Dict[str, str]] = field(default_factory=list)
+    not_found_items: List[str] = field(default_factory=list)
+    average_time_ms: Optional[float] = None
+    total_time_seconds: Optional[float] = None
+    status: str = "in_progress"
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        data = asdict(self)
+        data['type'] = self.type.value
+        return data
+
+class SyncLogParser:
+    """Parser for sync log files."""
+    
+    # Patterns for detecting log elements
+    TIMESTAMP_PATTERN = r'^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})'
+    
+    # Session markers
+    FULL_SYNC_START = r'📊\s+Total unique media items ready for sync:\s*(\d+)'
+    SINGLE_SYNC_START = r'🎯\s+Single List Sync:\s*(.+)'
+    SYNC_SUMMARY_START = r'(Soluify - List Sync Summary|={50,})'
+    SYNC_SUMMARY_DASHES = r'^[-─═]{50,}$'
+    SINGLE_SYNC_COMPLETE = r'✅\s+Single list sync completed:\s*(\d+)\s*requested,\s*(\d+)\s*errors'
+    # Pattern to detect "Not Found Items" section header (optional - only if there are failures)
+    NOT_FOUND_SECTION = r'Not Found Items \((\d+)\)'
+    # Single sync completion is very explicit
+    SYNC_COMPLETED = r'✅\s+Single list sync completed'
+    
+    # List fetching
+    LIST_FETCH_START = r'🔍\s+Fetching items from (\w+) list:\s+(.+?)\.\.\.?$'
+    LIST_FETCH_SUCCESS = r'✅\s+Found (\d+) items in (\w+) list:\s+(.+?)$'
+    
+    # Processing
+    PROCESSING_START = r'🎬\s+Processing (\d+) media items'
+    
+    # Item status patterns with emojis
+    ITEM_PATTERNS = [
+        (r'✅\s+(.+?):\s*(?:Successfully\s+)?Requested\s*\((\d+)/(\d+)\)', ItemStatus.REQUESTED.value),
+        (r'☑️\s+(.+?):\s*Already Available\s*\((\d+)/(\d+)\)', ItemStatus.ALREADY_AVAILABLE.value),
+        (r'📌\s+(.+?):\s*Already Requested\s*\((\d+)/(\d+)\)', ItemStatus.ALREADY_REQUESTED.value),
+        (r'⏭️\s+(.+?):\s*Skipped\s*\((\d+)/(\d+)\)', ItemStatus.SKIPPED.value),
+        (r'❓\s+(.+?):\s*Not Found\s*\((\d+)/(\d+)\)', ItemStatus.NOT_FOUND.value),
+        (r'❌\s+(.+?):\s*(?:Error|Failed)\s*\((\d+)/(\d+)\)', ItemStatus.ERROR.value),
+    ]
+    
+    # Summary patterns
+    TOTAL_TIME_PATTERN = r'Total Time:\s*(\d+)m\s*(\d+)s'
+    AVG_TIME_PATTERN = r'Avg Time:\s*([\d.]+)ms/item'
+    RESULT_PATTERN = r'[✅☑️📌⏭️❌]\s*(\w+(?:\s+\w+)?):\s*(\d+)'
+    MEDIA_TYPE_PATTERN = r'(Movies|TV Shows):\s*(\d+)\s*\(([\d.]+)%\)'
+    SYNCED_LIST_PATTERN = r'📋\s+(\w+):\s+(https?://\S+)'
+    NOT_FOUND_ITEM_PATTERN = r'•\s+(.+?)\s*\((Error:|Not Found)'
+    
+    # Version
+    VERSION_PATTERN = r'Soluify\s*-\s*\{(.+?)\}'
+    
+    def __init__(self):
+        self.sessions: List[SyncSession] = []
+    
+    def extract_timestamp(self, line: str) -> Optional[str]:
+        """Extract timestamp from log line."""
+        match = re.match(self.TIMESTAMP_PATTERN, line)
+        if match:
+            try:
+                dt = datetime.strptime(match.group(1), '%Y-%m-%d %H:%M:%S')
+                return dt.isoformat()
+            except:
+                return None
+        return None
+    
+    def detect_session_start(self, line: str) -> Optional[tuple]:
+        """Detect if line marks start of a sync session."""
+        full_match = re.search(self.FULL_SYNC_START, line)
+        if full_match:
+            return (SyncType.FULL, {'total_items': int(full_match.group(1))})
+        
+        single_match = re.search(self.SINGLE_SYNC_START, line)
+        if single_match:
+            # Capture everything after "Single List Sync:"
+            list_info = single_match.group(1).strip()
+            
+            # Try to parse as TYPE:ID format, but accept any format
+            if ':' in list_info:
+                parts = list_info.split(':', 1)
+                list_type = parts[0].strip()
+                list_id = parts[1].strip()
+            else:
+                # If no colon, use the whole string as list_id
+                list_type = 'UNKNOWN'
+                list_id = list_info
+            
+            return (SyncType.SINGLE, {'list_type': list_type, 'list_id': list_id})
+        
+        return None
+    
+    def detect_session_end(self, line: str, session_type: SyncType) -> bool:
+        """Detect if line marks end of a sync session."""
+        # Check for single sync explicit completion
+        if re.search(self.SYNC_COMPLETED, line):
+            return True
+            
+        if session_type == SyncType.FULL:
+            # Full sync ALWAYS ends with the summary section
+            # "Soluify - List Sync Summary" or the dashed line separator
+            return bool(re.search(self.SYNC_SUMMARY_START, line) or 
+                       re.search(self.SYNC_SUMMARY_DASHES, line))
+        else:  # SINGLE
+            return bool(re.search(self.SINGLE_SYNC_COMPLETE, line))
+    
+    def parse_list_fetch(self, line: str) -> Optional[tuple]:
+        """Parse list fetching line."""
+        fetch_match = re.search(self.LIST_FETCH_START, line)
+        if fetch_match:
+            return (fetch_match.group(1), fetch_match.group(2), None)
+        
+        success_match = re.search(self.LIST_FETCH_SUCCESS, line)
+        if success_match:
+            return (success_match.group(2), success_match.group(3), int(success_match.group(1)))
+        
+        return None
+    
+    def parse_item_status(self, line: str, timestamp: str) -> Optional[SyncItem]:
+        """Parse an item processing line."""
+        for pattern, status in self.ITEM_PATTERNS:
+            match = re.search(pattern, line)
+            if match:
+                title = match.group(1).strip()
+                progress_num = int(match.group(2))
+                progress_total = int(match.group(3))
+                
+                # Extract year from title
+                year = None
+                year_match = re.search(r'\((\d{4})\)|\s(\d{4})$', title)
+                if year_match:
+                    year = int(year_match.group(1) or year_match.group(2))
+                    title = re.sub(r'\s*\(?\d{4}\)?$', '', title).strip()
+                
+                # Extract error details for error status
+                error_details = None
+                if status == ItemStatus.ERROR.value:
+                    error_match = re.search(r'Error:\s*(.+)$', line)
+                    if error_match:
+                        error_details = error_match.group(1).strip()
+                
+                return SyncItem(
+                    title=title,
+                    status=status,
+                    progress_number=progress_num,
+                    progress_total=progress_total,
+                    timestamp=timestamp,
+                    year=year,
+                    error_details=error_details
+                )
+        
+        return None
+    
+    def parse_log_file(self, log_path: str) -> List[SyncSession]:
+        """Parse entire log file and extract all sync sessions."""
+        try:
+            with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
+                lines = f.readlines()
+        except Exception as e:
+            print(f"Error reading log file: {e}")
+            return []
+        
+        sessions = []
+        current_session: Optional[SyncSession] = None
+        current_lists: Dict[str, SyncList] = {}
+        summary_lines: List[str] = []
+        in_summary = False
+        last_timestamp_in_session: Optional[str] = None
+        
+        for i, line in enumerate(lines):
+            line = line.strip()
+            if not line:
+                continue
+            
+            timestamp = self.extract_timestamp(line)
+            
+            # Strip timestamp from line content for pattern matching
+            line_content = line
+            if timestamp:
+                # Remove the timestamp prefix (format: "YYYY-MM-DD HH:MM:SS ")
+                line_content = re.sub(self.TIMESTAMP_PATTERN, '', line).strip()
+            
+            # Track last timestamp for current session (but don't set as end yet)
+            if current_session and timestamp:
+                last_timestamp_in_session = timestamp
+            
+            # Detect session start
+            session_start = self.detect_session_start(line_content)
+            if session_start:
+                # Save previous session if exists
+                if current_session:
+                    # Calculate duration before saving
+                    if current_session.start_timestamp and current_session.end_timestamp:
+                        try:
+                            start = datetime.fromisoformat(current_session.start_timestamp)
+                            end = datetime.fromisoformat(current_session.end_timestamp)
+                            current_session.duration = (end - start).total_seconds()
+                        except:
+                            pass
+                    
+                    current_session.status = "completed"
+                    current_session.processed_items = len(current_session.items)
+                    sessions.append(current_session)
+                
+                # Start new session
+                session_type, metadata = session_start
+                session_id = f"sync_{timestamp}_{session_type.value}"
+                
+                current_session = SyncSession(
+                    id=session_id,
+                    type=session_type,
+                    start_timestamp=timestamp or datetime.now().isoformat(),
+                    total_items=metadata.get('total_items', 0)
+                )
+                
+                current_lists = {}
+                in_summary = False
+                summary_lines = []
+                last_timestamp_in_session = timestamp
+                continue
+            
+            if not current_session:
+                continue
+            
+            # Extract version
+            if not current_session.version:
+                version_match = re.search(self.VERSION_PATTERN, line_content)
+                if version_match:
+                    current_session.version = version_match.group(1)
+            
+            # Parse processing start to get total items for single syncs
+            processing_match = re.search(self.PROCESSING_START, line_content)
+            if processing_match and current_session.type == SyncType.SINGLE:
+                total_items = int(processing_match.group(1))
+                current_session.total_items = total_items
+                print(f"DEBUG - Single sync total items: {total_items}")
+            
+            # Parse list fetching
+            list_info = self.parse_list_fetch(line_content)
+            if list_info:
+                list_type, list_id, item_count = list_info
+                
+                list_key = f"{list_type}:{list_id}"
+                if list_key not in current_lists:
+                    current_lists[list_key] = SyncList(
+                        type=list_type,
+                        id=list_id,
+                        item_count=0
+                    )
+                
+                if item_count is not None:
+                    current_lists[list_key].item_count = item_count
+                    if current_lists[list_key] not in current_session.lists:
+                        current_session.lists.append(current_lists[list_key])
+            
+            # Parse item status
+            item = self.parse_item_status(line_content, timestamp or datetime.now().isoformat())
+            if item:
+                current_session.items.append(item)
+                if current_session.type == SyncType.SINGLE:
+                    print(f"DEBUG - Parsed item {len(current_session.items)}: {item.title} ({item.status})")
+                
+                # Update results
+                if item.status == ItemStatus.REQUESTED.value:
+                    current_session.results.requested += 1
+                elif item.status == ItemStatus.ALREADY_AVAILABLE.value:
+                    current_session.results.already_available += 1
+                elif item.status == ItemStatus.ALREADY_REQUESTED.value:
+                    current_session.results.already_requested += 1
+                elif item.status == ItemStatus.SKIPPED.value:
+                    current_session.results.skipped += 1
+                elif item.status == ItemStatus.NOT_FOUND.value:
+                    current_session.results.not_found += 1
+                elif item.status == ItemStatus.ERROR.value:
+                    current_session.results.error += 1
+                    current_session.errors.append({
+                        'title': item.title,
+                        'error': item.error_details or 'Unknown error',
+                        'timestamp': item.timestamp
+                    })
+            
+            # Detect summary section start
+            if re.search(self.SYNC_SUMMARY_START, line_content) or re.search(self.SYNC_SUMMARY_DASHES, line_content):
+                in_summary = True
+                summary_lines = []
+                continue
+            
+            if in_summary:
+                summary_lines.append(line_content)
+            
+            # Detect session end
+            if self.detect_session_end(line_content, current_session.type):
+                if current_session.type == SyncType.SINGLE:
+                    print(f"DEBUG - Single sync session end detected: {line_content}")
+                # Set end timestamp to the current line's timestamp or last seen
+                current_session.end_timestamp = timestamp or last_timestamp_in_session or datetime.now().isoformat()
+                
+                # Calculate duration if both timestamps exist
+                if current_session.start_timestamp and current_session.end_timestamp:
+                    try:
+                        start = datetime.fromisoformat(current_session.start_timestamp)
+                        end = datetime.fromisoformat(current_session.end_timestamp)
+                        current_session.duration = (end - start).total_seconds()
+                    except:
+                        pass
+                
+                current_session.status = "completed"
+                current_session.processed_items = len(current_session.items)
+                sessions.append(current_session)
+                current_session = None
+                in_summary = False
+        
+        # Handle unclosed session
+        if current_session:
+            # Calculate duration if both timestamps exist
+            if current_session.start_timestamp and current_session.end_timestamp:
+                try:
+                    start = datetime.fromisoformat(current_session.start_timestamp)
+                    end = datetime.fromisoformat(current_session.end_timestamp)
+                    current_session.duration = (end - start).total_seconds()
+                    
+                    # If session has an end timestamp and it's been more than 2 minutes since then,
+                    # and we have processed items, consider it completed
+                    time_since_end = (datetime.now() - end).total_seconds()
+                    if time_since_end > 120 and len(current_session.items) > 0:
+                        current_session.status = "completed"
+                    else:
+                        current_session.status = "in_progress"
+                except:
+                    current_session.status = "in_progress"
+            else:
+                # No end timestamp - check if session looks complete
+                # If we have processed items and the session started more than 5 minutes ago,
+                # and there's a summary section, consider it completed
+                if len(current_session.items) > 0 and current_session.start_timestamp:
+                    try:
+                        start = datetime.fromisoformat(current_session.start_timestamp)
+                        time_since_start = (datetime.now() - start).total_seconds()
+                        
+                        # If session has results tallied (indicating summary was parsed)
+                        # OR it's been more than 10 minutes and we have items processed
+                        # consider it completed
+                        has_results = (current_session.results.requested > 0 or 
+                                     current_session.results.already_available > 0 or
+                                     current_session.results.skipped > 0 or
+                                     current_session.results.not_found > 0)
+                        
+                        if has_results or time_since_start > 600:
+                            current_session.status = "completed"
+                        else:
+                            current_session.status = "in_progress"
+                    except:
+                        current_session.status = "in_progress"
+                else:
+                    current_session.status = "in_progress"
+            
+            current_session.processed_items = len(current_session.items)
+            if current_session.type == SyncType.SINGLE:
+                print(f"DEBUG - Single sync session completed: {current_session.processed_items} items processed, {current_session.total_items} total items")
+            sessions.append(current_session)
+        
+        return sessions
+
+
+# ==========================================
+# SYNC HISTORY - API Endpoints
+# ==========================================
+
+@app.get("/api/sync-history")
+async def get_sync_history(
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    type: Optional[str] = Query(None, regex="^(full|single)$"),
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None
+):
+    """
+    Get list of sync sessions with filtering and pagination.
+    
+    Parameters:
+    - limit: Maximum number of sessions to return (1-100, default 50)
+    - offset: Pagination offset (default 0)
+    - type: Filter by sync type ('full' or 'single')
+    - start_date: Filter sessions after this date (ISO format)
+    - end_date: Filter sessions before this date (ISO format)
+    """
+    parser = SyncLogParser()
+    
+    # Try different log locations
+    log_paths = [
+        "/var/log/supervisor/listsync-core.log",
+        "logs/listsync-core.log",
+        "/usr/src/app/logs/listsync-core.log",
+        "data/list_sync.log"
+    ]
+    
+    sessions = []
+    for log_path in log_paths:
+        if os.path.exists(log_path):
+            sessions = parser.parse_log_file(log_path)
+            break
+    
+    # Filter by type
+    if type:
+        sessions = [s for s in sessions if s.type.value == type]
+    
+    # Filter by date range
+    if start_date:
+        try:
+            start_dt = datetime.fromisoformat(start_date)
+            sessions = [s for s in sessions if datetime.fromisoformat(s.start_timestamp) >= start_dt]
+        except:
+            pass
+    
+    if end_date:
+        try:
+            end_dt = datetime.fromisoformat(end_date)
+            sessions = [s for s in sessions if datetime.fromisoformat(s.start_timestamp) <= end_dt]
+        except:
+            pass
+    
+    # Sort by most recent first
+    sessions.sort(key=lambda x: x.start_timestamp, reverse=True)
+    
+    # Pagination
+    total = len(sessions)
+    sessions = sessions[offset:offset + limit]
+    
+    return {
+        "sessions": [s.to_dict() for s in sessions],
+        "total": total,
+        "limit": limit,
+        "offset": offset
+    }
+
+
+@app.get("/api/sync-history/stats")
+async def get_sync_history_stats():
+    """Get aggregate statistics about sync history."""
+    parser = SyncLogParser()
+    
+    log_paths = [
+        "/var/log/supervisor/listsync-core.log",
+        "logs/listsync-core.log",
+        "/usr/src/app/logs/listsync-core.log",
+        "data/list_sync.log"
+    ]
+    
+    sessions = []
+    for log_path in log_paths:
+        if os.path.exists(log_path):
+            sessions = parser.parse_log_file(log_path)
+            break
+    
+    if not sessions:
+        return {"error": "No sync sessions found"}
+    
+    # Calculate statistics
+    total_sessions = len(sessions)
+    full_syncs = len([s for s in sessions if s.type.value == "full"])
+    single_syncs = len([s for s in sessions if s.type.value == "single"])
+    
+    total_items = sum(s.processed_items for s in sessions)
+    total_requested = sum(s.results.requested for s in sessions)
+    total_errors = sum(s.results.error for s in sessions)
+    
+    # Success rate
+    success_rate = ((total_items - total_errors) / total_items * 100) if total_items > 0 else 0
+    
+    # Average per sync
+    avg_items = total_items / total_sessions if total_sessions > 0 else 0
+    
+    # Recent syncs (last 24h, 7d, 30d)
+    now = datetime.now()
+    last_24h = [s for s in sessions if (now - datetime.fromisoformat(s.start_timestamp)).days < 1]
+    last_7d = [s for s in sessions if (now - datetime.fromisoformat(s.start_timestamp)).days < 7]
+    last_30d = [s for s in sessions if (now - datetime.fromisoformat(s.start_timestamp)).days < 30]
+    
+    # Most synced lists
+    list_counts = {}
+    for session in sessions:
+        for lst in session.lists:
+            key = f"{lst.type}:{lst.id}"
+            list_counts[key] = list_counts.get(key, 0) + 1
+    
+    most_synced = sorted(list_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+    
+    # Average duration
+    durations = [s.duration for s in sessions if s.duration is not None and s.duration > 0]
+    avg_duration = sum(durations) / len(durations) if durations else 0
+    
+    return {
+        "total_sessions": total_sessions,
+        "full_syncs": full_syncs,
+        "single_syncs": single_syncs,
+        "total_items_processed": total_items,
+        "total_requested": total_requested,
+        "total_errors": total_errors,
+        "success_rate": round(success_rate, 2),
+        "avg_items_per_sync": round(avg_items, 2),
+        "avg_duration_seconds": round(avg_duration, 2),
+        "recent_stats": {
+            "last_24h": len(last_24h),
+            "last_7d": len(last_7d),
+            "last_30d": len(last_30d)
+        },
+        "most_synced_lists": [
+            {"list": lst, "count": count} for lst, count in most_synced
+        ]
+    }
+
+
+@app.get("/api/sync-history/{session_id}")
+async def get_sync_session(session_id: str):
+    """Get detailed information about a specific sync session."""
+    parser = SyncLogParser()
+    
+    log_paths = [
+        "/var/log/supervisor/listsync-core.log",
+        "logs/listsync-core.log",
+        "/usr/src/app/logs/listsync-core.log",
+        "data/list_sync.log"
+    ]
+    
+    for log_path in log_paths:
+        if os.path.exists(log_path):
+            sessions = parser.parse_log_file(log_path)
+            session = next((s for s in sessions if s.id == session_id), None)
+            
+            if session:
+                return session.to_dict()
+            break
+    
+    raise HTTPException(status_code=404, detail="Session not found")
+
+
+@app.get("/api/sync-history/{session_id}/raw-logs")
+async def get_sync_session_raw_logs(session_id: str):
+    """Get raw log lines for a specific sync session."""
+    parser = SyncLogParser()
+    
+    log_paths = [
+        "/var/log/supervisor/listsync-core.log",
+        "logs/listsync-core.log",
+        "/usr/src/app/logs/listsync-core.log",
+        "data/list_sync.log"
+    ]
+    
+    for log_path in log_paths:
+        if os.path.exists(log_path):
+            try:
+                with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    lines = f.readlines()
+                
+                # Parse to find the session
+                sessions = parser.parse_log_file(log_path)
+                session = next((s for s in sessions if s.id == session_id), None)
+                
+                if not session:
+                    continue
+                
+                # Find log lines that belong to this session by timestamp range
+                session_lines = []
+                in_session = False
+                start_time = datetime.fromisoformat(session.start_timestamp) if session.start_timestamp else None
+                end_time = datetime.fromisoformat(session.end_timestamp) if session.end_timestamp else None
+                
+                for line in lines:
+                    timestamp_match = re.match(parser.TIMESTAMP_PATTERN, line.strip())
+                    if timestamp_match:
+                        line_time = datetime.fromisoformat(timestamp_match.group(1))
+                        
+                        if start_time and line_time >= start_time:
+                            in_session = True
+                        
+                        if end_time and line_time > end_time:
+                            in_session = False
+                            break
+                    
+                    if in_session:
+                        session_lines.append(line.rstrip('\n'))
+                
+                return {
+                    "session_id": session_id,
+                    "lines": session_lines,
+                    "line_count": len(session_lines),
+                    "start_timestamp": session.start_timestamp,
+                    "end_timestamp": session.end_timestamp
+                }
+            
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Error reading logs: {str(e)}")
+    
+    raise HTTPException(status_code=404, detail="Session or log file not found")
 
 
 if __name__ == "__main__":

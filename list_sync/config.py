@@ -145,6 +145,28 @@ def set_requester_user(overseerr_url, api_key):
         logging.error(f"Overseerr API connection failed. Error: {str(e)}")
         return 1
 
+def get_trakt_client_id() -> Optional[str]:
+    """
+    Get Trakt API Client ID from environment variables.
+    
+    Returns:
+        Optional[str]: Trakt Client ID if set, None otherwise
+    """
+    # Load environment variables if .env exists
+    if os.path.exists('.env'):
+        load_dotenv()
+    
+    client_id = os.getenv('TRAKT_CLIENT_ID')
+    if client_id:
+        import logging
+        logging.info("Trakt API Client ID loaded from environment")
+    else:
+        import logging
+        logging.warning("TRAKT_CLIENT_ID not set - Trakt integration will not work")
+    
+    return client_id
+
+
 def load_env_config() -> Tuple[Optional[str], Optional[str], Optional[str], float, bool, bool]:
     """
     Load configuration from environment variables.

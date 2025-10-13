@@ -12,37 +12,9 @@
 
 ---
 
-## Trakt currently broken, devs are investigating. 
-
 ## 🚀 What is ListSync? 
 
 ListSync automatically syncs your watchlists from IMDb, Trakt, Letterboxd, MDBList, and more with Overseerr/Jellyseerr. No more manual adding - just add movies and shows to your favorite watchlist, and they'll appear in your media server automatically.
-
-Key Features:
-
-- 🔄 Automatic synchronization
-- 🎬 Support for multiple watchlist platforms
-- 🖥️ Compatible with Overseerr and Jellyseerr
-- ⚡ Easy setup with Docker
-
----
-
-## 🖥️ Modern Web Dashboard
-
-ListSync now includes a **comprehensive web dashboard** built with Next.js 15 and React 19, providing a modern interface to manage all your sync operations.
-
-![ListSync Web Dashboard](https://share.woahlab.com/-Znz4vjsvyW)
-
-
-### **Key Features**
-- 📊 **Real-Time Sync Monitoring** - Live progress bars and status updates
-- 📋 **Intuitive List Management** - Add, edit, and organize your lists with ease
-- 📈 **Comprehensive Analytics** - Success rates, performance metrics, and historical data
-- ⚙️ **Web-Based Configuration** - Manage all settings through the dashboard
-- 🎨 **Modern Responsive UI** - Works perfectly on desktop, tablet, and mobile
-- 🌙 **Dark/Light Themes** - Automatic system preference detection
-
-**Access your dashboard at:** `http://localhost:3222` (frontend) and `http://localhost:4222/api` (API)
 
 ---
 
@@ -55,125 +27,365 @@ ListSync now includes a **comprehensive web dashboard** built with Next.js 15 an
 
 ---
 
-## ✨ Run ListSync & SeerrBridge with ElfHosted 🚀
+## 🖥️ Modern Web Dashboard
 
-[ElfHosted](https://store.elfhosted.com/product/list-sync/elf/6929/) is your friendly neighborhood [open-source](https://elfhosted.com/open/) PaaS, handling the geeky heavy-lifting (_hosting, security, updates, you name it!_) so you can focus on watching your media.
+ListSync now includes a **comprehensive web dashboard** built with Nuxt 3 and Vue 3, providing a modern interface to manage all your sync operations.
 
-> [!IMPORTANT]
-> **ElfHosted 💜 ListSync & SeerrBridge!**
->
-> [ListSync](https://store.elfhosted.com/product/list-sync/elf/6929/) and its awesome companion [SeerrBridge](https://store.elfhosted.com/seerrbridge/elf/6929/) are fully supported and integrated into the ElfHosted ecosystem, you can already get them pre-configured in the bundles below, with a $1, 7-day trial!
+![ListSync Web Dashboard](https://s.2ya.me/api/shares/bOlt1gfU/files/318acfa6-d44a-47f6-9b6f-219171413e8f)
 
-> [!TIP]
-> **ElfHosted Streaming Bundles: Your Turn-Key Streaming Powerhouse!** 💹
->
-> Want all of this without the DIY setup? 🎉 These ElfHosted bundles come pre-wired with RealDebrid, SeerrBridge and ListSync, and your choice of media server. Get the ultimate hassle-free, automated infinite streaming experience:
-> * [Starter](https://store.elfhosted.com/product/starter/elf/6929/)  Personal Media Streamer [2xHD / 1x4K, contented]
-> * [Hobbit](https://store.elfhosted.com/product/hobbit/elf/6929/) Personal Media Streamer [4xHD / 2x4K, semi-dedicated]
-> * [Ranger](https://store.elfhosted.com/product/ranger/elf/6929/) Personal Media Streamer [8xHD / 4x4K, semi-dedicated]
+**Access your dashboard at:** `http://localhost:3222` (frontend) and `http://localhost:4222/api` (API)
+
+---
+
+## ✨ Key Features
+
+<details>
+<summary><strong>🎬 Content Sources</strong></summary>
+
+- **IMDb**: Top 250, Box Office, Custom Lists, Watchlists
+- **Trakt**: Trending, Popular, Anticipated, Personal Lists  
+- **Letterboxd**: User lists and watchlists
+- **MDBList**: Community curated collections
+- **Steven Lu**: Popular movies collection
+
+</details>
+
+<details>
+<summary><strong>🎯 Smart Automation</strong></summary>
+
+- **Automatic Sync**: Set it and forget it - syncs on your schedule
+- **Intelligent Matching**: Advanced title matching with year validation
+- **Duplicate Detection**: Never request the same item twice
+- **Batch Processing**: Efficiently handles large lists
+- **Error Recovery**: Automatic retry for failed items
+
+</details>
+
+<details>
+<summary><strong>📊 Management & Monitoring</strong></summary>
+
+- **Modern Web Dashboard**: Beautiful Nuxt 3 interface with real-time updates
+- **REST API**: Full control via API ([40+ endpoints](http://localhost:4222/docs))
+- **Live Progress**: Watch syncs happen in real-time
+- **Detailed Analytics**: Track success rates, failures, and trends
+- **Discord Notifications**: Get updates on sync completion
+
+</details>
+
+<details>
+<summary><strong>🛠️ Flexible Configuration</strong></summary>
+
+- **Multiple Deployment Options**: Full stack or lightweight core-only
+- **Environment-Based Config**: Simple `.env` file configuration
+- **Pre-configured Templates**: Jump-start with curated lists
+- **Timezone Support**: Accurate timestamps in your local time
+- **4K Support**: Automatically request 4K versions when available
+
+</details>
+
+<details>
+<summary><strong>🔒 Built for Reliability</strong></summary>
+
+- **SQLite Database**: Local, fast, and reliable data storage
+- **Docker Optimized**: Fully containerized with health checks
+- **Resource Efficient**: Runs on minimal hardware
+- **SeleniumBase**: Robust web scraping with anti-detection
+- **Open Source**: Transparent, auditable, community-driven
+
+</details>
+
+---
+
+### Currently in Development for v0.7.0
+
+For the most stable experience, use the source code from the latest release [here](https://github.com/Woahai321/list-sync/releases).
+
+---
+
+## ⚡ Quick Start (3 minutes)
+
+**Get ListSync running in under 3 minutes:**
+
+```bash
+# 1. Clone and enter directory
+git clone https://github.com/Woahai321/list-sync.git && cd list-sync
+
+# 2. Copy environment file
+cp .env.example .env
+
+# 3. Edit .env - Add these three settings:
+#    OVERSEERR_URL=http://your-overseerr:5055
+#    OVERSEERR_API_KEY=your-api-key
+#    IMDB_LISTS=top
+
+# 4. Start ListSync
+docker-compose up -d
+
+# 5. Open dashboard
+# Visit: http://localhost:3222
+```
+
+**That's it!** Your first sync will start automatically. 🎉
+
 ---
 
 ## 🚀 Getting Started
 
 ListSync offers **flexible deployment options** to suit different use cases, from quick testing to full production deployments with web dashboard.
 
-## 🐳 Deployment Options
+## 🐳 Docker Deployment Options
 
-<details>
-<summary>📦 Full Stack Deployment (Recommended)</summary>
+<details open>
+<summary>📦 <strong>Option 1: Full Stack Deployment</strong> (Recommended)</summary>
 
 ### **Complete ListSync with Web Dashboard + API + Core Sync**
 
-The **full deployment** includes everything: the core sync engine, REST API backend, and modern web dashboard for comprehensive management.
+**Complete solution with web dashboard, API, and sync engine.**
 
-**What's Included:**
-- 🖥️ **Web Dashboard** (Port 3222) - Modern React interface
-- 🔌 **REST API** (Port 4222) - Full API for automation
-- ⚙️ **Core Sync Engine** - Automated list synchronization
-- 📊 **Real-time Monitoring** - Live sync progress and analytics
-- 🎛️ **Configuration Management** - Web-based settings
-
-**Deploy with Docker Compose:**
 ```bash
-# Copy the example environment file and configure
+# 1. Clone the repository
+git clone https://github.com/Woahai321/list-sync.git
+cd list-sync
+
+# 2. Copy and configure environment file
 cp .env.example .env
-# Edit .env with your settings, then start using the public image
+nano .env  # Add your Overseerr URL, API key, and lists
+
+# 3. Start with the default docker-compose.yml
 docker-compose up -d
-# or build from source
-docker-compose -f docker-compose.local.yml up -d
+
+# That's it! Access your dashboard at http://localhost:3222
 ```
 
 **Access Points:**
-- 🌐 **Web Dashboard:** http://localhost:3222
-- 🔗 **API Docs:** http://localhost:4222/docs
-- 📊 **Health Check:** http://localhost:4222/api/system/health
+- 🌐 Web Dashboard: `http://localhost:3222`
+- 📡 API Documentation: `http://localhost:4222/docs`
+- 🏥 Health Check: `http://localhost:4222/api/system/health`
+
+**Perfect for:**
+- 🏠 Home media server enthusiasts
+- 👥 Team/family shared access
+- 📊 Users who want visual management
+- 🔧 Anyone wanting the easiest setup
 
 </details>
 
 <details>
-<summary>⚙️ Core-Only Deployment</summary>
+<summary>⚙️ <strong>Option 2: Core-Only Deployment</strong> (Lightweight)</summary>
 
-### **Lightweight Core Sync Engine Only**
+### **Lightweight Core Sync Engine**
 
-Perfect for **headless servers** or when you only need the core synchronization functionality without the web interface.
+**Minimal setup with just the sync engine**
 
-**What's Included:**
-- ⚙️ **Core Sync Engine** - Automated list synchronization only
-- 📝 **Console Logging** - Text-based status updates
-- 🔄 **Scheduled Syncing** - Automated intervals
-- 💾 **Local Database** - SQLite for sync history
-
-**Deploy with Docker Compose:**
 ```bash
-# Copy the core environment file and configure
-cp .env.core .env
-# Edit .env with your settings, then start
+# 1. Clone the repository
+git clone https://github.com/Woahai321/list-sync.git
+cd list-sync
+
+# 2. Copy and configure environment file
+cp .env.example .env
+nano .env  # Add your Overseerr URL, API key, and lists
+
+# 3. Start with the core docker-compose file
 docker-compose -f docker-compose.core.yml up -d
+
+# Done! Sync runs automatically in the background
 ```
 
 **Perfect for:**
-- 🖥️ Headless servers
-- 📦 Minimal resource usage
-- 🔧 Integration with existing systems
-- 🚀 Lightweight automation
+- 🖥️ Headless/remote servers
+- 📦 Minimal resource usage (lower RAM/CPU)
+
+**Monitoring Core-Only:**
+```bash
+# View logs
+docker-compose -f docker-compose.core.yml logs -f
+
+```
+
+</details>
+
+---
+
+## 📋 Obtaining List IDs
+
+ListSync supports multiple list services. You can add them using either the raw URL or the list ID.
+
+<details>
+<summary>📋 IMDb List ID or URL</summary>
+
+#### **Using the Raw URL**:
+1. Navigate to your IMDb list in your browser.  
+2. Copy the URL from the address bar. Examples:  
+   - Custom lists: `https://www.imdb.com/list/ls012345678/`  
+   - IMDb charts: `https://www.imdb.com/chart/top/` (Top 250), `https://www.imdb.com/chart/boxoffice/` (Box Office)  
+   - Watchlists: `https://www.imdb.com/user/ur12345678/watchlist`  
+3. Paste the URL directly into ListSync.
+
+#### **Using the List ID**:
+1. Look at the URL:  
+   - Custom lists: `ls012345678`  
+   - IMDb charts: Use the chart name (e.g., `top`, `boxoffice`)  
+   - Watchlists: `ur12345678`  
+2. Use the list ID in ListSync.
+
+#### **Supported IMDb Charts**:
+- `top` (Top 250 Movies)  
+- `boxoffice` (Box Office)  
+- `moviemeter` (MovieMeter)  
+- `tvmeter` (TVMeter)  
+</details>
+
+<details>
+<summary>🔑 Trakt API Configuration (Required)</summary>
+
+### **Setting up Trakt API Access**
+
+ListSync now uses the **official Trakt API v2** for improved reliability and performance. To use Trakt lists, you need to configure API credentials:
+
+#### **Step 1: Create a Trakt Application**
+1. Go to [https://trakt.tv/oauth/applications](https://trakt.tv/oauth/applications)
+2. Click **"New Application"**
+3. Fill in the required fields:
+   - **Name**: `ListSync` (or any name you prefer)
+   - **Redirect URI**: `urn:ietf:wg:oauth:2.0:oob` (not used but required)
+   - Other fields can be left as default
+4. Click **"Save App"**
+
+#### **Step 2: Get Your Client ID**
+1. After creating the app, you'll see your **Client ID** and **Client Secret**
+2. Copy the **Client ID** (the Client Secret is not needed for ListSync)
+
+#### **Step 3: Configure ListSync**
+Add your Client ID to your `.env` file:
+```bash
+# Trakt API Configuration
+TRAKT_CLIENT_ID=your_client_id_here
+```
+
+Or set it in your docker-compose environment variables:
+```yaml
+environment:
+  - TRAKT_CLIENT_ID=your_client_id_here
+```
+
+**That's it!** Trakt lists will now work automatically. No OAuth flow or authentication needed for public lists.
+
+#### **Benefits of API Integration:**
+- ✅ **Faster** - API calls are 10-20x faster than web scraping
+- ✅ **Reliable** - No more breakage when Trakt updates their UI
+- ✅ **Better Data** - Get TMDb IDs and IMDb IDs directly
+- ✅ **Rate Limits** - 1000 requests per 5 minutes (more than enough)
 
 </details>
 
 <details>
-<summary>🌐 Public Domain Deployment</summary>
+<summary>📋 Letterboxd URL</summary>
 
-### **Internet-Accessible Deployment with Domain**
+#### **Using the Raw URL**:
+1. Navigate to your Letterboxd list in your browser.  
+2. Copy the URL from the address bar. Example:  
+   - `https://letterboxd.com/user/list/example-list/`  
+   - `https://letterboxd.com/user/watchlist/` (for watchlists)
+3. Paste the URL directly into ListSync.  
+</details>
 
-Deploy ListSync with **public internet access** using your own domain, perfect for remote management and team access.
+<details>
+<summary>📋 MDBList URL or Username/List Format</summary>
 
-**Deploy with Docker Compose:**
+#### **Using the Raw URL**:
+1. Navigate to your MDBList list in your browser.
+2. Copy the URL from the address bar. Example:
+   - `https://mdblist.com/lists/username/listname`
+3. Paste the URL directly into ListSync.
+
+#### **Using Username/List Format**:
+1. You can also use the simpler format:
+   - `username/listname`
+2. ListSync will automatically expand this to the full URL.
+</details>
+
+<details>
+<summary>📋 Steven Lu's Popular Movies</summary>
+
+This is a curated list of popular movies maintained by Steven Lu, available at:
+- `https://s3.amazonaws.com/popular-movies/movies.json`
+
+To enable this list, simply add the below vairable:
+- `STEVENLU_LISTS=stevenlu`
+
+This will be recognized as the Steven Lu Popular Movies list.
+</details>
+
+<details>
+<summary>📋 Trakt List ID or URL</summary>
+
+#### **Using the Raw URL**:
+1. Navigate to your Trakt list in your browser.  
+2. Copy the URL from the address bar. Example:  
+   - `https://app.trakt.tv/users/username/lists/listname`  
+3. Paste the URL directly into ListSync.
+
+</details>
+
+<details>
+<summary>📋 Trakt Special Lists</summary>
+
+#### **Using Shortcut Format**:
+ListSync supports a shortcut format of `list-type:media-type`. Examples:
+- `trending:movies` - Top trending movies
+- `popular:shows` - Popular TV shows
+- `anticipated:movies` - Most anticipated movies
+
+#### **Available Types**:
+- **List types**: trending, popular, anticipated, watched, collected, boxoffice, streaming, recommendations, favorited 
+- **Media types**: movies, shows
+
+Note: The boxoffice list type is only available for movies.
+
+These special lists sync a configurable number of items (default: 20, can be set via TRAKT_SPECIAL_ITEMS_LIMIT environment variable).
+</details>
+
+
+## 🛠️ Configuration
+
+<details>
+<summary>⚙️ <strong>Basic Configuration</strong></summary>
+
+### **Essential Settings**
+
+All you need is a `.env` file with three settings:
+
 ```bash
-# Copy the domain environment file and configure
-cp .env.proddomain .env
-# Edit .env with your domain settings, then start
-docker-compose -f docker-compose.proddomain.yml up -d
+OVERSEERR_URL=http://your-overseerr:5055    # Your Overseerr/Jellyseerr URL
+OVERSEERR_API_KEY=your-api-key-here         # Get from Overseerr Settings → General
+IMDB_LISTS=top                              # Start with IMDb Top 250
+```
+
+**Optional Settings:**
+```bash
+SYNC_INTERVAL=24          # Hours between syncs (default: 24)
+AUTOMATED_MODE=true       # Enable automatic syncing (default: true)
+OVERSEERR_4K=false        # Request 4K versions (default: false)
+DISCORD_WEBHOOK_URL=...   # Discord notifications (optional)
+TZ=America/New_York       # Your timezone (default: GMT)
 ```
 
 </details>
 
+<details>
+<summary>🎯 <strong>Pre-configured Lists Template</strong></summary>
 
-## 🛠️ Configuration Setup
+### **Jump-Start with Curated Lists**
 
-All deployment options use the same **environment configuration**. Create a `.env` file or use our plug-and-play template:
-
-**Quick Start with Pre-configured Lists**: Use our plug-and-play configuration:
+Want instant content? Use our plug-and-play configuration with curated lists:
 
 ```bash
-# Copy the plug-and-play environment file
 cp .env.plugnplay .env
-# Edit only the essential settings in .env:
-# - OVERSEERR_URL (your Overseerr/Jellyseerr URL)
-# - OVERSEERR_API_KEY (your API key)
-# - DISCORD_WEBHOOK_URL (optional)
-# - TZ (your timezone)
+# Then edit your Overseerr URL and API key
 ```
 
-The `.env` file comes pre-configured with curated lists including:
+Includes these pre-configured lists:
 
 | Provider | List Type | Description |
 |----------|-----------|-------------|
@@ -182,51 +394,75 @@ The `.env` file comes pre-configured with curated lists including:
 | **MDBList** | Curated Collections | [Top Weekly Movies](https://mdblist.com/lists/garycrawfordgc/top-movies-of-the-week), [Pixar Movies](https://mdblist.com/lists/linaspurinis/pixar-movies), [Pirated Movies Charts](https://mdblist.com/lists/hdlists/top-ten-pirated-movies-of-the-week-torrent-freak-com) |
 | **Steven Lu** | Popular Collection | [Popular Movies Collection](https://movies.stevenlu.com/) |
 
-### 🌍 Timezone Configuration
-
-ListSync automatically timestamps all sync activities and displays them in the web interface. To ensure timestamps match your local time, configure your timezone using the examples below.
+</details>
 
 <details>
-<summary>🕐 Setting Your Timezone</summary>
+<summary>🌍 <strong>Timezone Configuration</strong></summary>
 
-#### **Quick Setup by Timezone**
+### **Configure Your Local Timezone**
 
-Choose your timezone using either **UTC offset** or **regional timezone** format:
+ListSync automatically timestamps all sync activities and displays them in the web interface. To ensure timestamps match your local time, configure your timezone using **any of the three supported formats** below.
 
-##### **🌍 UTC Offset Format (Universal)**
+ListSync supports **three timezone formats** for maximum flexibility:
+
+#### **1️⃣ IANA Timezone Names (Recommended - Handles DST Automatically)**
 ```yaml
-# docker-compose.yml
+# docker-compose.yml or .env file
 environment:
-  # UTC offsets (recommended for simplicity)
-  - TZ=UTC+0                  # Greenwich Mean Time
-  - TZ=UTC-5                  # US Eastern Time
-  - TZ=UTC-6                  # US Central Time
-  - TZ=UTC-7                  # US Mountain Time
-  - TZ=UTC-8                  # US Pacific Time
+  - TZ=Europe/Paris           # France (CET/CEST with DST)
+  - TZ=America/New_York       # US Eastern (EST/EDT with DST)
+  - TZ=America/Los_Angeles    # US Pacific (PST/PDT with DST)
+  - TZ=America/Chicago        # US Central (CST/CDT with DST)
+  - TZ=Asia/Tokyo             # Japan
+  - TZ=Australia/Sydney       # Australia Eastern
+  - TZ=Europe/London          # UK (GMT/BST with DST)
+```
+
+#### **2️⃣ Common Abbreviations (Simple & Familiar)**
+```yaml
+# docker-compose.yml or .env file
+environment:
+  - TZ=EST                    # US Eastern Standard Time
+  - TZ=PST                    # US Pacific Standard Time
+  - TZ=CET                    # Central European Time
+  - TZ=GMT                    # Greenwich Mean Time
+  - TZ=BST                    # British Summer Time
+  - TZ=AEST                   # Australian Eastern Standard Time
+```
+
+#### **3️⃣ UTC/GMT Offsets (Universal & Simple)**
+```yaml
+# docker-compose.yml or .env file
+environment:
+  # UTC offsets
+  - TZ=UTC                    # Coordinated Universal Time
   - TZ=UTC+1                  # Central European Time
-  - TZ=UTC+2                  # Eastern European Time
+  - TZ=UTC-5                  # US Eastern Time
+  - TZ=UTC-8                  # US Pacific Time
   - TZ=UTC+8                  # China/Singapore Time
-  - TZ=UTC+9                  # Japan/Korea Time
-  - TZ=UTC+10                 # Eastern Australia Time
-```
-
-##### **🌐 GMT Format (Alternative)**
-```yaml
-# docker-compose.yml
-environment:
+  - TZ=UTC+5:30               # India Standard Time
+  
   # GMT offsets (equivalent to UTC)
-  - TZ=GMT+0                  # Greenwich Mean Time
-  - TZ=GMT-5                  # US Eastern Time
-  - TZ=GMT-8                  # US Pacific Time
   - TZ=GMT+1                  # Central European Time
-  - TZ=GMT+8                  # Asia-Pacific Time
+  - TZ=GMT-5                  # US Eastern Time
 ```
 
-#### **Finding Your Timezone**
+#### **🔍 Finding Your Timezone**
 
-- **🌐 Online**: Visit [timeanddate.com/time/zones](https://www.timeanddate.com/time/zones/) for the complete worldwide list of offsets
+- **🌐 IANA Names**: [Wikipedia TZ Database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
+- **🌍 UTC Offsets**: [timeanddate.com/time/zones](https://www.timeanddate.com/time/zones/)
 - **🖥️ Linux/macOS**: Run `timedatectl` or `cat /etc/timezone`
 - **🪟 Windows**: Check "Time zone" in Settings → Time & Language
+
+#### **💡 Which Format Should I Use?**
+
+| Format | Best For | Handles DST? | Example |
+|--------|----------|--------------|---------|
+| **IANA Names** | Production use | ✅ Yes | `Europe/Paris` |
+| **Abbreviations** | Quick setup | ✅ Yes | `EST`, `CET` |
+| **UTC/GMT Offsets** | Testing, fixed offsets | ❌ No | `UTC+1`, `GMT-5` |
+
+> **Tip**: Use **IANA timezone names** for production deployments as they automatically handle Daylight Saving Time (DST) transitions!
 
 </details>
 </details>
@@ -257,12 +493,6 @@ For **developers** or **advanced users** who want to run ListSync without Docker
 - 🏗️ [Architecture Overview](docs/architecture.md)
 
 </details>
-
----
-
-### Currently in Development for v0.7.0
-
-For the most stable experience, use the source code from the latest release [here](https://github.com/Woahai321/list-sync/releases/tag/v0.6.0).
 
 ---
 ## 📊 Compatibility
@@ -311,121 +541,64 @@ For detailed information about SeerrBridge, visit the [SeerrBridge Repository](h
 
 ---
 
-## 📋 Obtaining List IDs
-
-ListSync supports multiple list services. You can add them using either the raw URL or the list ID.
-
-<details>
-<summary>📋 IMDb List ID or URL</summary>
-
-#### **Using the Raw URL**:
-1. Navigate to your IMDb list in your browser.  
-2. Copy the URL from the address bar. Examples:  
-   - Custom lists: `https://www.imdb.com/list/ls012345678/`  
-   - IMDb charts: `https://www.imdb.com/chart/top/` (Top 250), `https://www.imdb.com/chart/boxoffice/` (Box Office)  
-   - Watchlists: `https://www.imdb.com/user/ur12345678/watchlist`  
-3. Paste the URL directly into ListSync.
-
-#### **Using the List ID**:
-1. Look at the URL:  
-   - Custom lists: `ls012345678`  
-   - IMDb charts: Use the chart name (e.g., `top`, `boxoffice`)  
-   - Watchlists: `ur12345678`  
-2. Use the list ID in ListSync.
-
-#### **Supported IMDb Charts**:
-- `top` (Top 250 Movies)  
-- `boxoffice` (Box Office)  
-- `moviemeter` (MovieMeter)  
-- `tvmeter` (TVMeter)  
-</details>
-
-<details>
-<summary>📋 Trakt List ID or URL</summary>
-
-#### **Using the Raw URL**:
-1. Navigate to your Trakt list in your browser.  
-2. Copy the URL from the address bar. Example:  
-   - `https://trakt.tv/users/username/lists/example-list`  
-3. Paste the URL directly into ListSync.
-
-#### **Using the List ID**:
-1. Click the "Share" button on your Trakt list.  
-2. Copy the link, which will look like:  
-   - `https://trakt.tv/lists/12345678`  
-3. The list ID is the number at the end (e.g., `12345678`).  
-</details>
-
-<details>
-<summary>📋 Trakt Special Lists</summary>
-
-#### **Using the Raw URL**:
-1. Copy the URL from the address bar. Examples:
-   - `https://trakt.tv/movies/trending`
-   - `https://trakt.tv/shows/popular`
-   - `https://trakt.tv/movies/boxoffice`
-
-#### **Using Shortcut Format**:
-ListSync supports a shortcut format of `list-type:media-type`. Examples:
-- `trending:movies` - Top trending movies
-- `popular:shows` - Popular TV shows
-- `anticipated:movies` - Most anticipated movies
-
-#### **Available Types**:
-- **List types**: trending, popular, anticipated, watched, collected, boxoffice, streaming, recommendations, favorited 
-- **Media types**: movies, shows
-
-Note: The boxoffice list type is only available for movies.
-
-These special lists sync a configurable number of items (default: 20, can be set via TRAKT_SPECIAL_ITEMS_LIMIT environment variable).
-</details>
-
-<details>
-<summary>📋 Letterboxd URL</summary>
-
-#### **Using the Raw URL**:
-1. Navigate to your Letterboxd list in your browser.  
-2. Copy the URL from the address bar. Example:  
-   - `https://letterboxd.com/user/list/example-list/`  
-   - `https://letterboxd.com/user/watchlist/` (for watchlists)
-3. Paste the URL directly into ListSync.  
-</details>
-
-<details>
-<summary>📋 MDBList URL or Username/List Format</summary>
-
-#### **Using the Raw URL**:
-1. Navigate to your MDBList list in your browser.
-2. Copy the URL from the address bar. Example:
-   - `https://mdblist.com/lists/username/listname`
-3. Paste the URL directly into ListSync.
-
-#### **Using Username/List Format**:
-1. You can also use the simpler format:
-   - `username/listname`
-2. ListSync will automatically expand this to the full URL.
-</details>
-
-<details>
-<summary>📋 Steven Lu's Popular Movies</summary>
-
-This is a curated list of popular movies maintained by Steven Lu, available at:
-- `https://s3.amazonaws.com/popular-movies/movies.json`
-
-To enable this list, simply add the below vairable:
-- `STEVENLU_LISTS=stevenlu`
-
-This will be recognized as the Steven Lu Popular Movies list.
-</details>
-
----
-
 ## 📋 Notes
 
 - **Security Best Practices:** Please read scripts you find online before running them.
 - **API Credentials:** Always keep your API credentials secure.
 - **Rate Limiting:** Be mindful of Overseerr's rate limiting policies during imports.
 - **Permissions:** Only import and manage media you have the rights to handle.
+
+---
+
+## 🏗️ System Architecture
+
+<details>
+<summary><strong>View System Architecture Diagram</strong></summary>
+
+```mermaid
+graph TB
+    subgraph External["External Services"]
+        IMDb[IMDb Lists]
+        Trakt[Trakt Lists]
+        Letterboxd[Letterboxd]
+        MDBList[MDBList]
+        StevenLu[Steven Lu]
+    end
+    
+    subgraph ListSync["ListSync Application"]
+        Frontend[Nuxt 3 Frontend<br/>Port 3222]
+        API[FastAPI Backend<br/>Port 4222]
+        Core[Core Sync Engine<br/>Python]
+        DB[(SQLite Database)]
+        Selenium[Chrome/Selenium]
+    end
+    
+    subgraph Target["Target System"]
+        Overseerr[Overseerr/Jellyseerr]
+    end
+    
+    Frontend --> API
+    API --> Core
+    Core --> DB
+    Core --> Selenium
+    Selenium --> IMDb
+    Selenium --> Trakt
+    Selenium --> Letterboxd
+    Selenium --> MDBList
+    Core --> StevenLu
+    Core --> Overseerr
+    
+    style Frontend fill:#42b883
+    style API fill:#009688
+    style Core fill:#3776ab
+    style Overseerr fill:#5A67D8
+```
+
+For a detailed technical breakdown, see our [Architecture Documentation](/docs/architecture.md).
+
+</details>
+
+---
 
 ## 💰 Support ListSync's Development
 
@@ -461,7 +634,7 @@ This project is licensed under the [MIT License](https://opensource.org/license/
 
 ## 🛡️ Legal Information
 
-For important legal information about using ListSync, please refer to our [Legal Disclaimer](/docs/legal.md).
+For important legal information about using ListSync, please refer to our [Legal Disclaimer](/docs/legal-disclaimer.md).
 
 ## Star History
 

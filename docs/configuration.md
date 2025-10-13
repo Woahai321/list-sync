@@ -216,7 +216,7 @@ For Docker deployments, credentials are stored in environment variables. For man
 ### Docker Networking
 
 ```bash
-# Frontend (Next.js Dashboard)
+# Frontend (Nuxt 3 Dashboard)
 FRONTEND_DOMAIN=http://localhost:3222
 
 # Backend API (FastAPI)  
@@ -232,7 +232,7 @@ CORS_ALLOWED_ORIGINS=http://localhost:3222,http://0.0.0.0:3222,http://127.0.0.1:
 ### Port Configuration
 
 Default ports in Docker setup:
-- **3222** - Web Dashboard (Next.js frontend)
+- **3222** - Web Dashboard (Nuxt 3 frontend)
 - **4222** - API Backend (FastAPI)
 
 To change ports, modify the `docker-compose.yml` file:

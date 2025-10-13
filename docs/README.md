@@ -5,7 +5,7 @@ Welcome to the comprehensive documentation for ListSync - an automated media lis
 ## Quick Navigation
 
 ### 🚀 Getting Started
-- **[Main README](README.md)** - Project overview and quick start guide
+- **[Main README](../ReadMe.md)** - Project overview and quick start guide
 - **[Installation Guide](installation.md)** - Complete installation instructions
 - **[Configuration Guide](configuration.md)** - Detailed configuration setup
 
@@ -21,7 +21,7 @@ Welcome to the comprehensive documentation for ListSync - an automated media lis
 - **[Contributing Guide](contributing.md)** - Development setup and contribution workflow
 
 ### ⚖️ Legal Information
-- **[Legal Disclaimer](legal.md)** - Terms of use and legal information
+- **[Legal Disclaimer](legal-disclaimer.md)** - Terms of use and legal information
 
 ## Documentation by User Type
 
@@ -34,10 +34,10 @@ Perfect for personal media server management:
 4. **Need Help?**: [Troubleshooting Guide](troubleshooting.md) - Solve common issues
 
 **Recommended Reading Order:**
-1. [README.md](README.md) - Overview
-2. [installation.md](installation.md) - Installation
-3. [configuration.md](configuration.md) - Basic configuration
-4. [user-guide.md](user-guide.md) - Usage guide
+1. [ReadMe.md](../ReadMe.md) - Project Overview
+2. [installation.md](installation.md) - Installation Guide
+3. [configuration.md](configuration.md) - Configuration Setup
+4. [user-guide.md](user-guide.md) - Usage Guide
 
 ### 🏢 Power Users & System Administrators
 For advanced deployments and automation:
@@ -61,11 +61,17 @@ For those wanting to contribute or extend ListSync:
 3. **API Reference**: [API Documentation](api.md) - Understand the API design
 4. **Code Standards**: [Contributing Guide](contributing.md) - Coding standards and practices
 
+**Tech Stack:**
+- **Backend**: Python 3.9+, FastAPI, SeleniumBase
+- **Frontend**: Nuxt 3, Vue 3, TypeScript, Tailwind CSS
+- **Database**: SQLite with auto-migrations
+- **Deployment**: Docker, Docker Compose
+
 **Recommended Reading Order:**
 1. [contributing.md](contributing.md) - Development setup
 2. [architecture.md](architecture.md) - Technical architecture
 3. [api.md](api.md) - API design
-4. [legal.md](legal.md) - Legal considerations
+4. [legal-disclaimer.md](legal-disclaimer.md) - Legal considerations
 
 ## Documentation by Feature
 

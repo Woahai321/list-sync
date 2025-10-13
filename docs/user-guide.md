@@ -15,6 +15,29 @@ This comprehensive guide covers all aspects of using ListSync, from initial setu
 
 ## Getting Started
 
+### First-Time Setup Workflow
+
+```mermaid
+flowchart LR
+    A[Start] --> B[Install ListSync]
+    B --> C[Configure .env file]
+    C --> D[Add API credentials]
+    D --> E[Add first list]
+    E --> F[Start containers]
+    F --> G[Access dashboard<br/>:3222]
+    G --> H[Test sync]
+    H --> I{Sync successful?}
+    I -->|Yes| J[Ready to use!]
+    I -->|No| K[Check troubleshooting]
+    K --> L[Fix issues]
+    L --> H
+    
+    style A fill:#4CAF50
+    style J fill:#4CAF50
+    style K fill:#FF9800
+    style H fill:#2196F3
+```
+
 ### First-Time Setup
 
 1. **Install ListSync** following the [Installation Guide](installation.md)
@@ -31,7 +54,7 @@ This comprehensive guide covers all aspects of using ListSync, from initial setu
 
 ## Web Dashboard
 
-The ListSync web dashboard provides a modern, responsive interface for managing all aspects of your sync operations.
+The ListSync web dashboard provides a modern, responsive interface built with Nuxt 3 and Vue 3 for managing all aspects of your sync operations.
 
 ### Dashboard Overview
 
@@ -44,13 +67,62 @@ The ListSync web dashboard provides a modern, responsive interface for managing 
 
 ### Key Features
 
-- **Real-time Status Updates** - Live sync progress
+- **Real-time Status Updates** - Live sync progress with Vue composables
 - **Responsive Design** - Works on desktop, tablet, and mobile
-- **Dark/Light Mode** - Theme selection
-- **Interactive Charts** - Visual analytics
+- **Dark/Light Mode** - Theme selection with persistent preferences
+- **Interactive Charts** - Visual analytics with reactive data
 - **Quick Actions** - One-click operations
+- **Server-Side Rendering** - Fast initial page loads with Nuxt SSR
 
 ## List Management
+
+### List Management Workflow
+
+```mermaid
+flowchart TD
+    Start[Want to add a list] --> Method{How to add?}
+    
+    Method -->|Web Dashboard| WebUI[Go to Lists page<br/>Click Add New List]
+    Method -->|Environment| EnvVar[Edit .env file<br/>Add to IMDB_LISTS etc.]
+    Method -->|API| APICall[POST /api/lists]
+    
+    WebUI --> SelectType[Select List Type:<br/>IMDb, Trakt, Letterboxd<br/>MDBList, Steven Lu]
+    EnvVar --> SelectType
+    APICall --> SelectType
+    
+    SelectType --> EnterID[Enter List ID or URL]
+    EnterID --> Validate{Valid format?}
+    
+    Validate -->|No| ShowError[Show format error<br/>Check documentation]
+    Validate -->|Yes| Configure[Configure options:<br/>- Auto-sync<br/>- Priority<br/>- 4K requests]
+    
+    ShowError --> EnterID
+    Configure --> Save[Save list configuration]
+    Save --> TriggerSync{Auto-sync enabled?}
+    
+    TriggerSync -->|Yes| AutoSync[Wait for next<br/>scheduled sync]
+    TriggerSync -->|No| ManualSync[Click Sync Now<br/>to start manually]
+    
+    AutoSync --> Monitor[Monitor in dashboard]
+    ManualSync --> Monitor
+    Monitor --> ViewResults[View sync results:<br/>- Requested<br/>- Available<br/>- Failed]
+    
+    ViewResults --> Manage{Need changes?}
+    Manage -->|Edit| EditList[Modify list settings]
+    Manage -->|Delete| DeleteList[Remove from sync]
+    Manage -->|Keep| Done[List managed!]
+    
+    EditList --> Configure
+    DeleteList --> Confirm{Confirm deletion?}
+    Confirm -->|Yes| Removed[List removed]
+    Confirm -->|No| Monitor
+    
+    style Start fill:#4CAF50
+    style Done fill:#4CAF50
+    style Removed fill:#f44336
+    style ShowError fill:#FF9800
+    style Monitor fill:#2196F3
+```
 
 ### Adding Lists
 
@@ -166,6 +238,57 @@ Description: Popular movies collection
 - **Export Configuration** - Save list configuration
 
 ## Sync Operations
+
+### Sync Operation Decision Flow
+
+```mermaid
+flowchart TD
+    Start[Need to sync?] --> SyncType{What type of sync?}
+    
+    SyncType -->|Single list| SingleList[Select list in dashboard]
+    SyncType -->|All lists| AllLists[Click Sync All Lists]
+    SyncType -->|Automated| AutoSync[Configure sync interval]
+    SyncType -->|Custom selection| CustomSync[Select multiple lists]
+    
+    SingleList --> ClickSync[Click Sync Now button]
+    AllLists --> ClickSyncAll[Confirm sync all]
+    CustomSync --> SelectLists[Check desired lists]
+    SelectLists --> BulkSync[Click Bulk Sync]
+    
+    AutoSync --> SetInterval[Set SYNC_INTERVAL<br/>in .env or UI]
+    SetInterval --> EnableAuto[Enable AUTOMATED_MODE=true]
+    EnableAuto --> WaitSchedule[Wait for next<br/>scheduled sync]
+    
+    ClickSync --> StartSync[Sync begins]
+    ClickSyncAll --> StartSync
+    BulkSync --> StartSync
+    WaitSchedule --> StartSync
+    
+    StartSync --> Monitor[Monitor progress:<br/>- Live progress bars<br/>- Item counters<br/>- Status messages]
+    
+    Monitor --> Processing{Sync status?}
+    Processing -->|In Progress| Monitor
+    Processing -->|Complete| ViewResults[View results]
+    Processing -->|Error| CheckError[Check error details]
+    
+    ViewResults --> ResultBreakdown[See breakdown:<br/>✓ Requested<br/>✓ Already available<br/>✓ Failed<br/>✓ Skipped]
+    
+    CheckError --> FixError[Fix issue based<br/>on error message]
+    FixError --> RetrySync{Retry?}
+    RetrySync -->|Yes| StartSync
+    RetrySync -->|No| End[End]
+    
+    ResultBreakdown --> Notification{Notifications<br/>enabled?}
+    Notification -->|Yes| SendNotif[Send Discord/Email<br/>notification]
+    Notification -->|No| Done[Sync complete!]
+    SendNotif --> Done
+    
+    style Start fill:#4CAF50
+    style Done fill:#4CAF50
+    style StartSync fill:#2196F3
+    style CheckError fill:#FF9800
+    style Monitor fill:#2196F3
+```
 
 ### Manual Sync
 

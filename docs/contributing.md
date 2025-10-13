@@ -46,9 +46,9 @@ We welcome contributions to ListSync! This guide will help you get started with 
    poetry shell
    ```
 
-3. **Frontend Setup (Next.js)**
+3. **Frontend Setup (Nuxt 3)**
    ```bash
-   cd listsync-web
+   cd listsync-nuxt
    npm install
    ```
 
@@ -107,32 +107,67 @@ docker-compose -f docker-compose.local.yml logs -f
 ## Project Structure
 
 ```
-list-sync-main/
+imdb-overseerr/
 ├── list_sync/                    # Core Python application
+│   ├── api/                     # API integrations
+│   │   └── overseerr.py        # Overseerr API client
 │   ├── providers/               # List provider implementations
+│   │   ├── imdb.py             # IMDb provider
+│   │   ├── trakt.py            # Trakt provider
+│   │   ├── letterboxd.py       # Letterboxd provider
+│   │   ├── mdblist.py          # MDBList provider
+│   │   └── stevenlu.py         # Steven Lu provider
 │   ├── notifications/           # Notification services
+│   │   └── discord.py          # Discord notifications
 │   ├── ui/                     # CLI interface components
+│   │   ├── cli.py              # CLI implementation
+│   │   └── display.py          # Display utilities
 │   ├── utils/                  # Utility modules
-│   ├── main.py                 # Main application entry point
+│   │   ├── helpers.py          # Helper functions
+│   │   ├── logger.py           # Logging utilities
+│   │   └── timezone_utils.py  # Timezone handling
+│   ├── __init__.py
+│   ├── __main__.py             # Entry point
+│   ├── main.py                 # Main application logic
 │   ├── config.py               # Configuration management
-│   ├── database.py             # Database operations
-│   └── sync_service.py         # Core sync logic
-├── listsync-web/               # Next.js frontend application
-│   ├── src/
-│   │   ├── app/               # Next.js App Router pages
-│   │   ├── components/        # React components
-│   │   ├── hooks/             # Custom React hooks
-│   │   ├── lib/               # Utility libraries
-│   │   └── types/             # TypeScript type definitions
-│   ├── public/                # Static assets
-│   └── package.json           # Node.js dependencies
+│   └── database.py             # Database operations
+├── listsync-nuxt/              # Nuxt 3 frontend application
+│   ├── app/                    # Nuxt 3 app directory
+│   ├── components/             # Vue components
+│   │   ├── dashboard/          # Dashboard components
+│   │   ├── history/            # History components
+│   │   ├── lists/              # List management components
+│   │   ├── settings/           # Settings components
+│   │   ├── sync/               # Sync components
+│   │   └── ui/                 # UI components
+│   ├── composables/            # Vue composables
+│   │   ├── useApi.ts
+│   │   ├── useApiService.ts
+│   │   ├── useSyncMonitor.ts
+│   │   └── useTheme.ts
+│   ├── pages/                  # Nuxt pages
+│   ├── services/               # Service layer
+│   │   └── api.ts
+│   ├── stores/                 # Pinia stores
+│   ├── types/                  # TypeScript types
+│   ├── public/                 # Static assets
+│   ├── nuxt.config.ts          # Nuxt configuration
+│   └── package.json            # Node.js dependencies
 ├── docs/                       # Documentation
 ├── development-files/          # Development utilities
+│   ├── analysis/               # Analysis scripts
+│   ├── documentation/          # Additional docs
+│   ├── scripts/                # Helper scripts
+│   └── testing/                # Test files
 ├── api_server.py              # FastAPI backend server
-├── pyproject.toml             # Python project configuration
+├── start_api.py               # API startup script
+├── pyproject.toml             # Python project configuration (Poetry)
+├── requirements.txt           # Python dependencies
 ├── Dockerfile                 # Multi-stage container build
+├── Dockerfile.core            # Core-only container
 ├── docker-compose.yml         # Production deployment
-└── docker-compose.local.yml   # Development environment
+├── docker-compose.local.yml   # Local development
+└── docker-compose.core.yml    # Core-only deployment
 ```
 
 ### Key Components
@@ -143,10 +178,11 @@ list-sync-main/
 - **Database** - SQLite with automatic migrations
 - **Providers** - Modular list source implementations
 
-**Frontend (Next.js):**
-- **App Router** - Modern Next.js routing
-- **Components** - Reusable UI components with Radix UI
-- **Hooks** - Custom React hooks for API integration
+**Frontend (Nuxt 3):**
+- **Pages Directory** - Nuxt 3 file-based routing
+- **Components** - Reusable Vue 3 components with Radix Vue
+- **Composables** - Custom Vue composables for API integration
+- **Stores** - Pinia stores for state management
 - **Types** - TypeScript interfaces and types
 
 ## Development Workflow
@@ -204,15 +240,15 @@ poetry run pytest tests/test_providers.py
 
 **Frontend Testing:**
 ```bash
-cd listsync-web
+cd listsync-nuxt
 
-# Run Next.js tests
+# Run Nuxt tests
 npm test
 
 # Run with coverage
 npm run test:coverage
 
-# Run E2E tests
+# Run E2E tests (if configured)
 npm run test:e2e
 ```
 
@@ -283,65 +319,72 @@ max-line-length = 88
 extend-ignore = ["E203", "W503"]
 ```
 
-### TypeScript/React Standards
+### TypeScript/Vue Standards
 
 **Component Structure:**
-```typescript
-// components/SyncStatus.tsx
-import React from 'react';
-import { cn } from '@/lib/utils';
+```vue
+<!-- components/sync/SyncStatus.vue -->
+<script setup lang="ts">
+import { computed } from 'vue'
+import { cn } from '@/lib/utils'
 
-interface SyncStatusProps {
-  isActive: boolean;
-  progress?: number;
-  className?: string;
+interface Props {
+  isActive: boolean
+  progress?: number
+  className?: string
 }
 
-export function SyncStatus({ 
-  isActive, 
-  progress = 0, 
-  className 
-}: SyncStatusProps) {
-  return (
-    <div className={cn("sync-status", className)}>
-      {/* Component implementation */}
-    </div>
-  );
-}
+const props = withDefaults(defineProps<Props>(), {
+  progress: 0,
+  className: ''
+})
 
-export default SyncStatus;
+const statusClass = computed(() => cn('sync-status', props.className))
+</script>
+
+<template>
+  <div :class="statusClass">
+    <!-- Component implementation -->
+  </div>
+</template>
 ```
 
-**Hook Pattern:**
+**Composable Pattern:**
 ```typescript
-// hooks/useSync.ts
-import { useState, useEffect } from 'react';
+// composables/useSync.ts
+import { ref, computed } from 'vue'
 
 interface SyncState {
-  isLoading: boolean;
-  progress: number;
-  error?: string;
+  isLoading: boolean
+  progress: number
+  error?: string
 }
 
 export function useSync(listId?: string) {
-  const [state, setState] = useState<SyncState>({
+  const state = ref<SyncState>({
     isLoading: false,
     progress: 0,
-  });
+  })
 
   const startSync = async () => {
     // Implementation
-  };
+  }
 
-  return { ...state, startSync };
+  return {
+    state,
+    isLoading: computed(() => state.value.isLoading),
+    progress: computed(() => state.value.progress),
+    startSync
+  }
 }
 ```
 
 **Naming Conventions:**
-- **Components** - PascalCase (`SyncStatus`)
-- **Hooks** - camelCase with `use` prefix (`useSync`)
+- **Components** - PascalCase (`SyncStatus.vue`)
+- **Composables** - camelCase with `use` prefix (`useSync`)
 - **Utilities** - camelCase (`formatTime`)
 - **Constants** - UPPER_SNAKE_CASE (`API_BASE_URL`)
+- **Stores** - camelCase (`useSyncStore`)
 
 ### API Standards
 
@@ -463,21 +506,26 @@ class TestSyncFlow:
 
 **Component Test:**
 ```typescript
-// __tests__/components/SyncStatus.test.tsx
-import { render, screen } from '@testing-library/react';
-import { SyncStatus } from '@/components/SyncStatus';
+// __tests__/components/SyncStatus.test.ts
+import { mount } from '@vue/test-utils'
+import { describe, it, expect } from 'vitest'
+import SyncStatus from '@/components/sync/SyncStatus.vue'
 
 describe('SyncStatus', () => {
   it('renders inactive state correctly', () => {
-    render(<SyncStatus isActive={false} />);
-    expect(screen.getByText(/inactive/i)).toBeInTheDocument();
-  });
+    const wrapper = mount(SyncStatus, {
+      props: { isActive: false }
+    })
+    expect(wrapper.text()).toContain('inactive')
+  })
 
   it('shows progress when active', () => {
-    render(<SyncStatus isActive={true} progress={50} />);
-    expect(screen.getByText(/50%/)).toBeInTheDocument();
-  });
-});
+    const wrapper = mount(SyncStatus, {
+      props: { isActive: true, progress: 50 }
+    })
+    expect(wrapper.text()).toContain('50%')
+  })
+})
 ```
 
 ## Documentation
@@ -515,25 +563,25 @@ def sync_items(items: List[Dict], overseerr_api: str) -> SyncResults:
 **TypeScript JSDoc:**
 ```typescript
 /**
- * Custom hook for managing sync operations
+ * Custom composable for managing sync operations
  * 
  * @param listId - Optional list ID to sync specific list
  * @returns Object containing sync state and control functions
  * 
  * @example
- * ```tsx
- * function SyncComponent() {
- *   const { isLoading, startSync, progress } = useSync("imdb-top");
- *   
- *   return (
- *     <button onClick={startSync} disabled={isLoading}>
- *       {isLoading ? `${progress}%` : 'Start Sync'}
- *     </button>
- *   );
- * }
+ * ```vue
+ * <script setup>
+ * const { isLoading, startSync, progress } = useSync("imdb-top")
+ * </script>
+ * 
+ * <template>
+ *   <button @click="startSync" :disabled="isLoading">
+ *     {{ isLoading ? `${progress}%` : 'Start Sync' }}
+ *   </button>
+ * </template>
  * ```
  */
-export function useSync(listId?: string): SyncHookReturn {
+export function useSync(listId?: string) {
   // Implementation
 }
 ```

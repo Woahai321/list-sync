@@ -321,8 +321,8 @@ def sync_plex_watchlist_to_overseerr():
     with open('/data/custom-plex-watchlist.json', 'w') as f:
         json.dump(media_items, f)
     
-    # Trigger ListSync with custom provider
-    requests.post('http://listsync:5000/api/sync', json={
+    # Trigger ListSync via API (port 4222 for FastAPI backend)
+    requests.post('http://listsync:4222/api/sync/trigger', json={
         'custom_list': '/data/custom-plex-watchlist.json'
     })
 ```
