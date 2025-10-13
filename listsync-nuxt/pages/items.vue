@@ -203,10 +203,10 @@
               <td class="p-4">
                 <div class="flex items-center justify-end gap-2">
                   <Button
-                    v-if="item.overseerr_id"
+                    v-if="item.overseerr_url"
                     variant="primary"
                     size="sm"
-                    @click="openOverseerr(item.overseerr_id, item.media_type)"
+                    @click="openOverseerr(item.overseerr_url)"
                   >
                     <ExternalLinkIcon :size="16" class="mr-1" />
                     View in Overseerr
@@ -526,26 +526,12 @@ const exportToCSV = () => {
 }
 
 // Open Overseerr
-const openOverseerr = async (overseerrId: string, mediaType: string) => {
-  try {
-    // Get Overseerr config to get base URL
-    const config: any = await api.getOverseerrConfig()
-    
-    if (!config || !config.base_url) {
-      throw new Error('Overseerr URL not configured')
-    }
-    
-    const baseUrl = config.base_url
-    
-    // Determine if it's a movie or TV show
-    const type = mediaType === 'movie' ? 'movie' : 'tv'
-    const url = `${baseUrl}/${type}/${overseerrId}`
-    
-    window.open(url, '_blank', 'noopener,noreferrer')
-  } catch (error) {
-    console.error('Error getting Overseerr URL:', error)
-    showError('Cannot open Overseerr', 'Overseerr URL is not configured. Please check your settings.')
+const openOverseerr = (url: string) => {
+  if (!url) {
+    showError('Cannot open Overseerr', 'Overseerr URL is not available for this item')
+    return
   }
+  window.open(url, '_blank', 'noopener,noreferrer')
 }
 
 // Watch filters to reset pagination
