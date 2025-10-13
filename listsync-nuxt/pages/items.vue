@@ -530,7 +530,12 @@ const openOverseerr = async (overseerrId: string, mediaType: string) => {
   try {
     // Get Overseerr config to get base URL
     const config: any = await api.getOverseerrConfig()
-    const baseUrl = config.url || process.env.NUXT_PUBLIC_OVERSEERR_URL || 'http://localhost:3575'
+    
+    if (!config || !config.base_url) {
+      throw new Error('Overseerr URL not configured')
+    }
+    
+    const baseUrl = config.base_url
     
     // Determine if it's a movie or TV show
     const type = mediaType === 'movie' ? 'movie' : 'tv'
@@ -539,10 +544,7 @@ const openOverseerr = async (overseerrId: string, mediaType: string) => {
     window.open(url, '_blank', 'noopener,noreferrer')
   } catch (error) {
     console.error('Error getting Overseerr URL:', error)
-    // Fallback to environment variable or default localhost
-    const fallbackUrl = process.env.NUXT_PUBLIC_OVERSEERR_URL || 'http://localhost:3575'
-    const type = mediaType === 'movie' ? 'movie' : 'tv'
-    window.open(`${fallbackUrl}/${type}/${overseerrId}`, '_blank', 'noopener,noreferrer')
+    showError('Cannot open Overseerr', 'Overseerr URL is not configured. Please check your settings.')
   }
 }
 
