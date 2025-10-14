@@ -57,7 +57,7 @@ def parse_trakt_list_url(list_id: str) -> str:
         list_id (str): Trakt list ID (numeric), list slug, or full URL
         
     Returns:
-        str: API endpoint path (e.g., '/users/username/lists/list-slug/items')
+        str: API endpoint path (e.g., '/users/username/lists/list-slug/items' or '/users/username/watchlist')
         
     Raises:
         ValueError: If list ID format is invalid
@@ -67,16 +67,23 @@ def parse_trakt_list_url(list_id: str) -> str:
         # Remove query parameters if present
         url = list_id.split('?')[0].rstrip('/')
         
-        # Pattern 1: /users/{username}/lists/{list-slug}
-        pattern1 = r'trakt\.tv/users/([^/]+)/lists/([^/?]+)'
-        match = re.search(pattern1, url)
+        # Pattern 1: /users/{username}/watchlist
+        pattern_watchlist = r'trakt\.tv/users/([^/]+)/watchlist'
+        match = re.search(pattern_watchlist, url)
+        if match:
+            username = match.group(1)
+            return f"/users/{username}/watchlist"
+        
+        # Pattern 2: /users/{username}/lists/{list-slug}
+        pattern_list = r'trakt\.tv/users/([^/]+)/lists/([^/?]+)'
+        match = re.search(pattern_list, url)
         if match:
             username, list_slug = match.groups()
             return f"/users/{username}/lists/{list_slug}/items"
         
-        # Pattern 2: /lists/{numeric-id}
-        pattern2 = r'trakt\.tv/lists/(\d+)'
-        match = re.search(pattern2, url)
+        # Pattern 3: /lists/{numeric-id}
+        pattern_numeric = r'trakt\.tv/lists/(\d+)'
+        match = re.search(pattern_numeric, url)
         if match:
             list_id = match.group(1)
             return f"/lists/{list_id}/items"
@@ -144,6 +151,11 @@ def extract_media_from_list_item(item: Dict[str, Any]) -> Optional[Dict[str, Any
 def fetch_trakt_list(list_id: str) -> List[Dict[str, Any]]:
     """
     Fetch Trakt list using Trakt API v2.
+    
+    Supports:
+    - User custom lists: https://trakt.tv/users/{username}/lists/{list-slug}
+    - User watchlists: https://trakt.tv/users/{username}/watchlist
+    - Public lists: https://trakt.tv/lists/{numeric-id}
     
     Args:
         list_id (str): Trakt list ID (numeric) or full URL

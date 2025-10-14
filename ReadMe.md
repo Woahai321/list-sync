@@ -43,7 +43,7 @@ ListSync now includes a **comprehensive web dashboard** built with Nuxt 3 and Vu
 <summary><strong>🎬 Content Sources</strong></summary>
 
 - **IMDb**: Top 250, Box Office, Custom Lists, Watchlists
-- **Trakt**: Trending, Popular, Anticipated, Personal Lists  
+- **Trakt**: User Watchlists, Trending, Popular, Anticipated, Personal Lists  
 - **Letterboxd**: User lists and watchlists
 - **MDBList**: Community curated collections
 - **Steven Lu**: Popular movies collection
@@ -237,6 +237,44 @@ ListSync supports multiple list services. You can add them using either the raw 
 </details>
 
 <details>
+<summary>📋 Letterboxd URL</summary>
+
+#### **Using the Raw URL**:
+1. Navigate to your Letterboxd list in your browser.  
+2. Copy the URL from the address bar. Example:  
+   - `https://letterboxd.com/user/list/example-list/`  
+   - `https://letterboxd.com/user/watchlist/` (for watchlists)
+3. Paste the URL directly into ListSync.  
+</details>
+
+<details>
+<summary>📋 MDBList URL or Username/List Format</summary>
+
+#### **Using the Raw URL**:
+1. Navigate to your MDBList list in your browser.
+2. Copy the URL from the address bar. Example:
+   - `https://mdblist.com/lists/username/listname`
+3. Paste the URL directly into ListSync.
+
+#### **Using Username/List Format**:
+1. You can also use the simpler format:
+   - `username/listname`
+2. ListSync will automatically expand this to the full URL.
+</details>
+
+<details>
+<summary>📋 Steven Lu's Popular Movies</summary>
+
+This is a curated list of popular movies maintained by Steven Lu, available at:
+- `https://s3.amazonaws.com/popular-movies/movies.json`
+
+To enable this list, simply add the below vairable:
+- `STEVENLU_LISTS=stevenlu`
+
+This will be recognized as the Steven Lu Popular Movies list.
+</details>
+
+<details>
 <summary>🔑 Trakt API Configuration (Required)</summary>
 
 ### **Setting up Trakt API Access**
@@ -280,50 +318,13 @@ environment:
 </details>
 
 <details>
-<summary>📋 Letterboxd URL</summary>
-
-#### **Using the Raw URL**:
-1. Navigate to your Letterboxd list in your browser.  
-2. Copy the URL from the address bar. Example:  
-   - `https://letterboxd.com/user/list/example-list/`  
-   - `https://letterboxd.com/user/watchlist/` (for watchlists)
-3. Paste the URL directly into ListSync.  
-</details>
-
-<details>
-<summary>📋 MDBList URL or Username/List Format</summary>
-
-#### **Using the Raw URL**:
-1. Navigate to your MDBList list in your browser.
-2. Copy the URL from the address bar. Example:
-   - `https://mdblist.com/lists/username/listname`
-3. Paste the URL directly into ListSync.
-
-#### **Using Username/List Format**:
-1. You can also use the simpler format:
-   - `username/listname`
-2. ListSync will automatically expand this to the full URL.
-</details>
-
-<details>
-<summary>📋 Steven Lu's Popular Movies</summary>
-
-This is a curated list of popular movies maintained by Steven Lu, available at:
-- `https://s3.amazonaws.com/popular-movies/movies.json`
-
-To enable this list, simply add the below vairable:
-- `STEVENLU_LISTS=stevenlu`
-
-This will be recognized as the Steven Lu Popular Movies list.
-</details>
-
-<details>
 <summary>📋 Trakt List ID or URL</summary>
 
 #### **Using the Raw URL**:
 1. Navigate to your Trakt list in your browser.  
-2. Copy the URL from the address bar. Example:  
-   - `https://app.trakt.tv/users/username/lists/listname`  
+2. Copy the URL from the address bar. Examples:  
+   - **User Watchlist**: `https://trakt.tv/users/username/watchlist`
+   - **Custom List**: `https://app.trakt.tv/users/username/lists/listname`  
 3. Paste the URL directly into ListSync.
 
 </details>
@@ -533,7 +534,7 @@ For detailed information about SeerrBridge, visit the [SeerrBridge Repository](h
 |                                                                                                                                                                                                                                                                                   Service                                                                                                                                                                                                                                                                                   |    Status    | Notes                                                        |
 | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :----------: | :----------------------------------------------------------- |
 |       ![IMDB](https://img.shields.io/badge/IMDB-green?style=for-the-badge&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABKElEQVQ4jZXTMUoDQRQG4C+7YmFhYSHYWFgIHkAQPICFhYcQBEEQxGNYWHgIC0H0BsELWFhYWAQLC2GzxSzsLrOz2f0hMDDvzXvfzLz3ZkopKKMxxrjHJc7wjjd0UgpfZRYVgbM4P2AevZzEHlZwiU5KYa8QmMUNtnCMh5TCqCR0jgF6eEQfq1jHFfbRxHFKYVQQWMQIZxjGehObeEUH7ZTCJCcYx2Ub99jGEEtYwDnWsIk2LlIK/ZzALK7RwlKsPWMppfAc/m+0UwrTnKCBHt7iZnlp5/GCVkrhKyd4wg5WYv6NTkrhNSdoRd0b2Cg0z0dOcIj9uHnePG/+t/k3wR/kyUNUdQE+UAAAAABJRU5ErkJgg==)       | ✅ Supported | Full support for lists, watchlists, and charts              |
-|      ![Trakt](https://img.shields.io/badge/Trakt-green?style=for-the-badge&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABKElEQVQ4jZXTMUoDQRQG4C+7YmFhYSHYWFgIHkAQPICFhYcQBEEQxGNYWHgIC0H0BsELWFhYWAQLC2GzxSzsLrOz2f0hMDDvzXvfzLz3ZkopKKMxxrjHJc7wjjd0UgpfZRYVgbM4P2AevZzEHlZwiU5KYa8QmMUNtnCMh5TCqCR0jgF6eEQfq1jHFfbRxHFKYVQQWMQIZxjGehObeEUH7ZTCJCcYx2Ub99jGEEtYwDnWsIk2LlIK/ZzALK7RwlKsPWMppfAc/m+0UwrTnKCBHt7iZnlp5/GCVkrhKyd4wg5WYv6NTkrhNSdoRd0b2Cg0z0dOcIj9uHnePG/+t/k3wR/kyUNUdQE+UAAAAABJRU5ErkJgg==)      | ✅ Supported | Full support for lists and user watchlists                  |
+|      ![Trakt](https://img.shields.io/badge/Trakt-green?style=for-the-badge&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABKElEQVQ4jZXTMUoDQRQG4C+7YmFhYSHYWFgIHkAQPICFhYcQBEEQxGNYWHgIC0H0BsELWFhYWAQLC2GzxSzsLrOz2f0hMDDvzXvfzLz3ZkopKKMxxrjHJc7wjjd0UgpfZRYVgbM4P2AevZzEHlZwiU5KYa8QmMUNtnCMh5TCqCR0jgF6eEQfq1jHFfbRxHFKYVQQWMQIZxjGehObeEUH7ZTCJCcYx2Ub99jGEEtYwDnWsIk2LlIK/ZzALK7RwlKsPWMppfAc/m+0UwrTnKCBHt7iZnlp5/GCVkrhKyd4wg5WYv6NTkrhNSdoRd0b2Cg0z0dOcIj9uHnePG/+t/k3wR/kyUNUdQE+UAAAAABJRU5ErkJgg==)      | ✅ Supported | Full support for user watchlists, custom lists, and trending content |
 | ![Trakt Special](https://img.shields.io/badge/Trakt_Special-green?style=for-the-badge&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABKElEQVQ4jZXTMUoDQRQG4C+7YmFhYSHYWFgIHkAQPICFhYcQBEEQxGNYWHgIC0H0BsELWFhYWAQLC2GzxSzsLrOz2f0hMDDvzXvfzLz3ZkopKKMxxrjHJc7wjjd0UgpfZRYVgbM4P2AevZzEHlZwiU5KYa8QmMUNtnCMh5TCqCR0jgF6eEQfq1jHFfbRxHFKYVQQWMQIZxjGehObeEUH7ZTCJCcYx2Ub99jGEEtYwDnWsIk2LlIK/ZzALK7RwlKsPWMppfAc/m+0UwrTnKCBHt7iZnlp5/GCVkrhKyd4wg5WYv6NTkrhNSdoRd0b2Cg0z0dOcIj9uHnePG/+t/k3wR/kyUNUdQE+UAAAAABJRU5ErkJgg==) | ✅ Supported | Special lists include trending, popular, anticipated (configurable item limit) |
 | ![Letterboxd](https://img.shields.io/badge/Letterboxd-green?style=for-the-badge&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABKElEQVQ4jZXTMUoDQRQG4C+7YmFhYSHYWFgIHkAQPICFhYcQBEEQxGNYWHgIC0H0BsELWFhYWAQLC2GzxSzsLrOz2f0hMDDvzXvfzLz3ZkopKKMxxrjHJc7wjjd0UgpfZRYVgbM4P2AevZzEHlZwiU5KYa8QmMUNtnCMh5TCqCR0jgF6eEQfq1jHFfbRxHFKYVQQWMQIZxjGehObeEUH7ZTCJCcYx2Ub99jGEEtYwDnWsIk2LlIK/ZzALK7RwlKsPWMppfAc/m+0UwrTnKCBHt7iZnlp5/GCVkrhKyd4wg5WYv6NTkrhNSdoRd0b2Cg0z0dOcIj9uHnePG/+t/k3wR/kyUNUdQE+UAAAAABJRU5ErkJgg==) | ✅ Supported | Fixed pagination for watchlists with "Older" button support |
 |     ![MDBList](https://img.shields.io/badge/MDBList-green?style=for-the-badge&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABKElEQVQ4jZXTMUoDQRQG4C+7YmFhYSHYWFgIHkAQPICFhYcQBEEQxGNYWHgIC0H0BsELWFhYWAQLC2GzxSzsLrOz2f0hMDDvzXvfzLz3ZkopKKMxxrjHJc7wjjd0UgpfZRYVgbM4P2AevZzEHlZwiU5KYa8QmMUNtnCMh5TCqCR0jgF6eEQfq1jHFfbRxHFKYVQQWMQIZxjGehObeEUH7ZTCJCcYx2Ub99jGEEtYwDnWsIk2LlIK/ZzALK7RwlKsPWMppfAc/m+0UwrTnKCBHt7iZnlp5/GCVkrhKyd4wg5WYv6NTkrhNSdoRd0b2Cg0z0dOcIj9uHnePG/+t/k3wR/kyUNUdQE+UAAAAABJRU5ErkJgg==)     | ✅ Supported | Support for username/listname format or full URLs          |
