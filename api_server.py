@@ -10,6 +10,7 @@ import psutil
 import re
 import json
 import subprocess
+import logging
 from datetime import datetime, timedelta, timezone
 from collections import Counter, defaultdict
 from typing import Dict, List, Optional, Any
@@ -2154,6 +2155,37 @@ async def get_lists():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/lists/debug")
+async def get_lists_debug():
+    """Get all configured lists with debug information"""
+    try:
+        lists = load_list_ids()
+        # Also get raw database data for debugging
+        import sqlite3
+        from list_sync.database import DB_FILE
+        
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT list_type, list_id, list_url, item_count, last_synced FROM lists")
+            raw_data = cursor.fetchall()
+        
+        return {
+            "lists": lists,
+            "total_count": len(lists),
+            "raw_database_data": [
+                {
+                    "list_type": row[0],
+                    "list_id": row[1], 
+                    "list_url": row[2],
+                    "item_count": row[3],
+                    "last_synced": row[4]
+                }
+                for row in raw_data
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/lists")
 async def add_list(list_add: ListAdd):
     """Add new list with URL generation and auto-detection of special Trakt lists"""
@@ -2188,22 +2220,39 @@ async def add_list(list_add: ListAdd):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.delete("/api/lists/{list_type}/{list_id}")
+@app.delete("/api/lists/{list_type}/{list_id:path}")
 async def delete_list_endpoint(list_type: str, list_id: str):
-    """Delete list"""
+    """Delete list - uses :path to capture full URLs with forward slashes"""
     try:
+        # FastAPI automatically URL-decodes path parameters, so list_id is already decoded
+        # The :path type allows capturing the full path including forward slashes
+        # Log the parameters for debugging
+        logging.info(f"Delete request - list_type: {list_type}, list_id: {list_id}")
+        
+        # Try to delete the list
         success = delete_list(list_type, list_id)
+        
         if success:
+            logging.info(f"Successfully deleted list: {list_type}/{list_id}")
             return {
                 "success": True,
                 "message": f"Deleted {list_type} list: {list_id}"
             }
         else:
-            return {
-                "success": False,
-                "message": "List not found"
-            }
+            # List not found - provide helpful error message
+            existing_lists = load_list_ids()
+            available_lists = [f"{item['type']}: {item['id']}" for item in existing_lists if item['type'] == list_type]
+            error_msg = f"List not found: {list_type}/{list_id}"
+            if available_lists:
+                error_msg += f". Available {list_type} lists: {', '.join(available_lists[:3])}"  # Limit to 3 examples
+            logging.warning(error_msg)
+            raise HTTPException(status_code=404, detail=error_msg)
+            
+    except HTTPException:
+        # Re-raise HTTP exceptions (like 404)
+        raise
     except Exception as e:
+        logging.error(f"Error deleting list {list_type}/{list_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/items")
