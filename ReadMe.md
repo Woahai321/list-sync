@@ -11,7 +11,9 @@
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-blue?style=for-the-badge&logo=linkedin)](https://www.linkedin.com/company/soluify)
 
 ---
-**⚠️⚠️ Simkl developers have firmly stated that use of ListSync with Simkl constitutes a violation of their Terms of Service, which will lead to IP bans or account suspensions—users are explicitly warned not to proceed with the provider and modify the applications source code to utilise their API, adhere to [Simkl's TOS](https://simkl.com/about/policies/terms/), and bear full accountability for any consequences; proceed only at your absolute own risk after thoroughly examining our [legal disclaimer](https://github.com/Woahai321/list-sync/blob/main/docs/legal-disclaimer.md#user-responsibility).**
+**⚠️⚠️ Simkl developers have firmly stated that use of ListSync with Simkl constitutes a violation of their Terms of Service, which will lead to IP bans or account suspensions...**
+
+**Although all data and lists synced from Simkl are publicly available without requiring authentication, and ListSync uses SeleniumBase to intentionally simulate a standard user browser session (with built-in rate limiting and respect for robots.txt to minimize impact), users are explicitly warned not to proceed with this provider and modify the source code themselves, adhere to [Simkl's TOS](https://simkl.com/about/policies/terms/), and bear full accountability for any consequences; proceed only at your absolute own risk after thoroughly examining our [legal disclaimer](https://github.com/Woahai321/list-sync/blob/main/docs/legal-disclaimer.md#user-responsibility).**
 
 ## 🚀 What is ListSync? 
 
