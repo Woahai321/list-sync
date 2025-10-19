@@ -16,12 +16,13 @@
         :class="selectClasses"
         @change="handleChange"
       >
-        <option v-if="placeholder" value="" disabled>{{ placeholder }}</option>
+        <option v-if="placeholder" value="" disabled class="bg-card text-foreground">{{ placeholder }}</option>
         <option
           v-for="option in normalizedOptions"
           :key="option.value"
           :value="option.value"
           :disabled="option.disabled"
+          class="bg-card text-foreground py-2"
         >
           {{ option.label }}
         </option>
@@ -104,6 +105,10 @@ const selectClasses = computed(() => {
     'px-3 py-2 pr-10',
     'appearance-none',
     'cursor-pointer',
+    // Dark theme option styling
+    '[&>option]:bg-card',
+    '[&>option]:text-foreground',
+    '[&>option]:py-2',
   ]
 
   // Error or normal border

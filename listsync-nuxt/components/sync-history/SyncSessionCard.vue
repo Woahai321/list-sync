@@ -49,7 +49,7 @@
           :key="index"
           class="px-3 py-1 rounded-lg bg-black/30 border border-purple-500/20 text-xs text-muted-foreground"
         >
-          <span class="font-medium text-purple-400">{{ list.type }}</span>: {{ getListDisplayName(list.id) }}
+          <span class="font-medium text-purple-400">{{ formatListSource(list.type) }}</span>: {{ getListDisplayName(list.id) }}
           <span v-if="list.item_count" class="text-muted-foreground ml-1">({{ list.item_count }})</span>
         </div>
         <div
@@ -84,6 +84,17 @@
           </div>
         </div>
 
+        <!-- Already Requested -->
+        <div v-if="session.results.already_requested > 0" class="flex items-center gap-2">
+          <div class="p-2 rounded-lg bg-gradient-to-br from-yellow-500/20 to-orange-600/20">
+            <component :is="CheckCircleIcon" :size="16" class="text-yellow-400" />
+          </div>
+          <div>
+            <div class="text-xs text-muted-foreground">Already Requested</div>
+            <div class="text-sm font-bold text-foreground tabular-nums">{{ session.results.already_requested }}</div>
+          </div>
+        </div>
+
         <!-- Skipped -->
         <div v-if="session.results.skipped > 0" class="flex items-center gap-2">
           <div class="p-2 rounded-lg bg-gradient-to-br from-gray-500/20 to-gray-600/20">
@@ -95,6 +106,17 @@
           </div>
         </div>
 
+        <!-- Not Found -->
+        <div v-if="session.results.not_found > 0" class="flex items-center gap-2">
+          <div class="p-2 rounded-lg bg-gradient-to-br from-orange-500/20 to-red-600/20">
+            <component :is="AlertCircleIcon" :size="16" class="text-orange-400" />
+          </div>
+          <div>
+            <div class="text-xs text-muted-foreground">Not Found</div>
+            <div class="text-sm font-bold text-foreground tabular-nums">{{ session.results.not_found }}</div>
+          </div>
+        </div>
+
         <!-- Errors -->
         <div v-if="session.results.error > 0" class="flex items-center gap-2">
           <div class="p-2 rounded-lg bg-gradient-to-br from-red-500/20 to-red-600/20">
@@ -103,6 +125,17 @@
           <div>
             <div class="text-xs text-muted-foreground">Errors</div>
             <div class="text-sm font-bold text-foreground tabular-nums">{{ session.results.error }}</div>
+          </div>
+        </div>
+
+        <!-- Fallback for single syncs with no detailed results -->
+        <div v-if="session.type === 'single' && getDisplayItemCount() === 0 && session.lists.length > 0" class="flex items-center gap-2">
+          <div class="p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-purple-600/20">
+            <component :is="ListIcon" :size="16" class="text-purple-400" />
+          </div>
+          <div>
+            <div class="text-xs text-muted-foreground">List Items</div>
+            <div class="text-sm font-bold text-foreground tabular-nums">{{ session.lists[0]?.item_count || 0 }}</div>
           </div>
         </div>
       </div>
@@ -140,6 +173,8 @@ import {
   Loader2,
 } from 'lucide-vue-next'
 import type { SyncHistorySession } from '~/types'
+import { extractUrlSegment } from '~/utils/urlHelpers'
+import { formatListSource } from '~/utils/formatters'
 
 interface Props {
   session: SyncHistorySession
@@ -167,41 +202,15 @@ const formatDuration = (seconds: number): string => {
   return secs > 0 ? `${minutes}m ${secs}s` : `${minutes}m`
 }
 
-// Get display item count - use total_items for single syncs, processed_items for full syncs
+// Get display item count - calculate from results for consistency
 const getDisplayItemCount = (): number => {
-  if (props.session.type === 'single' && props.session.total_items > 0) {
-    return props.session.total_items
-  }
-  return props.session.processed_items
+  const results = props.session.results
+  return results.requested + results.already_available + results.already_requested + results.skipped + results.not_found + results.error
 }
 
 // Extract list name from URL for better display
 const getListDisplayName = (listId: string): string => {
-  // Handle Trakt URLs
-  if (listId.includes('trakt.tv/users/') && listId.includes('/lists/')) {
-    const match = listId.match(/\/lists\/([^\/\?]+)/)
-    if (match) {
-      return `/${match[1]}`
-    }
-  }
-  
-  // Handle IMDb URLs
-  if (listId.includes('imdb.com/list/')) {
-    const match = listId.match(/\/list\/([^\/\?]+)/)
-    if (match) {
-      return `/${match[1]}`
-    }
-  }
-  
-  // Handle other URLs - extract the last part after the final slash
-  const parts = listId.split('/')
-  const lastPart = parts[parts.length - 1]
-  if (lastPart && lastPart !== '') {
-    return `/${lastPart}`
-  }
-  
-  // Fallback to original ID
-  return listId
+  return extractUrlSegment(listId)
 }
 </script>
 

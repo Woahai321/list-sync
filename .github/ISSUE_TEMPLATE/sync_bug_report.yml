@@ -1,0 +1,188 @@
+name: Sync Bug Report
+description: Report a bug with list synchronization, data processing, or core functionality
+title: "[Sync Bug]: "
+labels: ["bug"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a sync bug! Please fill out the form below to help us understand and fix the synchronization issue.
+        
+        **Before submitting, please check:**
+        - [ ] You've checked the logs for error messages
+        - [ ] You've tried restarting the sync process
+        - [ ] You've verified your configuration is correct
+
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: 🔄 Sync Bug Description
+      description: A clear and concise description of what the sync bug is
+      placeholder: Describe the sync issue you're experiencing...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: 📋 Expected Sync Behavior
+      description: What did you expect to happen during the sync process?
+      placeholder: Describe what you expected to happen...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: ❌ Actual Sync Behavior
+      description: What actually happened during the sync process?
+      placeholder: Describe what actually happened...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: source-provider
+    attributes:
+      label: 🏷️ Source Provider
+      description: Which provider are you syncing from?
+      options:
+        - Letterboxd
+        - MDBList
+        - Simkl
+        - Trakt
+        - TVDB
+        - TMDB
+        - StevenLu
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: list-url
+    attributes:
+      label: 📝 List URL
+      description: Provide the specific list URL or name that's causing issues
+      placeholder: https://letterboxd.com/username/list/
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: list-type
+    attributes:
+      label: 📺 List Type
+      description: What type of content is in the list?
+      options:
+        - label: Movies
+        - label: TV Shows
+        - label: Both Movies and TV Shows
+    validations:
+      required: true
+
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: 💻 Operating System
+      description: What operating system are you running?
+      options:
+        - Windows 10
+        - Windows 11
+        - Ubuntu
+        - Other Linux
+    validations:
+      required: true
+
+  - type: dropdown
+    id: installation-method
+    attributes:
+      label: 🔧 Installation Method
+      description: How did you install ListSync?
+      options:
+        - Docker
+        - Local Python
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: error-messages
+    attributes:
+      label: 🚨 Error Messages
+      description: Please paste any error messages or stack traces
+      placeholder: Paste error messages here...
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: data-quality-issues
+    attributes:
+      label: 📋 Data Quality Issues
+      description: What data quality issues are you experiencing?
+      options:
+        - label: Missing items
+        - label: Duplicate items
+        - label: Incorrect metadata
+        - label: Wrong item types (movie vs TV show)
+        - label: Rating/score issues
+        - label: Date issues
+        - label: Other (specify in additional context)
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: network-api-issues
+    attributes:
+      label: 🌐 Network/API Issues
+      description: Are you experiencing any network or API issues?
+      options:
+        - label: API rate limiting
+        - label: Authentication failures
+        - label: Network timeouts
+        - label: Invalid API responses
+        - label: Provider API changes
+        - label: Other (specify in additional context)
+    validations:
+      required: false
+
+  - type: textarea
+    id: log-entries
+    attributes:
+      label: 📝 Relevant Log Entries
+      description: Please paste relevant log entries (remove sensitive information)
+      placeholder: Paste relevant log entries here...
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: 🔄 Steps to Reproduce
+      description: Please provide detailed steps to reproduce the sync issue
+      placeholder: |
+        1. Configure list sync with...
+        2. Start sync process
+        3. Wait for...
+        4. Observe error
+    validations:
+      required: true
+
+  - type: textarea
+    id: configuration
+    attributes:
+      label: ⚙️ Configuration
+      description: If relevant, share your configuration (remove sensitive information)
+      placeholder: Paste relevant config sections here...
+      render: yaml
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 📋 Additional Context
+      description: Add any other context about the sync problem here
+      placeholder: Any additional information that might be helpful...
+    validations:
+      required: false

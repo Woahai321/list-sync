@@ -142,6 +142,63 @@ MDBLIST_LISTS=username/collection-name,top-user/best-movies
 - Format: `username/collection-name`
 - Extract from URLs like: `https://mdblist.com/lists/username/collection-name`
 
+### Simkl Lists
+
+Configure Simkl user lists and watchlists:
+
+```bash
+SIMKL_LISTS=https://simkl.com/5/list/2707-marvel-cinematic-universe-mcu-movies,https://simkl.com/5/list/1234-my-watchlist
+```
+
+**Simkl Format:**
+- **Full URLs Required**: Simkl lists require complete URLs for proper access
+- **User Lists**: `https://simkl.com/5/list/ID-list-name`
+- **Watchlists**: `https://simkl.com/5/list/ID-watchlist-name`
+- **Collections**: `https://simkl.com/5/list/ID-collection-name`
+
+**Simkl Notes:**
+- Always use full URLs (not just IDs)
+- Supports both movies and TV shows
+- Lists are automatically paginated for large collections
+
+### TVDB Lists
+
+Configure TVDB user favorites and public lists:
+
+```bash
+TVDB_LISTS=https://www.thetvdb.com/user/12345/favorites,https://www.thetvdb.com/lists/67890
+```
+
+**TVDB Format:**
+- **Full URLs Required**: TVDB lists require complete URLs for proper access
+- **User Favorites**: `https://www.thetvdb.com/user/USER_ID/favorites`
+- **Public Lists**: `https://www.thetvdb.com/lists/LIST_ID`
+- **User Lists**: `https://www.thetvdb.com/user/USER_ID/lists/LIST_ID`
+
+**TVDB Notes:**
+- Primarily supports TV shows (movies are limited)
+- User favorites are the most common use case
+- Works with web scraping by default, API key optional for enhanced data
+
+### TMDB Lists
+
+Configure TMDB public lists and collections:
+
+```bash
+TMDB_LISTS=https://www.themoviedb.org/list/12345,https://www.themoviedb.org/list/67890-my-favorite-movies
+```
+
+**TMDB Format:**
+- **Full URLs Required**: TMDB lists require complete URLs for proper access
+- **Public Lists**: `https://www.themoviedb.org/list/LIST_ID`
+- **User Lists**: `https://www.themoviedb.org/list/LIST_ID-list-name`
+- **Collections**: `https://www.themoviedb.org/collection/COLLECTION_ID`
+
+**TMDB Notes:**
+- Supports both movies and TV shows
+- Works with web scraping by default, API key optional for better performance
+- Lists are automatically paginated for large collections
+
 ### Steven Lu Lists
 
 Configure Steven Lu's curated popular movies:
@@ -154,6 +211,68 @@ STEVENLU_LISTS=stevenlu
 - Only one list available (popular movies)
 - Use `stevenlu` as the identifier
 - Automatically fetches from the curated JSON endpoint
+
+## 🔑 API Key Configuration
+
+### Optional API Keys for Enhanced Functionality
+
+While ListSync works with web scraping for all providers, API keys provide better performance, reliability, and data quality.
+
+#### Trakt API Key
+
+```bash
+TRAKT_CLIENT_ID=your_trakt_client_id_here
+```
+
+**Benefits:**
+- 10-20x faster than web scraping
+- More reliable (no UI changes affect it)
+- Better data quality with TMDb IDs and IMDb IDs
+- 1000 requests per 5 minutes rate limit
+
+**Setup:**
+1. Go to [https://trakt.tv/oauth/applications](https://trakt.tv/oauth/applications)
+2. Create new application
+3. Copy the Client ID (not the secret)
+
+#### TMDB API Key
+
+```bash
+TMDB_KEY=your_tmdb_api_key_here
+```
+
+**Benefits:**
+- Much faster than web scraping
+- More reliable (no UI changes affect it)
+- Comprehensive metadata
+- 40 requests per 10 seconds rate limit
+
+**Setup:**
+1. Go to [https://www.themoviedb.org/settings/api](https://www.themoviedb.org/settings/api)
+2. Request API key
+3. Copy the API key (v3 auth)
+
+**Note**: TMDB works with web scraping by default. API key is only needed for better performance and reliability.
+
+#### TVDB API Key
+
+```bash
+TVDB_KEY=your_tvdb_api_key_here
+```
+
+**Benefits:**
+- Enhanced data quality
+- Better stability
+- Access to full TVDB database
+- Official API access
+
+**Setup:**
+1. Go to [https://thetvdb.com/api-information](https://thetvdb.com/api-information)
+2. Register for an account
+3. Go to [https://thetvdb.com/dashboard/account/apikey](https://thetvdb.com/dashboard/account/apikey)
+4. Create new API key
+
+**Note**: TVDB works perfectly with web scraping. API key is only needed for enhanced metadata.
 
 ## 🔧 Advanced Settings
 

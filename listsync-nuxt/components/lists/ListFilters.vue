@@ -93,6 +93,9 @@ const sources = [
   { label: 'Letterboxd', value: 'letterboxd', icon: FilmIcon },
   { label: 'MDBList', value: 'mdblist', icon: DatabaseIcon },
   { label: 'Steven Lu', value: 'stevenlu', icon: DatabaseIcon },
+  { label: 'TMDB', value: 'tmdb', icon: FilmIcon },
+  { label: 'Simkl', value: 'simkl', icon: TvIcon },
+  { label: 'TVDB', value: 'tvdb', icon: TvIcon },
 ]
 
 // Handlers

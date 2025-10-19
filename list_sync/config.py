@@ -167,6 +167,50 @@ def get_trakt_client_id() -> Optional[str]:
     return client_id
 
 
+def get_tmdb_api_key() -> Optional[str]:
+    """
+    Get TMDB API Key from environment variables.
+    
+    Returns:
+        Optional[str]: TMDB API Key if set, None otherwise
+    """
+    # Load environment variables if .env exists
+    if os.path.exists('.env'):
+        load_dotenv()
+    
+    api_key = os.getenv('TMDB_KEY')
+    if api_key:
+        import logging
+        logging.info("TMDB API Key loaded from environment")
+    else:
+        import logging
+        logging.warning("TMDB_KEY not set - TMDB will use web scraping fallback")
+    
+    return api_key
+
+
+def get_tvdb_api_key() -> Optional[str]:
+    """
+    Get TVDB API Key from environment variables.
+    
+    Returns:
+        Optional[str]: TVDB API Key if set, None otherwise
+    """
+    # Load environment variables if .env exists
+    if os.path.exists('.env'):
+        load_dotenv()
+    
+    api_key = os.getenv('TVDB_KEY')
+    if api_key:
+        import logging
+        logging.info("TVDB API Key loaded from environment")
+    else:
+        import logging
+        logging.warning("TVDB_KEY not set - TVDB will use web scraping fallback")
+    
+    return api_key
+
+
 def load_env_config() -> Tuple[Optional[str], Optional[str], Optional[str], float, bool, bool]:
     """
     Load configuration from environment variables.
@@ -273,6 +317,24 @@ def load_env_lists() -> bool:
                 add_list_if_new("stevenlu", "stevenlu")
                 if (("stevenlu", "stevenlu") not in existing_set):
                     logging.info("Steven Lu popular movies list configured")
+        
+        # Process TMDB lists
+        if tmdb_lists := os.getenv('TMDB_LISTS'):
+            for list_id in tmdb_lists.split(','):
+                if list_id.strip():
+                    add_list_if_new(list_id.strip(), "tmdb")
+        
+        # Process Simkl lists
+        if simkl_lists := os.getenv('SIMKL_LISTS'):
+            for list_id in simkl_lists.split(','):
+                if list_id.strip():
+                    add_list_if_new(list_id.strip(), "simkl")
+        
+        # Process TVDB lists
+        if tvdb_lists := os.getenv('TVDB_LISTS'):
+            for list_id in tvdb_lists.split(','):
+                if list_id.strip():
+                    add_list_if_new(list_id.strip(), "tvdb")
         
         if lists_added:
             logging.info(f"Environment sync complete: {len([l for l in existing_lists])} existing + {sum(1 for _ in [True for _ in range(len(load_list_ids()) - len(existing_lists))])} new lists")

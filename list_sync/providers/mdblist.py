@@ -76,12 +76,18 @@ def fetch_mdblist_list(list_id: str) -> List[Dict[str, Any]]:
                 last_height = new_height
                 logging.info(f"Scrolled and found {items_count} items so far, continuing...")
             
-            # Now extract all items
-            items = sb.find_elements(".content")
-            logging.info(f"Found {len(items)} total items on the page")
+            # Now extract all items using .card selector (more reliable)
+            items = sb.find_elements(".card")
+            logging.info(f"Found {len(items)} total card items on the page")
             
             for item in items:
                 try:
+                    # Check if this card has a movie title (skip non-movie cards)
+                    title_elem = item.find_element("css selector", ".header.movie-title")
+                    if not title_elem:
+                        logging.debug("Skipping card without movie title")
+                        continue
+                    
                     # Extract media type from link
                     links = item.find_elements("css selector", "a")
                     media_type = "unknown"
@@ -104,25 +110,28 @@ def fetch_mdblist_list(list_id: str) -> List[Dict[str, Any]]:
                                 break
                     
                     # Extract title and year
-                    title_elem = item.find_element("css selector", ".header.movie-title")
-                    if title_elem:
-                        full_title = title_elem.text.strip()
-                        # Parse title and year (format: "Title (Year)")
-                        year_match = re.search(r'(.+?)\s*\((\d{4})\)', full_title)
-                        if year_match:
-                            title = year_match.group(1).strip()
-                            year = int(year_match.group(2))
-                        else:
-                            title = full_title
-                            year = None
-                        
-                        media_items.append({
-                            "title": title,
-                            "imdb_id": imdb_id,
-                            "media_type": media_type,
-                            "year": year
-                        })
-                        logging.info(f"Added {media_type}: {title} ({year}) (IMDB ID: {imdb_id})")
+                    full_title = title_elem.text.strip()
+                    # Parse title and year (format: "Title (Year)")
+                    year_match = re.search(r'(.+?)\s*\((\d{4})\)', full_title)
+                    if year_match:
+                        title = year_match.group(1).strip()
+                        year = int(year_match.group(2))
+                    else:
+                        title = full_title
+                        year = None
+                    
+                    # Skip items with empty titles
+                    if not title:
+                        logging.warning("Skipping item with empty title")
+                        continue
+                    
+                    media_items.append({
+                        "title": title,
+                        "imdb_id": imdb_id,
+                        "media_type": media_type,
+                        "year": year
+                    })
+                    logging.info(f"Added {media_type}: {title} ({year}) (IMDB ID: {imdb_id})")
                 except Exception as e:
                     logging.warning(f"Failed to parse MDBList item: {str(e)}")
                     continue

@@ -2112,7 +2112,31 @@ async def get_lists():
         # Add display names and include item counts and last_synced with proper timezone conversion
         formatted_lists = []
         for i, list_item in enumerate(lists):
-            display_name = f"{list_item['type'].title()}: {list_item['id']}"
+            # Extract clean display name from list ID (URL)
+            list_id = list_item['id']
+            list_type = list_item['type']
+            
+            # Extract just the meaningful part of the URL/ID for display
+            if list_id.startswith(('http://', 'https://')):
+                # Parse URL to get the last meaningful segment
+                try:
+                    from urllib.parse import urlparse
+                    parsed = urlparse(list_id.rstrip('/'))
+                    path_parts = [p for p in parsed.path.split('/') if p]
+                    
+                    # For Trakt URLs like /users/{user}/lists/{name}
+                    if 'trakt' in list_type and len(path_parts) >= 4 and 'lists' in path_parts:
+                        list_name = path_parts[-1]  # Get the last segment
+                    # For other URLs, just get the last segment
+                    else:
+                        list_name = path_parts[-1] if path_parts else list_id
+                    
+                    display_name = list_name
+                except Exception:
+                    display_name = list_id
+            else:
+                # Not a URL, use as-is
+                display_name = list_id
             
             # Convert last_synced timestamp from UTC to local timezone
             last_synced = list_item.get('last_synced')
@@ -2435,6 +2459,7 @@ async def trigger_manual_sync(sync_request: dict = None):
         if sync_type == "single" and target_list:
             import os
             import json
+            import uuid
             
             print(f"DEBUG - Creating single list sync request file for: {target_list}")
             
@@ -2447,14 +2472,22 @@ async def trigger_manual_sync(sync_request: dict = None):
             }
             
             # Ensure data directory exists
-            os.makedirs("data", exist_ok=True)
+            os.makedirs("data/sync_requests", exist_ok=True)
             
-            # Write request file
-            request_file = "data/single_list_sync_request.json"
+            # Use a unique filename with timestamp and UUID to prevent overwrites
+            timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+            unique_id = str(uuid.uuid4())[:8]
+            request_file = f"data/sync_requests/single_sync_{timestamp_str}_{unique_id}.json"
+            
             with open(request_file, 'w') as f:
                 json.dump(request_data, f, indent=2)
             
             print(f"DEBUG - Single list sync request file created: {request_file}")
+            
+            # Also maintain the legacy single file for backwards compatibility
+            legacy_file = "data/single_list_sync_request.json"
+            with open(legacy_file, 'w') as f:
+                json.dump(request_data, f, indent=2)
             
             # Also set environment variables as fallback (though these may not persist across processes)
             os.environ["SINGLE_LIST_SYNC"] = "true"
@@ -4788,18 +4821,17 @@ class SyncLogParser:
     """Parser for sync log files."""
     
     # Patterns for detecting log elements
-    TIMESTAMP_PATTERN = r'^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})'
+    TIMESTAMP_PATTERN = r'^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:,\d+)?)'
     
     # Session markers
     FULL_SYNC_START = r'📊\s+Total unique media items ready for sync:\s*(\d+)'
     SINGLE_SYNC_START = r'🎯\s+Single List Sync:\s*(.+)'
+    # Alternative patterns for different log formats
+    SINGLE_SYNC_START_ALT = r'Starting single list sync for\s+(.+)'
     SYNC_SUMMARY_START = r'(Soluify - List Sync Summary|={50,})'
     SYNC_SUMMARY_DASHES = r'^[-─═]{50,}$'
-    SINGLE_SYNC_COMPLETE = r'✅\s+Single list sync completed:\s*(\d+)\s*requested,\s*(\d+)\s*errors'
     # Pattern to detect "Not Found Items" section header (optional - only if there are failures)
     NOT_FOUND_SECTION = r'Not Found Items \((\d+)\)'
-    # Single sync completion is very explicit
-    SYNC_COMPLETED = r'✅\s+Single list sync completed'
     
     # List fetching
     LIST_FETCH_START = r'🔍\s+Fetching items from (\w+) list:\s+(.+?)\.\.\.?$'
@@ -4816,6 +4848,16 @@ class SyncLogParser:
         (r'⏭️\s+(.+?):\s*Skipped\s*\((\d+)/(\d+)\)', ItemStatus.SKIPPED.value),
         (r'❓\s+(.+?):\s*Not Found\s*\((\d+)/(\d+)\)', ItemStatus.NOT_FOUND.value),
         (r'❌\s+(.+?):\s*(?:Error|Failed)\s*\((\d+)/(\d+)\)', ItemStatus.ERROR.value),
+    ]
+    
+    # Alternative item status patterns for different log formats (after timestamp stripping)
+    ITEM_PATTERNS_ALT = [
+        (r'-\s+\w+\s+-\s+(.+?):\s*(?:Successfully\s+)?Requested\s*\((\d+)/(\d+)\)', ItemStatus.REQUESTED.value),
+        (r'-\s+\w+\s+-\s+(.+?):\s*Already Available\s*\((\d+)/(\d+)\)', ItemStatus.ALREADY_AVAILABLE.value),
+        (r'-\s+\w+\s+-\s+(.+?):\s*Already Requested\s*\((\d+)/(\d+)\)', ItemStatus.ALREADY_REQUESTED.value),
+        (r'-\s+\w+\s+-\s+(.+?):\s*Skipped\s*\((\d+)/(\d+)\)', ItemStatus.SKIPPED.value),
+        (r'-\s+\w+\s+-\s+(.+?):\s*Not Found\s*\((\d+)/(\d+)\)', ItemStatus.NOT_FOUND.value),
+        (r'-\s+\w+\s+-\s+(.+?):\s*(?:Error|Failed)\s*\((\d+)/(\d+)\)', ItemStatus.ERROR.value),
     ]
     
     # Summary patterns
@@ -4837,7 +4879,14 @@ class SyncLogParser:
         match = re.match(self.TIMESTAMP_PATTERN, line)
         if match:
             try:
-                dt = datetime.strptime(match.group(1), '%Y-%m-%d %H:%M:%S')
+                # Handle both formats: with and without milliseconds
+                timestamp_str = match.group(1)
+                if ',' in timestamp_str:
+                    # Format: YYYY-MM-DD HH:MM:SS,mmm
+                    dt = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S,%f')
+                else:
+                    # Format: YYYY-MM-DD HH:MM:SS
+                    dt = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
                 return dt.isoformat()
             except:
                 return None
@@ -4849,6 +4898,7 @@ class SyncLogParser:
         if full_match:
             return (SyncType.FULL, {'total_items': int(full_match.group(1))})
         
+        # Try emoji-based pattern first
         single_match = re.search(self.SINGLE_SYNC_START, line)
         if single_match:
             # Capture everything after "Single List Sync:"
@@ -4866,21 +4916,32 @@ class SyncLogParser:
             
             return (SyncType.SINGLE, {'list_type': list_type, 'list_id': list_id})
         
+        # Try alternative pattern for different log formats
+        single_match_alt = re.search(self.SINGLE_SYNC_START_ALT, line)
+        if single_match_alt:
+            # Capture everything after "Starting single list sync for"
+            list_info = single_match_alt.group(1).strip()
+            
+            # Try to parse as TYPE:ID format, but accept any format
+            if ':' in list_info:
+                parts = list_info.split(':', 1)
+                list_type = parts[0].strip()
+                list_id = parts[1].strip()
+            else:
+                # If no colon, use the whole string as list_id
+                list_type = 'UNKNOWN'
+                list_id = list_info
+            
+            return (SyncType.SINGLE, {'list_type': list_type, 'list_id': list_id})
+        
         return None
     
     def detect_session_end(self, line: str, session_type: SyncType) -> bool:
         """Detect if line marks end of a sync session."""
-        # Check for single sync explicit completion
-        if re.search(self.SYNC_COMPLETED, line):
-            return True
-            
-        if session_type == SyncType.FULL:
-            # Full sync ALWAYS ends with the summary section
-            # "Soluify - List Sync Summary" or the dashed line separator
-            return bool(re.search(self.SYNC_SUMMARY_START, line) or 
-                       re.search(self.SYNC_SUMMARY_DASHES, line))
-        else:  # SINGLE
-            return bool(re.search(self.SINGLE_SYNC_COMPLETE, line))
+        # Both full and single syncs end with the same summary pattern
+        # "Soluify - List Sync Summary" or the dashed line separator
+        return bool(re.search(self.SYNC_SUMMARY_START, line) or 
+                   re.search(self.SYNC_SUMMARY_DASHES, line))
     
     def parse_list_fetch(self, line: str) -> Optional[tuple]:
         """Parse list fetching line."""
@@ -4894,14 +4955,48 @@ class SyncLogParser:
         
         return None
     
+    
     def parse_item_status(self, line: str, timestamp: str) -> Optional[SyncItem]:
         """Parse an item processing line."""
+        # Try emoji-based patterns first
         for pattern, status in self.ITEM_PATTERNS:
             match = re.search(pattern, line)
             if match:
                 title = match.group(1).strip()
                 progress_num = int(match.group(2))
                 progress_total = int(match.group(3))
+                
+                # Extract year from title
+                year = None
+                year_match = re.search(r'\((\d{4})\)|\s(\d{4})$', title)
+                if year_match:
+                    year = int(year_match.group(1) or year_match.group(2))
+                    title = re.sub(r'\s*\(?\d{4}\)?$', '', title).strip()
+                
+                # Extract error details for error status
+                error_details = None
+                if status == ItemStatus.ERROR.value:
+                    error_match = re.search(r'Error:\s*(.+)$', line)
+                    if error_match:
+                        error_details = error_match.group(1).strip()
+                
+                return SyncItem(
+                    title=title,
+                    status=status,
+                    progress_number=progress_num,
+                    progress_total=progress_total,
+                    timestamp=timestamp,
+                    year=year,
+                    error_details=error_details
+                )
+        
+        # Try alternative patterns for different log formats
+        for pattern, status in self.ITEM_PATTERNS_ALT:
+            match = re.search(pattern, line)
+            if match:
+                title = match.group(1).strip()  # Group 1 is the title in alternative patterns
+                progress_num = int(match.group(2))  # Group 2 is progress number
+                progress_total = int(match.group(3))  # Group 3 is progress total
                 
                 # Extract year from title
                 year = None
@@ -5035,8 +5130,7 @@ class SyncLogParser:
             item = self.parse_item_status(line_content, timestamp or datetime.now().isoformat())
             if item:
                 current_session.items.append(item)
-                if current_session.type == SyncType.SINGLE:
-                    print(f"DEBUG - Parsed item {len(current_session.items)}: {item.title} ({item.status})")
+                # Debug output removed for production
                 
                 # Update results
                 if item.status == ItemStatus.REQUESTED.value:
@@ -5056,6 +5150,7 @@ class SyncLogParser:
                         'error': item.error_details or 'Unknown error',
                         'timestamp': item.timestamp
                     })
+            # Item parsing completed
             
             # Detect summary section start
             if re.search(self.SYNC_SUMMARY_START, line_content) or re.search(self.SYNC_SUMMARY_DASHES, line_content):
@@ -5066,10 +5161,10 @@ class SyncLogParser:
             if in_summary:
                 summary_lines.append(line_content)
             
+            
             # Detect session end
             if self.detect_session_end(line_content, current_session.type):
-                if current_session.type == SyncType.SINGLE:
-                    print(f"DEBUG - Single sync session end detected: {line_content}")
+                # Session end detected
                 # Set end timestamp to the current line's timestamp or last seen
                 current_session.end_timestamp = timestamp or last_timestamp_in_session or datetime.now().isoformat()
                 
@@ -5133,8 +5228,7 @@ class SyncLogParser:
                     current_session.status = "in_progress"
             
             current_session.processed_items = len(current_session.items)
-            if current_session.type == SyncType.SINGLE:
-                print(f"DEBUG - Single sync session completed: {current_session.processed_items} items processed, {current_session.total_items} total items")
+            # Session completed
             sessions.append(current_session)
         
         return sessions
@@ -5310,6 +5404,90 @@ async def get_sync_session(session_id: str):
             break
     
     raise HTTPException(status_code=404, detail="Session not found")
+
+
+@app.get("/api/logs/live")
+async def get_live_logs():
+    """Get live log content from the core log file."""
+    try:
+        # Try different log locations
+        log_paths = [
+            "/var/log/supervisor/listsync-core.log",
+            "logs/listsync-core.log",
+            "/usr/src/app/logs/listsync-core.log",
+            "data/list_sync.log"
+        ]
+        
+        log_content = ""
+        for log_path in log_paths:
+            if os.path.exists(log_path):
+                try:
+                    with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        log_content = f.read()
+                    break
+                except Exception as e:
+                    print(f"Error reading log file {log_path}: {e}")
+                    continue
+        
+        if not log_content:
+            return {
+                "success": False,
+                "error": "No log file found",
+                "lines": []
+            }
+        
+        # Split into lines and return the last 1000 lines
+        lines = log_content.strip().split('\n')
+        
+        return {
+            "success": True,
+            "lines": lines,
+            "total_lines": len(lines),
+            "file_size": len(log_content)
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "lines": []
+        }
+
+
+@app.get("/api/logs/backend")
+async def get_backend_logs():
+    """Get backend log content from the data/list_sync.log file."""
+    try:
+        # Backend log file path
+        log_path = "data/list_sync.log"
+        
+        if not os.path.exists(log_path):
+            return {
+                "success": False,
+                "error": "Backend log file not found",
+                "lines": []
+            }
+        
+        # Read the log file
+        with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
+            log_content = f.read()
+        
+        # Split into lines and return the last 1000 lines
+        lines = log_content.strip().split('\n')
+        
+        return {
+            "success": True,
+            "lines": lines,
+            "total_lines": len(lines),
+            "file_size": len(log_content)
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "lines": []
+        }
 
 
 @app.get("/api/sync-history/{session_id}/raw-logs")

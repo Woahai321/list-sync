@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Documentation
+    url: https://github.com/your-username/list-sync/blob/main/docs/README.md
+    about: Please check our documentation before creating an issue
+  - name: 💬 Discussions
+    url: https://github.com/your-username/list-sync/discussions
+    about: Ask questions and discuss ideas with the community
+  - name: 🐛 Bug Reports
+    url: https://github.com/your-username/list-sync/issues/new/choose
+    about: Report bugs using our issue forms

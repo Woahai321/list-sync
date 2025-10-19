@@ -152,8 +152,8 @@
             <div class="flex items-center justify-between">
               <div class="flex-1 min-w-0">
                 <div class="font-medium text-foreground mb-1">
-                  <Badge variant="info" size="sm" class="mr-2">{{ list.type }}</Badge>
-                  {{ list.id }}
+                  <Badge variant="info" size="sm" class="mr-2">{{ formatListSource(list.type) }}</Badge>
+                  {{ extractUrlSegment(list.id) }}
                 </div>
                 <a 
                   v-if="list.url" 
@@ -266,6 +266,8 @@ import {
   Loader2,
 } from 'lucide-vue-next'
 import type { SyncHistorySession } from '~/types'
+import { extractUrlSegment } from '~/utils/urlHelpers'
+import { formatListSource } from '~/utils/formatters'
 
 interface Props {
   session: SyncHistorySession

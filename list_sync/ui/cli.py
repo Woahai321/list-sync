@@ -8,6 +8,40 @@ from typing import List, Dict, Any, Callable
 from ..database import save_list_id, delete_list, configure_sync_interval, load_list_ids
 from ..utils.helpers import custom_input, color_gradient
 from .display import display_manage_lists_menu, display_lists
+from ..providers import get_provider
+
+
+def validate_provider(list_type: str, list_id: str) -> bool:
+    """
+    Validate that a provider can successfully fetch data from a list.
+    
+    Args:
+        list_type (str): Type of provider (imdb, trakt, tmdb, simkl, etc.)
+        list_id (str): List ID or URL
+        
+    Returns:
+        bool: True if provider can fetch data, False otherwise
+    """
+    try:
+        # Get the provider function
+        provider_func = get_provider(list_type)
+        
+        # Test the provider with a small sample (limit to 5 items for testing)
+        print(color_gradient(f"🔍  Testing {list_type.upper()} provider with list: {list_id}", "#ffaa00", "#ff5500"))
+        
+        # Import the provider function and test it
+        items = provider_func(list_id)
+        
+        if items and len(items) > 0:
+            print(color_gradient(f"✅  Provider validation successful! Found {len(items)} items", "#00ff00", "#00aa00"))
+            return True
+        else:
+            print(color_gradient(f"❌  Provider validation failed: No items found", "#ff0000", "#aa0000"))
+            return False
+            
+    except Exception as e:
+        print(color_gradient(f"❌  Provider validation failed: {str(e)}", "#ff0000", "#aa0000"))
+        return False
 
 
 def handle_menu_choice(
@@ -60,6 +94,15 @@ def add_list_to_sync():
     """
     Add new lists to sync. Handles multiple lists separated by commas.
     """
+    print(color_gradient("\n📋  Supported Providers:", "#00aaff", "#00ffaa"))
+    print(color_gradient("   • IMDb: ls123456, ur123456, or https://imdb.com/list/ls123456", "#ffaa00", "#ff5500"))
+    print(color_gradient("   • Trakt: 123456 or https://trakt.tv/lists/123456", "#ffaa00", "#ff5500"))
+    print(color_gradient("   • Letterboxd: username/listname or https://letterboxd.com/username/listname", "#ffaa00", "#ff5500"))
+    print(color_gradient("   • MDBList: username/listname or https://mdblist.com/lists/username/listname", "#ffaa00", "#ff5500"))
+    print(color_gradient("   • Steven Lu: stevenlu or https://movies.stevenlu.com", "#ffaa00", "#ff5500"))
+    print(color_gradient("   • TMDB: 123456 or https://themoviedb.org/list/123456", "#ffaa00", "#ff5500"))
+    print(color_gradient("   • Simkl: 123456 or https://simkl.com/5/list/123456", "#ffaa00", "#ff5500"))
+    
     list_ids = custom_input(color_gradient("\n🎬  Enter List ID(s) or URL(s) (comma-separated for multiple): ", "#ffaa00", "#ff5500"))
     list_ids = [id.strip() for id in list_ids.split(',')]
     
@@ -103,8 +146,12 @@ def add_list_to_sync():
                     list_type = "stevenlu"
                     # For Steven Lu, we don't need the specific URL as there's only one list
                     list_id = "stevenlu" 
+                elif 'themoviedb.org' in list_id and '/list/' in list_id:
+                    list_type = "tmdb"
+                elif 'simkl.com' in list_id and '/list/' in list_id:
+                    list_type = "simkl"
                 else:
-                    print(color_gradient(f"\n❌  Invalid URL format for '{list_id}'. Must be IMDb, Trakt, Letterboxd, MDBList, or Steven Lu URL.", "#ff0000", "#aa0000"))
+                    print(color_gradient(f"\n❌  Invalid URL format for '{list_id}'. Must be IMDb, Trakt, Letterboxd, MDBList, Steven Lu, TMDB, or Simkl URL.", "#ff0000", "#aa0000"))
                     continue
             elif list_id in ['top', 'boxoffice', 'moviemeter', 'tvmeter']:
                 list_type = "imdb"
@@ -123,6 +170,13 @@ def add_list_to_sync():
                 else:
                     print(color_gradient(f"\n❌  Invalid special list format: {list_id}", "#ff0000", "#aa0000"))
                     continue
+            # Handle TMDB list IDs (numeric, typically 4+ digits)
+            elif list_id.isdigit() and len(list_id) >= 4:
+                list_type = "tmdb"
+            # Handle Simkl list IDs (numeric, typically 3+ digits)
+            elif list_id.isdigit() and len(list_id) >= 3:
+                list_type = "simkl"
+            # Handle Trakt list IDs (numeric, typically 1-3 digits)
             elif list_id.isdigit():
                 list_type = "trakt"
             # Check for MDBList in format username/listname
@@ -139,6 +193,11 @@ def add_list_to_sync():
             # Ensure we have a valid list_type before proceeding
             if list_type is None:
                 print(color_gradient(f"\n❌  Could not determine list type for '{list_id}'.", "#ff0000", "#aa0000"))
+                continue
+            
+            # Validate provider before saving
+            if not validate_provider(list_type, list_id):
+                print(color_gradient(f"\n❌  Skipping {list_type.upper()} list: {list_id} (validation failed)", "#ff0000", "#aa0000"))
                 continue
                 
             # Save list and show confirmation
@@ -164,6 +223,15 @@ def one_time_list_sync(overseerr_client, run_sync_func):
         overseerr_client: Overseerr API client
         run_sync_func: Function to run sync
     """
+    print(color_gradient("\n📋  Supported Providers:", "#00aaff", "#00ffaa"))
+    print(color_gradient("   • IMDb: ls123456, ur123456, or https://imdb.com/list/ls123456", "#ffaa00", "#ff5500"))
+    print(color_gradient("   • Trakt: 123456 or https://trakt.tv/lists/123456", "#ffaa00", "#ff5500"))
+    print(color_gradient("   • Letterboxd: username/listname or https://letterboxd.com/username/listname", "#ffaa00", "#ff5500"))
+    print(color_gradient("   • MDBList: username/listname or https://mdblist.com/lists/username/listname", "#ffaa00", "#ff5500"))
+    print(color_gradient("   • Steven Lu: stevenlu or https://movies.stevenlu.com", "#ffaa00", "#ff5500"))
+    print(color_gradient("   • TMDB: 123456 or https://themoviedb.org/list/123456", "#ffaa00", "#ff5500"))
+    print(color_gradient("   • Simkl: 123456 or https://simkl.com/5/list/123456", "#ffaa00", "#ff5500"))
+    
     list_ids = custom_input(color_gradient("\n🎬  Enter List ID(s) for one-time sync (comma-separated for multiple): ", "#ffaa00", "#ff5500"))
     list_ids = [id.strip() for id in list_ids.split(',')]
     
@@ -203,8 +271,12 @@ def one_time_list_sync(overseerr_client, run_sync_func):
                 elif 'movies.stevenlu.com' in list_id or 's3.amazonaws.com/popular-movies' in list_id:
                     list_type = "stevenlu"
                     list_id = "stevenlu"
+                elif 'themoviedb.org' in list_id and '/list/' in list_id:
+                    list_type = "tmdb"
+                elif 'simkl.com' in list_id and '/list/' in list_id:
+                    list_type = "simkl"
                 else:
-                    print(color_gradient("\n❌  Invalid URL format. Must be IMDb, Trakt, Letterboxd, MDBList, or Steven Lu URL.", "#ff0000", "#aa0000"))
+                    print(color_gradient("\n❌  Invalid URL format. Must be IMDb, Trakt, Letterboxd, MDBList, Steven Lu, TMDB, or Simkl URL.", "#ff0000", "#aa0000"))
                     continue
             elif list_id in ['top', 'boxoffice', 'moviemeter', 'tvmeter']:
                 list_type = "imdb"
@@ -227,7 +299,13 @@ def one_time_list_sync(overseerr_client, run_sync_func):
                 else:
                     print(color_gradient(f"\n❌  Invalid special list format: {list_id}", "#ff0000", "#aa0000"))
                     continue
-            # Check for Trakt IDs
+            # Handle TMDB list IDs (numeric, typically 4+ digits)
+            elif list_id.isdigit() and len(list_id) >= 4:
+                list_type = "tmdb"
+            # Handle Simkl list IDs (numeric, typically 3+ digits)
+            elif list_id.isdigit() and len(list_id) >= 3:
+                list_type = "simkl"
+            # Check for Trakt IDs (numeric, typically 1-3 digits)
             elif list_id.isdigit():
                 list_type = "trakt"
             # Check for MDBList in format username/listname
@@ -239,6 +317,11 @@ def one_time_list_sync(overseerr_client, run_sync_func):
                 list_id = "stevenlu"
             else:
                 print(color_gradient(f"\n❌  Invalid list ID format for '{list_id}'. Skipping this ID.", "#ff0000", "#aa0000"))
+                continue
+            
+            # Validate provider before saving
+            if not validate_provider(list_type, list_id):
+                print(color_gradient(f"\n❌  Skipping {list_type.upper()} list: {list_id} (validation failed)", "#ff0000", "#aa0000"))
                 continue
             
             # Save the list temporarily

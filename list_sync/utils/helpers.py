@@ -305,6 +305,22 @@ def construct_list_url(list_type: str, list_id: str) -> str:
         # Steven Lu has a user-friendly website
         return "https://movies.stevenlu.com/"
     
+    elif list_type.lower() == "tmdb":
+        # Handle TMDB list IDs
+        if list_id.isdigit():
+            return f"https://www.themoviedb.org/list/{list_id}"
+        else:
+            # If it's already a URL, return as is
+            return list_id
+    
+    elif list_type.lower() == "simkl":
+        # Handle Simkl list IDs
+        if list_id.isdigit():
+            return f"https://simkl.com/5/list/{list_id}"
+        else:
+            # If it's already a URL, return as is
+            return list_id
+    
     else:
         # Unknown list type, return the ID as-is
         return list_id

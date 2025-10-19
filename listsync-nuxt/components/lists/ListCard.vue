@@ -22,10 +22,15 @@
 
     <!-- Source Badge -->
     <div class="absolute top-4 right-4 z-10">
-      <Badge :variant="getSourceBadgeVariant(list.list_type)" size="md" class="shadow-lg">
-        <component :is="getSourceIcon(list.list_type)" :size="14" />
-        {{ formatListSource(list.list_type) }}
-      </Badge>
+      <div :class="[
+        'flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg transition-all duration-300',
+        getSourceColor(list.list_type).bgColor,
+        getSourceColor(list.list_type).borderColor,
+        'border'
+      ]">
+        <component :is="getSourceIcon(list.list_type)" :size="14" :class="getSourceColor(list.list_type).color" />
+        <span :class="getSourceColor(list.list_type).color">{{ formatListSource(list.list_type) }}</span>
+      </div>
     </div>
 
     <!-- Content -->
@@ -135,8 +140,17 @@ import {
   Film as FilmIcon,
   Tv as TvIcon,
   Database as DatabaseIcon,
+  Star as StarIcon,
+  TrendingUp as TrendingUpIcon,
+  BookOpen as BookOpenIcon,
+  Globe as GlobeIcon,
+  Zap as ZapIcon,
+  Heart as HeartIcon,
+  Calendar as CalendarIcon,
+  Monitor as MonitorIcon,
 } from 'lucide-vue-next'
 import type { List } from '~/types'
+import { extractUrlSegment } from '~/utils/urlHelpers'
 
 interface Props {
   list: List
@@ -160,33 +174,113 @@ const { showSuccess, showError } = useToast()
 // State
 const isSyncing = ref(false)
 
+// Source definitions with colors and icons (matching AddListModal)
+const sources = [
+  { 
+    label: 'IMDb', 
+    value: 'imdb', 
+    icon: StarIcon, 
+    color: 'text-yellow-400',
+    bgColor: 'bg-yellow-500/20',
+    borderColor: 'border-yellow-500/40',
+    description: 'Internet Movie Database'
+  },
+  { 
+    label: 'Trakt', 
+    value: 'trakt', 
+    icon: TrendingUpIcon, 
+    color: 'text-green-400',
+    bgColor: 'bg-green-500/20',
+    borderColor: 'border-green-500/40',
+    description: 'Track your movies & TV'
+  },
+  { 
+    label: 'Trakt Special', 
+    value: 'trakt_special', 
+    icon: ZapIcon, 
+    color: 'text-purple-400',
+    bgColor: 'bg-purple-500/20',
+    borderColor: 'border-purple-500/40',
+    description: 'Curated Trakt lists'
+  },
+  { 
+    label: 'Letterboxd', 
+    value: 'letterboxd', 
+    icon: BookOpenIcon, 
+    color: 'text-pink-400',
+    bgColor: 'bg-pink-500/20',
+    borderColor: 'border-pink-500/40',
+    description: 'Social film discovery'
+  },
+  { 
+    label: 'MDBList', 
+    value: 'mdblist', 
+    icon: DatabaseIcon, 
+    color: 'text-blue-400',
+    bgColor: 'bg-blue-500/20',
+    borderColor: 'border-blue-500/40',
+    description: 'Movie database lists'
+  },
+  { 
+    label: 'Steven Lu', 
+    value: 'stevenlu', 
+    icon: HeartIcon, 
+    color: 'text-red-400',
+    bgColor: 'bg-red-500/20',
+    borderColor: 'border-red-500/40',
+    description: 'Curated movie collection'
+  },
+  { 
+    label: 'TMDB', 
+    value: 'tmdb', 
+    icon: GlobeIcon, 
+    color: 'text-cyan-400',
+    bgColor: 'bg-cyan-500/20',
+    borderColor: 'border-cyan-500/40',
+    description: 'The Movie Database'
+  },
+  { 
+    label: 'Simkl', 
+    value: 'simkl', 
+    icon: MonitorIcon, 
+    color: 'text-orange-400',
+    bgColor: 'bg-orange-500/20',
+    borderColor: 'border-orange-500/40',
+    description: 'Track movies & shows'
+  },
+  { 
+    label: 'TVDB', 
+    value: 'tvdb', 
+    icon: CalendarIcon, 
+    color: 'text-indigo-400',
+    bgColor: 'bg-indigo-500/20',
+    borderColor: 'border-indigo-500/40',
+    description: 'TV series database'
+  },
+]
+
 // Get source icon
 const getSourceIcon = (source: string) => {
-  const sourceMap: Record<string, any> = {
-    imdb: FilmIcon,
-    trakt: TvIcon,
-    trakt_special: TvIcon,
-    letterboxd: FilmIcon,
-    mdblist: DatabaseIcon,
-    stevenlu: DatabaseIcon,
-  }
-  
-  return sourceMap[source.toLowerCase()] || DatabaseIcon
+  const sourceData = sources.find(s => s.value === source)
+  return sourceData?.icon || DatabaseIcon
 }
 
-// Get source badge variant
-const getSourceBadgeVariant = (source: string): 'primary' | 'success' | 'info' => {
-  const variantMap: Record<string, 'primary' | 'success' | 'info'> = {
-    imdb: 'primary',
-    trakt: 'info',
-    trakt_special: 'info',
-    letterboxd: 'success',
-    mdblist: 'primary',
-    stevenlu: 'info',
+// Get source color info
+const getSourceColor = (source: string) => {
+  const sourceData = sources.find(s => s.value === source)
+  return {
+    color: sourceData?.color || 'text-gray-400',
+    bgColor: sourceData?.bgColor || 'bg-gray-500/20',
+    borderColor: sourceData?.borderColor || 'border-gray-500/40'
   }
-  
-  return variantMap[source.toLowerCase()] || 'primary'
 }
+
+// Format list source for display
+const formatListSource = (source: string) => {
+  const sourceData = sources.find(s => s.value === source)
+  return sourceData?.label || source
+}
+
 
 // Handlers
 const handleSync = async () => {
@@ -246,11 +340,73 @@ const getDisplayTitle = () => {
       'moviemeter': 'MovieMeter (Popular Movies)',
       'tvmeter': 'TVMeter (Popular TV)',
     }
-    return imdbCharts[props.list.list_id.toLowerCase()] || (props.list.display_name || props.list.list_id)
+    return imdbCharts[props.list.list_id.toLowerCase()] || (props.list.display_name || extractUrlSegment(props.list.list_id))
   }
   
-  // For other sources, use display_name or fallback
-  return props.list.display_name || props.list.list_id
+  // For Steven Lu, show clean name
+  if (source === 'stevenlu') {
+    return "Steven Lu's Movie Collection"
+  }
+  
+  // Extract meaningful name from URL based on source
+  const listId = props.list.list_id
+  
+  if (source === 'trakt' && listId.includes('/lists/')) {
+    // Extract list name from Trakt URL: /users/{user}/lists/{name}
+    const match = listId.match(/\/lists\/([^\/]+)\/?$/)
+    if (match) {
+      return match[1].replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+    }
+  }
+  
+  if (source === 'letterboxd' && listId.includes('/list/')) {
+    // Extract list name from Letterboxd URL: /{user}/list/{name}/
+    const match = listId.match(/\/list\/([^\/]+)\/?$/)
+    if (match) {
+      return match[1].replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+    }
+  }
+  
+  if (source === 'mdblist' && listId.includes('/lists/')) {
+    // Extract list name from MDBList URL: /lists/{user}/{name}
+    const match = listId.match(/\/lists\/[^\/]+\/([^\/]+)\/?$/)
+    if (match) {
+      return match[1].replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+    }
+  }
+  
+  if (source === 'tmdb' && listId.includes('/list/')) {
+    // Extract list name from TMDB URL: /list/{id-name}
+    const match = listId.match(/\/list\/([^\/]+)\/?$/)
+    if (match) {
+      return match[1].replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+    }
+  }
+  
+  if (source === 'simkl' && listId.includes('/list/')) {
+    // Extract list name from Simkl URL: /{id}/list/{id}/{name}
+    const match = listId.match(/\/list\/[^\/]+\/([^\/]+)\/?$/)
+    if (match) {
+      return match[1].replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+    }
+  }
+  
+  if (source === 'tvdb' && listId.includes('/lists/')) {
+    // Extract list name from TVDB URL: /lists/{idorname}
+    const match = listId.match(/\/lists\/([^\/]+)\/?$/)
+    if (match) {
+      return match[1].replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+    }
+  }
+  
+  // Use display_name if it doesn't look like a URL and is meaningful
+  if (props.list.display_name && !props.list.display_name.includes('://')) {
+    return props.list.display_name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+  }
+  
+  // Fallback to clean ID extraction
+  const cleanId = extractUrlSegment(listId)
+  return cleanId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
 }
 
 const getListSubtitle = () => {
@@ -267,12 +423,19 @@ const getListSubtitle = () => {
     return 'IMDb Chart'
   }
   
-  // For regular lists, show the list ID
-  return `ID: ${props.list.list_id}`
+  // Show URL if available, otherwise show clean ID
+  const url = props.list.url || props.list.list_url
+  if (url) {
+    return url
+  }
+  
+  // Fallback to clean ID
+  return `ID: ${extractUrlSegment(props.list.list_id)}`
 }
 
+
 const getFullListName = () => {
-  return `${getDisplayTitle()} (${props.list.list_id})`
+  return `${getDisplayTitle()} (${extractUrlSegment(props.list.list_id)})`
 }
 </script>
 

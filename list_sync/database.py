@@ -155,6 +155,22 @@ def init_database():
             # Column already exists or other error
             pass
         
+        # Add tmdb_id column if it doesn't exist (for existing databases)
+        try:
+            cursor.execute('ALTER TABLE synced_items ADD COLUMN tmdb_id TEXT')
+            logging.info("Added tmdb_id column to synced_items table")
+        except sqlite3.OperationalError:
+            # Column already exists or other error
+            pass
+        
+        # Add simkl_id column if it doesn't exist (for existing databases)
+        try:
+            cursor.execute('ALTER TABLE synced_items ADD COLUMN simkl_id TEXT')
+            logging.info("Added simkl_id column to synced_items table")
+        except sqlite3.OperationalError:
+            # Column already exists or other error
+            pass
+        
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS sync_interval (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -318,15 +334,15 @@ def should_sync_item(overseerr_id: int) -> bool:
         return result is None
 
 
-def save_sync_result(title: str, media_type: str, imdb_id: Optional[str], overseerr_id: Optional[int], status: str, year: Optional[int] = None):
+def save_sync_result(title: str, media_type: str, imdb_id: Optional[str], overseerr_id: Optional[int], status: str, year: Optional[int] = None, tmdb_id: Optional[str] = None, simkl_id: Optional[str] = None):
     """Save the result of a sync operation."""
     with sqlite3.connect(DB_FILE) as conn:
         cursor = conn.cursor()
         cursor.execute('''
             INSERT OR REPLACE INTO synced_items 
-            (title, media_type, year, imdb_id, overseerr_id, status, last_synced)
-            VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        ''', (title, media_type, year, imdb_id, overseerr_id, status))
+            (title, media_type, year, imdb_id, tmdb_id, simkl_id, overseerr_id, status, last_synced)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ''', (title, media_type, year, imdb_id, tmdb_id, simkl_id, overseerr_id, status))
         conn.commit()
 
 

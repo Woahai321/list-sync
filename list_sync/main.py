@@ -138,10 +138,22 @@ def fetch_media_from_lists(list_ids: List[Dict[str, str]]) -> Tuple[List[Dict[st
             list_url = construct_list_url(list_type, list_id)
             
             if media_items:
+                # Filter out items with empty titles and clean up problematic characters
+                valid_items = []
+                for item in media_items:
+                    title = item.get('title', '').strip()
+                    # Clean up backslashes and other problematic characters
+                    title = title.replace('\\', '').strip()
+                    if title:  # Only keep items with non-empty titles
+                        item['title'] = title  # Update the cleaned title
+                        valid_items.append(item)
+                    else:
+                        logging.warning(f"Skipping item with empty title from {list_type.upper()} list: {list_id}")
+                
                 # Display success message to user
-                print(color_gradient(f"✅  Found {len(media_items)} items in {list_type.upper()} list: {list_id}", "#00ff00", "#00aa00"))
-                logging.info(f"Found {len(media_items)} items in {list_type.upper()} list: {list_id}")
-                all_media.extend(media_items)
+                print(color_gradient(f"✅  Found {len(valid_items)} items in {list_type.upper()} list: {list_id}", "#00ff00", "#00aa00"))
+                logging.info(f"Found {len(valid_items)} items in {list_type.upper()} list: {list_id}")
+                all_media.extend(valid_items)
                 
                 # Track this list as successfully synced
                 synced_lists.append({
@@ -213,8 +225,13 @@ def process_media_item(item: Dict[str, Any], overseerr_client: OverseerrClient, 
         Dict[str, Any]: Processing result
     """
     title = item.get('title', 'Unknown Title').strip()
+    # Clean up backslashes and other problematic characters
+    title = title.replace('\\', '').strip()
     media_type = item.get('media_type', 'unknown')
     year = item.get('year')
+    imdb_id = item.get('imdb_id')
+    tmdb_id = item.get('tmdb_id')
+    simkl_id = item.get('simkl_id')
     
     # Strip any year from the title (e.g., "Cinderella 1997" -> "Cinderella")
     # But only if there's text remaining after removal (to handle titles like "1917")
@@ -248,16 +265,16 @@ def process_media_item(item: Dict[str, Any], overseerr_client: OverseerrClient, 
             
             # Check if we should skip this item based on last sync time
             if not should_sync_item(overseerr_id):
-                save_sync_result(title, media_type, None, overseerr_id, "skipped", year)
+                save_sync_result(title, media_type, imdb_id, overseerr_id, "skipped", year, tmdb_id, simkl_id)
                 return {"title": title, "status": "skipped", "year": year, "media_type": media_type}
 
             is_available, is_requested, number_of_seasons = overseerr_client.get_media_status(overseerr_id, search_result["mediaType"])
             
             if is_available:
-                save_sync_result(title, media_type, None, overseerr_id, "already_available", year)
+                save_sync_result(title, media_type, imdb_id, overseerr_id, "already_available", year, tmdb_id, simkl_id)
                 return {"title": title, "status": "already_available", "year": year, "media_type": media_type}
             elif is_requested:
-                save_sync_result(title, media_type, None, overseerr_id, "already_requested", year)
+                save_sync_result(title, media_type, imdb_id, overseerr_id, "already_requested", year, tmdb_id, simkl_id)
                 return {"title": title, "status": "already_requested", "year": year, "media_type": media_type}
             else:
                 if search_result["mediaType"] == 'tv':
@@ -266,13 +283,13 @@ def process_media_item(item: Dict[str, Any], overseerr_client: OverseerrClient, 
                     request_status = overseerr_client.request_media(overseerr_id, search_result["mediaType"], is_4k)
                 
                 if request_status == "success":
-                    save_sync_result(title, media_type, None, overseerr_id, "requested", year)
+                    save_sync_result(title, media_type, imdb_id, overseerr_id, "requested", year, tmdb_id, simkl_id)
                     return {"title": title, "status": "requested", "year": year, "media_type": media_type}
                 else:
-                    save_sync_result(title, media_type, None, overseerr_id, "request_failed", year)
+                    save_sync_result(title, media_type, imdb_id, overseerr_id, "request_failed", year, tmdb_id, simkl_id)
                     return {"title": title, "status": "request_failed", "year": year, "media_type": media_type}
         else:
-            save_sync_result(title, media_type, None, None, "not_found", year)
+            save_sync_result(title, media_type, imdb_id, None, "not_found", year, tmdb_id, simkl_id)
             return {"title": title, "status": "not_found", "year": year, "media_type": media_type}
     except Exception as e:
         result["status"] = "error"
@@ -411,9 +428,48 @@ def automated_sync(
     def perform_sync():
         """Perform a single sync operation"""
         try:
-            # Check for single list sync request file
+            # Check for single list sync request files (both legacy and queued)
             import os
             import json
+            import glob
+            
+            # First check for queued sync requests in data/sync_requests/
+            sync_requests_dir = "data/sync_requests"
+            queued_syncs = []
+            
+            if os.path.exists(sync_requests_dir):
+                # Get all pending sync request files, sorted by timestamp
+                request_files = sorted(glob.glob(os.path.join(sync_requests_dir, "single_sync_*.json")))
+                
+                for request_file in request_files:
+                    try:
+                        with open(request_file, 'r') as f:
+                            request_data = json.load(f)
+                        
+                        list_type = request_data.get("list_type")
+                        list_id = request_data.get("list_id")
+                        
+                        if list_type and list_id:
+                            queued_syncs.append({
+                                "list_type": list_type,
+                                "list_id": list_id,
+                                "file": request_file,
+                                "timestamp": request_data.get("timestamp")
+                            })
+                        else:
+                            # Remove invalid request file
+                            os.remove(request_file)
+                            logging.warning(f"Removed invalid sync request file: {request_file}")
+                            
+                    except Exception as e:
+                        logging.error(f"Error reading queued sync request {request_file}: {e}")
+                        # Remove corrupted file
+                        try:
+                            os.remove(request_file)
+                        except:
+                            pass
+            
+            # Also check legacy single file for backwards compatibility
             single_list_request_file = "data/single_list_sync_request.json"
             
             if os.path.exists(single_list_request_file):
@@ -421,14 +477,32 @@ def automated_sync(
                     with open(single_list_request_file, 'r') as f:
                         request_data = json.load(f)
                     
-                    # Remove the request file after reading
-                    os.remove(single_list_request_file)
-                    
                     list_type = request_data.get("list_type")
                     list_id = request_data.get("list_id")
                     
                     if list_type and list_id:
-                        logging.info(f"Single list sync requested via file: {list_type}:{list_id}")
+                        # Add to queue if not already there
+                        if not any(s["list_type"] == list_type and s["list_id"] == list_id for s in queued_syncs):
+                            queued_syncs.append({
+                                "list_type": list_type,
+                                "list_id": list_id,
+                                "file": single_list_request_file,
+                                "timestamp": request_data.get("timestamp")
+                            })
+                except Exception as e:
+                    logging.error(f"Error reading legacy sync request file: {e}")
+            
+            # Process all queued single list syncs
+            if queued_syncs:
+                logging.info(f"Found {len(queued_syncs)} queued sync request(s)")
+                
+                for sync_req in queued_syncs:
+                    list_type = sync_req["list_type"]
+                    list_id = sync_req["list_id"]
+                    request_file = sync_req["file"]
+                    
+                    try:
+                        logging.info(f"Processing queued single list sync: {list_type}:{list_id}")
                         
                         # Use the sync_single_list function
                         try:
@@ -447,21 +521,27 @@ def automated_sync(
                             )
                             
                             if result.get("success", False):
-                                logging.info(f"Single list sync completed successfully: {result}")
-                                return True
+                                logging.info(f"Queued single list sync completed successfully: {list_type}:{list_id}")
                             else:
-                                logging.error(f"Single list sync failed: {result}")
-                                return False
+                                logging.error(f"Queued single list sync failed for {list_type}:{list_id}: {result}")
                                 
                         except Exception as e:
-                            logging.error(f"Error in single list sync: {str(e)}")
-                            return False
-                    else:
-                        logging.warning("Invalid single list sync request: missing list_type or list_id")
+                            logging.error(f"Error processing queued single list sync for {list_type}:{list_id}: {str(e)}")
                         
-                except Exception as e:
-                    logging.error(f"Error reading single list sync request file: {e}")
-                    # Continue with normal sync if file is corrupted
+                        finally:
+                            # Remove the processed request file
+                            try:
+                                os.remove(request_file)
+                                logging.info(f"Removed processed sync request file: {request_file}")
+                            except Exception as e:
+                                logging.warning(f"Failed to remove sync request file {request_file}: {e}")
+                        
+                    except Exception as e:
+                        logging.error(f"Error processing sync request: {e}")
+                
+                # After processing all queued syncs, return True
+                logging.info(f"Processed {len(queued_syncs)} queued sync request(s)")
+                return True
             
             # Check for single list sync environment variables (fallback method)
             single_list_sync = os.environ.get("SINGLE_LIST_SYNC", "").lower() == "true"
@@ -634,12 +714,24 @@ def run_sync(
         is_4k (bool, optional): Whether to request 4K. Defaults to False.
         automated_mode (bool, optional): Whether to run in automated mode. Defaults to False.
     """
+    # Generate unique session ID for this sync
+    import uuid
+    session_id = f"{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}"
+    
+    # Log sync start with clear marker
+    sync_start_marker = f"========== SYNC START [FULL] - Session: {session_id} =========="
+    logging.info(sync_start_marker)
+    print(color_gradient(f"\n{sync_start_marker}", "#00aaff", "#00ffaa"))
+    
     # Load lists
     list_ids = load_list_ids()
     
     if not list_ids:
         logging.warning("No lists configured")
         print("\n⚠️  No lists configured. Please add lists first.")
+        # Log sync end marker even for early exit
+        sync_end_marker = f"========== SYNC COMPLETE [FULL] - Session: {session_id} - Status: NO_LISTS =========="
+        logging.info(sync_end_marker)
         return
     
     # Fetch media from lists
@@ -648,6 +740,9 @@ def run_sync(
     if not media_items:
         logging.warning("No media items found in configured lists")
         print("\n⚠️  No media items found in configured lists.")
+        # Log sync end marker for early exit
+        sync_end_marker = f"========== SYNC COMPLETE [FULL] - Session: {session_id} - Status: NO_ITEMS =========="
+        logging.info(sync_end_marker)
         return
     
     # Update item counts and last_synced timestamps in database for all processed lists
@@ -675,6 +770,11 @@ def run_sync(
     # Send to Discord webhook if configured
     if not dry_run:
         send_to_discord_webhook(summary_text, sync_results)
+    
+    # Log sync complete with clear marker
+    sync_end_marker = f"========== SYNC COMPLETE [FULL] - Session: {session_id} - Status: SUCCESS =========="
+    logging.info(sync_end_marker)
+    print(color_gradient(f"\n{sync_end_marker}", "#00ff00", "#00aa00"))
 
 
 def sync_single_list(
@@ -702,8 +802,15 @@ def sync_single_list(
         Dict[str, Any]: Sync results
     """
     try:
-        logging.info(f"Starting single list sync for {list_type}:{list_id}")
-        print(color_gradient(f"\n🎯  Single List Sync: {list_type.upper()}:{list_id}", "#00aaff", "#00ffaa"))
+        # Generate unique session ID for this sync
+        import uuid
+        session_id = f"{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}"
+        
+        # Log sync start with clear marker
+        sync_start_marker = f"========== SYNC START [SINGLE] - Session: {session_id} - List: {list_type}:{list_id} =========="
+        logging.info(sync_start_marker)
+        print(color_gradient(f"\n{sync_start_marker}", "#00aaff", "#00ffaa"))
+        print(color_gradient(f"🎯  Single List Sync: {list_type.upper()}:{list_id}", "#00aaff", "#00ffaa"))
         
         # Create Overseerr client
         overseerr_client = OverseerrClient(overseerr_url, overseerr_api_key, user_id)
@@ -759,12 +866,27 @@ def sync_single_list(
         logging.info(f"Single list sync completed successfully: {result}")
         print(color_gradient(f"✅  Single list sync completed: {sync_results.results['requested']} requested, {sync_results.results['error']} errors", "#00ff00", "#00aa00"))
         
+        # Log sync complete with clear marker
+        sync_end_marker = f"========== SYNC COMPLETE [SINGLE] - Session: {session_id} - List: {list_type}:{list_id} - Status: SUCCESS =========="
+        logging.info(sync_end_marker)
+        print(color_gradient(f"\n{sync_end_marker}", "#00ff00", "#00aa00"))
+        
         return result
         
     except Exception as e:
         error_message = f"Error in single list sync for {list_type}:{list_id}: {str(e)}"
         logging.error(error_message)
         print(color_gradient(f"❌  {error_message}", "#ff0000", "#aa0000"))
+        
+        # Log sync complete with error marker
+        # Need to generate session_id if we haven't yet (error before session_id creation)
+        try:
+            import uuid
+            session_id = f"{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}"
+            sync_end_marker = f"========== SYNC COMPLETE [SINGLE] - Session: {session_id} - List: {list_type}:{list_id} - Status: ERROR =========="
+            logging.info(sync_end_marker)
+        except:
+            pass
         
         return {
             "success": False,

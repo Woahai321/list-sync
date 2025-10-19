@@ -133,6 +133,9 @@ flowchart TD
    - Trakt Lists
    - Letterboxd Lists
    - MDBList Collections
+   - Simkl Lists
+   - TVDB Lists
+   - TMDB Lists
    - Steven Lu Lists
 
 4. **Configure List Details:**
@@ -200,6 +203,54 @@ Description: User's watchlist
 List ID: username/collection-name
 Description: Custom collection
 ```
+
+#### Simkl Lists
+
+**User Lists:**
+```
+List ID: https://simkl.com/5/list/2707-marvel-cinematic-universe-mcu-movies
+Description: MCU Movies Collection
+```
+
+**User Watchlists:**
+```
+List ID: https://simkl.com/5/list/1234-my-watchlist
+Description: My Simkl Watchlist
+```
+
+**Note**: Simkl lists require full URLs for proper access.
+
+#### TVDB Lists
+
+**User Favorites:**
+```
+List ID: https://www.thetvdb.com/user/12345/favorites
+Description: User's TV Favorites
+```
+
+**Public Lists:**
+```
+List ID: https://www.thetvdb.com/lists/67890
+Description: Public TV List
+```
+
+**Note**: TVDB primarily supports user favorites and requires full URLs.
+
+#### TMDB Lists
+
+**Public Collections:**
+```
+List ID: https://www.themoviedb.org/list/12345
+Description: Public Movie Collection
+```
+
+**User Lists:**
+```
+List ID: https://www.themoviedb.org/list/67890-my-favorite-movies
+Description: User's Favorite Movies
+```
+
+**Note**: TMDB lists require full URLs for proper access.
 
 #### Steven Lu Lists
 

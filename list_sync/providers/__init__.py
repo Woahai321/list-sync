@@ -69,6 +69,9 @@ def _import_all_providers():
         from . import letterboxd
         from . import mdblist
         from . import stevenlu
+        from . import tmdb
+        from . import simkl
+        from . import tvdb
     except ImportError as e:
         import logging
         logging.warning(f"Could not import all providers: {e}")

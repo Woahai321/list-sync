@@ -1,0 +1,266 @@
+name: List Provider Request
+description: Request support for a new list provider or service
+title: "[Provider Request]: "
+labels: ["enhancement"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for requesting a new list provider! Please fill out the form below to help us understand the provider and assess feasibility.
+        
+        **Before submitting, please:**
+        - [ ] Check if this provider is already supported
+        - [ ] Research the provider's API availability
+        - [ ] Review the provider's terms of service
+        - [ ] Gather example lists and data
+
+  - type: input
+    id: provider-name
+    attributes:
+      label: 🎯 Provider Name
+      description: What is the name of the provider you want to add?
+      placeholder: e.g., JustWatch, TV Time, Reelgood
+    validations:
+      required: true
+
+  - type: input
+    id: website-url
+    attributes:
+      label: 🌐 Website URL
+      description: What is the provider's main website URL?
+      placeholder: https://justwatch.com
+    validations:
+      required: true
+
+  - type: dropdown
+    id: provider-type
+    attributes:
+      label: 🏢 Provider Type
+      description: What type of service is this provider?
+      options:
+        - Streaming Service
+        - Social Platform
+        - Review Site
+        - Movie Database
+        - TV Database
+        - Personal Tracking
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: api-availability
+    attributes:
+      label: 🔌 API Availability
+      description: What do you know about the provider's API?
+      options:
+        - label: Has Public API
+        - label: API Documentation Available
+        - label: API Key Required
+        - label: Rate Limited
+        - label: Web Scraping Required (No API)
+        - label: Unknown API Status
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: list-types
+    attributes:
+      label: 📋 List Types Supported
+      description: What types of lists does this provider support?
+      options:
+        - label: Movies
+        - label: TV Shows
+        - label: Both Movies and TV Shows
+        - label: Custom Lists
+        - label: Watchlists
+        - label: Favorites
+        - label: Rated Items
+        - label: Other (specify in additional info)
+    validations:
+      required: true
+
+  - type: textarea
+    id: example-lists
+    attributes:
+      label: 🔗 Example Lists
+      description: Please provide 2-3 example lists from this provider with URLs and descriptions
+      placeholder: |
+        1. List Name: "My Watchlist"
+           URL: https://justwatch.com/user/12345/watchlist
+           Description: Personal watchlist with 50+ movies
+        
+        2. List Name: "Favorites"
+           URL: https://justwatch.com/user/12345/favorites
+           Description: Favorite movies with ratings
+        
+        3. List Name: "Rated Movies"
+           URL: https://justwatch.com/user/12345/rated
+           Description: All movies I've rated
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: data-available
+    attributes:
+      label: 📊 Data Available
+      description: What data is available for each item in the lists?
+      options:
+        - label: Title
+        - label: Year
+        - label: Rating/Score
+        - label: Date Added
+        - label: Date Watched
+        - label: Review/Notes
+        - label: Genres
+        - label: Cast/Crew
+        - label: Poster/Image
+        - label: External IDs (IMDb, TMDB, etc.)
+        - label: Other (specify in additional info)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: authentication-method
+    attributes:
+      label: 🔐 Authentication Method
+      description: How does authentication work with this provider?
+      options:
+        - label: No Authentication (Public lists only)
+        - label: Username/Password
+        - label: API Key
+        - label: OAuth
+        - label: Session-based (Cookie/session)
+        - label: Other (specify in additional info)
+    validations:
+      required: true
+
+  - type: input
+    id: api-base-url
+    attributes:
+      label: 🔗 API Base URL
+      description: If API exists, what is the base URL?
+      placeholder: https://api.justwatch.com/v1
+    validations:
+      required: false
+
+  - type: input
+    id: rate-limits
+    attributes:
+      label: ⚡ Rate Limits
+      description: If known, what are the API rate limits?
+      placeholder: e.g., 100 requests/hour, 1000 requests/day
+    validations:
+      required: false
+
+  - type: dropdown
+    id: response-format
+    attributes:
+      label: 📄 Response Format
+      description: What format does the API return data in?
+      options:
+        - JSON
+        - XML
+        - HTML
+        - Unknown
+        - Other
+    validations:
+      required: false
+
+  - type: input
+    id: pagination
+    attributes:
+      label: 📄 Pagination
+      description: How are large lists paginated?
+      placeholder: e.g., offset/limit, cursor-based, page numbers
+    validations:
+      required: false
+
+  - type: dropdown
+    id: user-base
+    attributes:
+      label: 👥 User Base
+      description: How popular is this provider?
+      options:
+        - Very Popular (1M+ users)
+        - Popular (100K+ users)
+        - Niche (10K+ users)
+        - Small (1K+ users)
+        - Unknown
+    validations:
+      required: true
+
+  - type: dropdown
+    id: primary-use-case
+    attributes:
+      label: 🎯 Primary Use Case
+      description: What is the main purpose of this provider?
+      options:
+        - Movie Discovery
+        - Social Sharing
+        - Personal Tracking
+        - Reviews/Ratings
+        - Watchlist Management
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: research-done
+    attributes:
+      label: 🔍 Research Done
+      description: What research have you completed?
+      options:
+        - label: Checked if provider is already supported
+        - label: Reviewed provider's terms of service
+        - label: Checked for existing API documentation
+        - label: Tested accessing the provider's data
+        - label: Can provide sample data/HTML if needed
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: 💡 Use Case
+      description: Describe how you would use this provider with ListSync
+      placeholder: Explain your specific use case and why this provider would be valuable...
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-info
+    attributes:
+      label: 📋 Additional Information
+      description: Any other relevant information about this provider
+      placeholder: Any additional information that might be helpful...
+    validations:
+      required: false
+
+  - type: input
+    id: api-docs-url
+    attributes:
+      label: 📚 API Documentation URL
+      description: If available, provide the API documentation URL
+      placeholder: https://api.justwatch.com/docs
+    validations:
+      required: false
+
+  - type: input
+    id: terms-of-service-url
+    attributes:
+      label: 📜 Terms of Service URL
+      description: If relevant, provide the terms of service URL
+      placeholder: https://justwatch.com/terms
+    validations:
+      required: false
+
+  - type: input
+    id: other-resources
+    attributes:
+      label: 🔗 Other Resources
+      description: Any other helpful links or resources
+      placeholder: Additional URLs separated by commas
+    validations:
+      required: false

@@ -1,0 +1,177 @@
+name: UI Bug Report
+description: Report a bug or issue with the web interface, dashboard, or user interface
+title: "[UI Bug]: "
+labels: ["bug"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a UI bug! Please fill out the form below to help us understand and fix the issue.
+        
+        **Before submitting, please check:**
+        - [ ] You're using the latest version of the application
+        - [ ] You've tried refreshing the page
+        - [ ] You've checked the browser console for errors
+
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: 🐛 Bug Description
+      description: A clear and concise description of what the UI bug is
+      placeholder: Describe the bug you're experiencing...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: 🔍 Expected Behavior
+      description: What did you expect to happen in the UI?
+      placeholder: Describe what you expected to happen...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: ❌ Actual Behavior
+      description: What actually happened in the UI?
+      placeholder: Describe what actually happened...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: 🌐 Browser
+      description: What browser are you using?
+      options:
+        - Chrome
+        - Firefox
+        - Safari
+        - Microsoft Edge
+        - Opera
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: browser-version
+    attributes:
+      label: Browser Version
+      description: What version of the browser? (e.g., Chrome 120, Firefox 121)
+      placeholder: Chrome 120, Firefox 121, etc.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: 💻 Operating System
+      description: What operating system are you using?
+      options:
+        - Windows 10
+        - Windows 11
+        - macOS (Intel)
+        - macOS (Apple Silicon)
+        - Ubuntu
+        - Other Linux
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: screen-resolution
+    attributes:
+      label: 📱 Screen Resolution
+      description: What is your screen resolution?
+      placeholder: e.g., 1920x1080, 2560x1440
+    validations:
+      required: false
+
+  - type: dropdown
+    id: device-type
+    attributes:
+      label: 📱 Device Type
+      description: What type of device are you using?
+      options:
+        - Desktop
+        - Laptop
+        - Tablet
+        - Mobile
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: ui-components
+    attributes:
+      label: 🎯 UI Component Affected
+      description: Which UI components are affected? (Select all that apply)
+      options:
+        - label: Dashboard
+        - label: Lists page
+        - label: Sync page
+        - label: Settings page
+        - label: Sync History
+        - label: Add List Modal
+        - label: List Card
+        - label: Navigation/Sidebar
+        - label: Other (specify in additional context)
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: 🔄 Steps to Reproduce
+      description: Please provide detailed steps to reproduce the issue
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. Scroll down to '...'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: console-errors
+    attributes:
+      label: 🔧 Console Errors
+      description: If there are any browser console errors, please paste them here
+      placeholder: Paste console errors here...
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: network-issues
+    attributes:
+      label: 🌐 Network Issues
+      description: Are you experiencing any network-related issues?
+      options:
+        - label: No network issues
+        - label: API calls failing
+        - label: Slow loading
+        - label: Timeout errors
+        - label: Other network issues
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: 📸 Screenshots/Videos
+      description: If applicable, add screenshots or describe what you see
+      placeholder: Describe what you see or attach screenshots...
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 📋 Additional Context
+      description: Add any other context about the UI problem here
+      placeholder: Any additional information that might be helpful...
+    validations:
+      required: false

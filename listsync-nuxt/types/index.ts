@@ -66,7 +66,7 @@ export interface ConnectionStatus {
 }
 
 export interface CreateListRequest {
-  list_type: 'imdb' | 'trakt' | 'trakt_special' | 'letterboxd' | 'mdblist' | 'stevenlu'
+  list_type: 'imdb' | 'trakt' | 'trakt_special' | 'letterboxd' | 'mdblist' | 'stevenlu' | 'tmdb' | 'simkl' | 'tvdb'
   list_id: string
 }
 

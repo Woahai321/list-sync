@@ -75,6 +75,7 @@ import {
   History as HistoryIcon,
   Settings as SettingsIcon,
   Database as DatabaseIcon,
+  FileText as LogsIcon,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
   X as XIcon,
@@ -111,6 +112,11 @@ const navigation = [
     label: 'Sync History',
     path: '/sync-history',
     icon: HistoryIcon,
+  },
+  {
+    label: 'Live Logs',
+    path: '/logs',
+    icon: LogsIcon,
   },
   {
     label: 'Settings',

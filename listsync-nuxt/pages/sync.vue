@@ -157,10 +157,12 @@ const handleUpdateInterval = async (newInterval: number) => {
 // Monitoring
 let monitoringInterval: NodeJS.Timeout | null = null
 let lastLogTimestamp: string | null = null
+let lastProcessedLine: number = 0
 let totalItems = 0
 let currentItem = 0
 let syncStartDetected = false
 let syncCompleteDetected = false
+let currentSessionId: string | null = null
 
 // Process log entries (extracted for reuse)
 const processLogEntries = (entries: any[]) => {
@@ -171,7 +173,7 @@ const processLogEntries = (entries: any[]) => {
     const message = entry.message || ''
     
     // Debug: Log each entry we're processing
-    if (import.meta.dev && (message.includes('Processing') || message.includes('Found') || message.includes('Sync'))) {
+    if (import.meta.dev && (message.includes('Processing') || message.includes('Found') || message.includes('Sync') || message.includes('======'))) {
       console.log('[Sync Monitor] Processing entry:', {
         timestamp: entry.timestamp,
         message: message,
@@ -180,10 +182,64 @@ const processLogEntries = (entries: any[]) => {
       })
     }
     
-    // Detect sync start - "🔍  Fetching items from"
-    if (message.includes('Fetching items from')) {
+    // Detect sync start marker - "========== SYNC START"
+    if (message.includes('========== SYNC START')) {
       syncStartDetected = true
       syncCompleteDetected = false
+      
+      // Extract session ID
+      const sessionMatch = message.match(/Session: ([a-zA-Z0-9_-]+)/)
+      if (sessionMatch) {
+        currentSessionId = sessionMatch[1]
+      }
+      
+      // Extract sync type (FULL or SINGLE)
+      const typeMatch = message.match(/SYNC START \[(FULL|SINGLE)\]/)
+      const syncType = typeMatch ? typeMatch[1] : 'FULL'
+      
+      syncLogs.value.push({
+        timestamp: entry.timestamp,
+        message: `🚀 Sync Started [${syncType}]`,
+        level: 'info'
+      })
+      console.log('[Sync Monitor] Sync start detected:', { sessionId: currentSessionId, type: syncType })
+    }
+    
+    // Detect sync complete marker - "========== SYNC COMPLETE"
+    else if (message.includes('========== SYNC COMPLETE')) {
+      syncCompleteDetected = true
+      syncStartDetected = false
+      syncProgress.value = 100
+      
+      // Extract status
+      const statusMatch = message.match(/Status: (\w+)/)
+      const status = statusMatch ? statusMatch[1] : 'UNKNOWN'
+      
+      syncLogs.value.push({
+        timestamp: entry.timestamp,
+        message: `✅ Sync Complete! Status: ${status}`,
+        level: status === 'SUCCESS' ? 'success' : 'warning'
+      })
+      
+      console.log('[Sync Monitor] Sync complete detected:', { sessionId: currentSessionId, status })
+      
+      // Stop monitoring after a brief delay
+      setTimeout(() => {
+        if (monitoringInterval) {
+          clearInterval(monitoringInterval)
+          monitoringInterval = null
+        }
+        showSuccess('Sync Complete', `Sync session ${currentSessionId || 'unknown'} completed`)
+        currentSessionId = null
+      }, 3000)
+    }
+    
+    // Detect sync start - "🔍  Fetching items from"
+    else if (message.includes('Fetching items from')) {
+      if (!syncStartDetected) {
+        syncStartDetected = true
+        syncCompleteDetected = false
+      }
       
       // Extract list type and name
       const listMatch = message.match(/Fetching items from (\w+) list: (.+)\.\.\./)
@@ -327,49 +383,87 @@ const startMonitoring = () => {
   syncLogs.value = []
   syncProgress.value = 0
   lastLogTimestamp = null
+  lastProcessedLine = 0
   totalItems = 0
   currentItem = 0
   syncStartDetected = false
   syncCompleteDetected = false
+  currentSessionId = null
 
   // Clear any existing interval
   if (monitoringInterval) {
     clearInterval(monitoringInterval)
   }
 
-  // Poll for recent log entries
+  // Poll for live logs using /api/logs/live endpoint
   monitoringInterval = setInterval(async () => {
-    console.log('[Sync Monitor] Polling for log entries...')
+    console.log('[Sync Monitor] Polling for live logs...')
     try {
-      // Fetch recent log entries (last 20)
-      const response: any = await $fetch('/api/logs/entries?page=1&limit=20&sort_order=desc')
+      // Fetch live logs from the /api/logs/live endpoint
+      const response: any = await $fetch('/api/logs/live')
       
-      // Debug logging to see what we're getting
-      console.log('[Sync Monitor] API Response:', response)
+      // Debug logging
+      console.log('[Sync Monitor] Live logs response:', {
+        success: response.success,
+        totalLines: response.total_lines,
+        lastProcessedLine
+      })
       
-      if (!response || !response.entries) {
-        console.warn('[Sync Monitor] No entries found in response:', response)
+      if (!response || !response.success || !response.lines) {
+        console.warn('[Sync Monitor] No logs found in response:', response)
         
-        // Try alternative log file if available
+        // Fallback to entries endpoint
         try {
-          const altResponse: any = await $fetch('/api/logs/entries?page=1&limit=20&sort_order=desc&search=sync')
+          const altResponse: any = await $fetch('/api/logs/entries?page=1&limit=50&sort_order=desc')
           if (altResponse && altResponse.entries && altResponse.entries.length > 0) {
-            console.log('[Sync Monitor] Found entries with search filter:', altResponse.entries.length)
-            // Process the alternative response
+            console.log('[Sync Monitor] Using fallback entries endpoint:', altResponse.entries.length)
             processLogEntries(altResponse.entries)
             return
           }
         } catch (altError) {
-          console.warn('[Sync Monitor] Alternative log search also failed:', altError)
+          console.warn('[Sync Monitor] Fallback also failed:', altError)
         }
         return
       }
       
-      const entries = response.entries
-      processLogEntries(entries)
+      const lines = response.lines
+      
+      // Process only new lines since last check
+      const newLines = lines.slice(lastProcessedLine)
+      lastProcessedLine = lines.length
+      
+      // Parse each line and convert to entry format
+      for (const line of newLines) {
+        if (!line.trim()) continue
+        
+        // Parse log line format: YYYY-MM-DD HH:MM:SS,mmm - LEVEL - message
+        const logMatch = line.match(/^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:,\d{3})?)\s+-\s+(\w+)\s+-\s+(.+)$/)
+        
+        if (logMatch) {
+          const [, timestamp, level, message] = logMatch
+          const entry = {
+            timestamp: timestamp.replace(',', '.'),
+            level: level.toLowerCase(),
+            message: message.trim(),
+            category: 'sync'
+          }
+          
+          // Process this entry using our existing logic
+          processLogEntries([entry])
+        } else if (line.includes('==========') || line.includes('🔍') || line.includes('✅') || line.includes('📊')) {
+          // Handle unformatted lines (like print statements)
+          const entry = {
+            timestamp: new Date().toISOString(),
+            level: 'info',
+            message: line.trim(),
+            category: 'sync'
+          }
+          processLogEntries([entry])
+        }
+      }
       
     } catch (error: any) {
-      console.error('[Sync Monitor] Error fetching log entries:', error)
+      console.error('[Sync Monitor] Error fetching live logs:', error)
       
       // Show user-friendly error after multiple failures
       if (syncLogs.value.length === 0) {
@@ -390,7 +484,7 @@ const startMonitoring = () => {
         })
       }
     }
-  }, 1500) // Poll every 1.5 seconds for responsive updates
+  }, 1000) // Poll every 1 second for responsive updates
 }
 
 // Cleanup on unmount
