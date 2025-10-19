@@ -137,38 +137,6 @@ body:
       required: true
 
   - type: input
-    id: api-base-url
-    attributes:
-      label: 🔗 API Base URL
-      description: If API exists, what is the base URL?
-      placeholder: https://api.justwatch.com/v1
-    validations:
-      required: false
-
-  - type: input
-    id: rate-limits
-    attributes:
-      label: ⚡ Rate Limits
-      description: If known, what are the API rate limits?
-      placeholder: e.g., 100 requests/hour, 1000 requests/day
-    validations:
-      required: false
-
-  - type: dropdown
-    id: response-format
-    attributes:
-      label: 📄 Response Format
-      description: What format does the API return data in?
-      options:
-        - JSON
-        - XML
-        - HTML
-        - Unknown
-        - Other
-    validations:
-      required: false
-
-  - type: input
     id: pagination
     attributes:
       label: 📄 Pagination
@@ -176,49 +144,6 @@ body:
       placeholder: e.g., offset/limit, cursor-based, page numbers
     validations:
       required: false
-
-  - type: dropdown
-    id: user-base
-    attributes:
-      label: 👥 User Base
-      description: How popular is this provider?
-      options:
-        - Very Popular (1M+ users)
-        - Popular (100K+ users)
-        - Niche (10K+ users)
-        - Small (1K+ users)
-        - Unknown
-    validations:
-      required: true
-
-  - type: dropdown
-    id: primary-use-case
-    attributes:
-      label: 🎯 Primary Use Case
-      description: What is the main purpose of this provider?
-      options:
-        - Movie Discovery
-        - Social Sharing
-        - Personal Tracking
-        - Reviews/Ratings
-        - Watchlist Management
-        - Other
-    validations:
-      required: true
-
-  - type: checkboxes
-    id: research-done
-    attributes:
-      label: 🔍 Research Done
-      description: What research have you completed?
-      options:
-        - label: Checked if provider is already supported
-        - label: Reviewed provider's terms of service
-        - label: Checked for existing API documentation
-        - label: Tested accessing the provider's data
-        - label: Can provide sample data/HTML if needed
-    validations:
-      required: true
 
   - type: textarea
     id: use-case
@@ -235,24 +160,6 @@ body:
       label: 📋 Additional Information
       description: Any other relevant information about this provider
       placeholder: Any additional information that might be helpful...
-    validations:
-      required: false
-
-  - type: input
-    id: api-docs-url
-    attributes:
-      label: 📚 API Documentation URL
-      description: If available, provide the API documentation URL
-      placeholder: https://api.justwatch.com/docs
-    validations:
-      required: false
-
-  - type: input
-    id: terms-of-service-url
-    attributes:
-      label: 📜 Terms of Service URL
-      description: If relevant, provide the terms of service URL
-      placeholder: https://justwatch.com/terms
     validations:
       required: false
 
