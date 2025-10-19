@@ -11,6 +11,7 @@
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-blue?style=for-the-badge&logo=linkedin)](https://www.linkedin.com/company/soluify)
 
 ---
+**⚠️⚠️ Simkl developers have firmly stated that use of ListSync with Simkl constitutes a violation of their Terms of Service, which will lead to IP bans or account suspensions—users are explicitly warned not to proceed with the provider and modify the applications source code to utilise their API, adhere to [Simkl's TOS](https://simkl.com/about/policies/terms/), and bear full accountability for any consequences; proceed only at your absolute own risk after thoroughly examining our [legal disclaimer](https://github.com/Woahai321/list-sync/blob/main/docs/legal-disclaimer.md#user-responsibility).**
 
 ## 🚀 What is ListSync? 
 
@@ -369,13 +370,14 @@ These special lists sync a configurable number of items (default: 20, can be set
 <details>
 <summary>📋 Simkl Lists</summary>
 
+**Disclaimer**: Simkl developers have stated that using ListSync with their platform violates their Terms of Service (TOS) and may result in IP or account bans. It is entirely the user's responsibility to review Simkl's TOS, weigh the risks, and decide whether to proceed—all information is provided here for informed decision-making; use at your own risk and refer to our [legal disclaimer](https://github.com/Woahai321/list-sync/blob/main/docs/legal-disclaimer.md#user-responsibility) for full details.
+
 #### **Using the Raw URL**:
 1. Navigate to your Simkl list in your browser.
 2. Copy the URL from the address bar. Examples:
    - `https://simkl.com/5/list/1234-my-list`
 3. Paste the URL directly into ListSync.
-4. Please have patience with this list provider. 
-
+4. Please have patience with this list provider.
 **Note**: Simkl lists require the full URL format for proper access.
 </details>
 
