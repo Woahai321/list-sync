@@ -1,0 +1,96 @@
+name: Feature Request
+description: Suggest an idea for a new feature or enhancement
+title: "[Feature Request]: "
+labels: ["enhancement"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new feature! Please fill out the form below to help us understand your idea and assess its feasibility.
+        
+        **Before submitting, please:**
+        - [ ] Search existing issues to see if this has already been requested
+        - [ ] Check the documentation for current features
+        - [ ] Consider if this aligns with the project's goals
+
+  - type: textarea
+    id: feature-description
+    attributes:
+      label: 📝 Feature Description
+      description: A clear and concise description of what the feature is.
+      placeholder: Describe the feature you'd like to see...
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem-solved
+    attributes:
+      label: ❓ Problem Solved
+      description: What problem does this feature solve? Or what need does it address?
+      placeholder: Explain the issue or gap this feature would fill...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: 💡 Proposed Solution
+      description: Describe how you think this feature could be implemented.
+      placeholder: Provide details on your suggested approach...
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 🔄 Alternatives Considered
+      description: Any alternative solutions or features you've considered?
+      placeholder: Mention other ways to achieve this or why they don't work...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: ⏰ Suggested Priority
+      description: How urgent is this feature for you?
+      options:
+        - Low
+        - Medium
+        - High
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: impacted-areas
+    attributes:
+      label: 🛠️ Impacted Areas
+      description: Which parts of the application would this affect?
+      options:
+        - label: User Interface
+        - label: Backend/API
+        - label: Data Handling
+        - label: Performance
+        - label: Security
+        - label: Other (specify in additional info)
+    validations:
+      required: false
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: 📋 Use Case
+      description: Provide an example of how this feature would be used.
+      placeholder: Describe a scenario where this feature is beneficial...
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-info
+    attributes:
+      label: 📎 Additional Information
+      description: Any other relevant details, screenshots, or links.
+      placeholder: Add more context, mockups, or references...
+    validations:
+      required: false
