@@ -104,6 +104,11 @@ def extract_media_from_list_item(item: Dict[str, Any]) -> Optional[Dict[str, Any
     """
     Extract media information from a Trakt list item.
     
+    Supports:
+    - Movies: Returns movie data
+    - Shows: Returns full show data
+    - Seasons: Returns show data with season number for specific season requests
+    
     Args:
         item (Dict[str, Any]): Trakt API list item
         
@@ -112,6 +117,38 @@ def extract_media_from_list_item(item: Dict[str, Any]) -> Optional[Dict[str, Any
     """
     try:
         item_type = item.get('type')
+        
+        # Handle season items specially
+        if item_type == 'season':
+            # Season items have both 'season' and 'show' objects
+            season_data = item.get('season', {})
+            show_data = item.get('show', {})
+            
+            if not show_data:
+                logging.warning(f"No show data found in season item: {item}")
+                return None
+            
+            season_number = season_data.get('number')
+            if season_number is None:
+                logging.warning(f"No season number found in season item: {item}")
+                return None
+            
+            title = show_data.get('title')
+            year = show_data.get('year')
+            ids = show_data.get('ids', {})
+            
+            if not title:
+                logging.warning(f"No title found in show: {show_data}")
+                return None
+            
+            return {
+                "title": title,
+                "year": year,
+                "media_type": "tv",
+                "tmdb_id": ids.get('tmdb'),
+                "imdb_id": ids.get('imdb'),
+                "season_number": season_number,  # Add season number for specific season requests
+            }
         
         # Get the media object (nested under 'movie' or 'show' key)
         if item_type == 'movie':
@@ -195,9 +232,16 @@ def fetch_trakt_list(list_id: str) -> List[Dict[str, Any]]:
                 media_items.append({
                     "title": media["title"],
                     "media_type": media["media_type"],
-                    "year": media.get("year")
+                    "year": media.get("year"),
+                    "tmdb_id": media.get("tmdb_id"),
+                    "imdb_id": media.get("imdb_id"),
+                    "season_number": media.get("season_number")  # Include season number if present
                 })
-                logging.info(f"Added {media['media_type']}: {media['title']} ({media.get('year', 'unknown year')})")
+                # Log every 10th item to reduce log verbosity
+                if len(media_items) % 10 == 0 or len(media_items) <= 5:
+                    ids_info = f"TMDB: {media.get('tmdb_id')}, IMDB: {media.get('imdb_id')}" if media.get('tmdb_id') or media.get('imdb_id') else "No IDs"
+                    season_info = f" Season {media.get('season_number')}" if media.get('season_number') else ""
+                    logging.info(f"Added {media['media_type']}: {media['title']} ({media.get('year', 'unknown year')}){season_info} [{ids_info}]")
         
         logging.info(f"Trakt list {list_id} fetched successfully. Found {len(media_items)} items.")
         return media_items
@@ -279,13 +323,18 @@ def fetch_trakt_special_list(url_or_shortcut: str) -> List[Dict[str, Any]]:
                     media_items.append({
                         "title": media["title"],
                         "media_type": media["media_type"],
-                        "year": media.get("year")
+                        "year": media.get("year"),
+                        "tmdb_id": media.get("tmdb_id"),
+                        "imdb_id": media.get("imdb_id")
                     })
                     total_items_fetched += 1
-                    logging.info(
-                        f"Added {media['media_type']}: {media['title']} ({media.get('year', 'unknown year')}) "
-                        f"[{total_items_fetched}/{TRAKT_SPECIAL_ITEMS_LIMIT}]"
-                    )
+                    # Log every 5th item to reduce log verbosity
+                    if total_items_fetched % 5 == 0 or total_items_fetched <= 3:
+                        ids_info = f"TMDB: {media.get('tmdb_id')}, IMDB: {media.get('imdb_id')}" if media.get('tmdb_id') or media.get('imdb_id') else "No IDs"
+                        logging.info(
+                            f"Added {media['media_type']}: {media['title']} ({media.get('year', 'unknown year')}) [{ids_info}] "
+                            f"[{total_items_fetched}/{TRAKT_SPECIAL_ITEMS_LIMIT}]"
+                        )
             
             # Check if we got fewer items than requested (end of list)
             if len(items) < page_limit:
@@ -407,4 +456,238 @@ def extract_media_from_special_list_item(item: Dict[str, Any], endpoint: str) ->
         
     except Exception as e:
         logging.warning(f"Failed to parse special list item: {str(e)}")
+        return None
+
+
+def search_trakt_by_imdb_id(imdb_id: str, max_retries: int = 3) -> Optional[Dict[str, Any]]:
+    """
+    Search Trakt by IMDB ID to get TMDB ID and other metadata.
+    
+    Args:
+        imdb_id (str): IMDB ID (e.g., 'tt0372784')
+        max_retries (int): Maximum number of retry attempts for failed requests
+        
+    Returns:
+        Optional[Dict[str, Any]]: Media info with IDs or None if not found
+    """
+    import time
+    import random
+    
+    for attempt in range(max_retries + 1):
+        try:
+            if attempt > 0:
+                # Exponential backoff with jitter
+                delay = (2 ** attempt) + random.uniform(0, 1)
+                logging.warning(f"🔄 Retry attempt {attempt}/{max_retries} for IMDB ID {imdb_id} after {delay:.1f}s delay")
+                time.sleep(delay)
+            
+            logging.info(f"🔍 Trakt API: Searching by IMDB ID: {imdb_id}")
+            url = f"{TRAKT_BASE_URL}/search/imdb/{imdb_id}"
+            
+            response = requests.get(url, headers=get_trakt_headers(), timeout=30)
+            
+            # Handle rate limiting
+            if response.status_code == 429:
+                retry_after = int(response.headers.get('Retry-After', 10))
+                logging.warning(f"⚠️  Trakt API rate limit hit. Waiting {retry_after} seconds...")
+                time.sleep(retry_after)
+                # Retry once
+                response = requests.get(url, headers=get_trakt_headers(), timeout=30)
+            
+            response.raise_for_status()
+            results = response.json()
+            
+            if not results or len(results) == 0:
+                logging.info(f"❌ Trakt API: No results found for IMDB ID: {imdb_id}")
+                return None
+            
+            # Take first result
+            first_result = results[0]
+            result_type = first_result.get('type')
+            
+            # Extract the media object
+            if result_type == 'movie':
+                media = first_result.get('movie', {})
+                media_type = 'movie'
+            elif result_type == 'show':
+                media = first_result.get('show', {})
+                media_type = 'tv'
+            else:
+                logging.warning(f"Unknown result type from Trakt: {result_type}")
+                return None
+            
+            title = media.get('title')
+            year = media.get('year')
+            ids = media.get('ids', {})
+            tmdb_id = ids.get('tmdb')
+            returned_imdb_id = ids.get('imdb')
+            
+            # CRITICAL VALIDATION: Ensure returned IMDB ID matches input IMDB ID
+            if returned_imdb_id and returned_imdb_id != imdb_id:
+                logging.error(f"🚨 CRITICAL ERROR: IMDB ID mismatch! Input: {imdb_id}, Returned: {returned_imdb_id}")
+                logging.error(f"🚨 Expected: '{title}' ({year}), but got different movie from Trakt API")
+                logging.error(f"🚨 This indicates a Trakt API bug or data corruption. Skipping this result.")
+                return None
+            
+            if tmdb_id:
+                logging.info(f"✅ Trakt API: Found match via IMDB ID → TMDB ID: {tmdb_id}, Title: '{title}' ({year})")
+            else:
+                logging.warning(f"⚠️  Trakt API: Found match but no TMDB ID available for '{title}'")
+            
+            # Log only essential info instead of full media object to reduce log size
+            logging.debug(f"Trakt found: {media.get('title', 'Unknown')} ({media.get('year', 'N/A')}) → TMDB {media.get('ids', {}).get('tmdb', 'N/A')}")
+            
+            return {
+                "title": title,
+                "year": year,
+                "media_type": media_type,
+                "tmdb_id": tmdb_id,
+                "imdb_id": returned_imdb_id,
+                "trakt_id": ids.get('trakt')
+            }
+            
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                logging.info(f"❌ Trakt API: IMDB ID not found: {imdb_id}")
+                return None
+            elif e.response.status_code == 401:
+                logging.error("❌ Trakt API authentication failed. Check TRAKT_CLIENT_ID.")
+                return None
+            else:
+                logging.error(f"❌ Trakt API error: {e.response.status_code} - {e.response.text}")
+                if attempt < max_retries:
+                    continue
+                return None
+        except Exception as e:
+            logging.error(f"❌ Error searching Trakt by IMDB ID {imdb_id}: {str(e)}")
+            if attempt < max_retries:
+                continue
+            return None
+    
+    logging.error(f"❌ Failed to search Trakt by IMDB ID {imdb_id} after {max_retries} retries")
+    return None
+
+
+def search_trakt_by_title(title: str, year: Optional[int], media_type: str) -> Optional[Dict[str, Any]]:
+    """
+    Search Trakt by title and year to get TMDB ID and other metadata.
+    
+    Args:
+        title (str): Title to search for
+        year (Optional[int]): Release year (helps with matching)
+        media_type (str): 'movie' or 'tv'
+        
+    Returns:
+        Optional[Dict[str, Any]]: Media info with IDs or None if not found
+    """
+    try:
+        logging.info(f"🔍 Trakt API: Searching by title: '{title}' ({year}) [{media_type}]")
+        
+        # Map media_type to Trakt API endpoint: 'tv' -> 'show', 'movie' -> 'movie'
+        trakt_type = 'show' if media_type == 'tv' else media_type
+        
+        # Use text query search
+        url = f"{TRAKT_BASE_URL}/search/{trakt_type}"
+        params = {"query": title}
+        
+        response = requests.get(url, headers=get_trakt_headers(), params=params, timeout=30)
+        
+        # Handle rate limiting
+        if response.status_code == 429:
+            retry_after = int(response.headers.get('Retry-After', 10))
+            logging.warning(f"⚠️  Trakt API rate limit hit. Waiting {retry_after} seconds...")
+            import time
+            time.sleep(retry_after)
+            # Retry once
+            response = requests.get(url, headers=get_trakt_headers(), params=params, timeout=30)
+        
+        response.raise_for_status()
+        results = response.json()
+        
+        if not results or len(results) == 0:
+            logging.info(f"❌ Trakt API: No results found for title: '{title}'")
+            return None
+        
+        logging.info(f"🔎 Trakt API: Found {len(results)} results for '{title}'")
+        
+        # Find best match based on year
+        best_match = None
+        exact_year_match = False
+        
+        for result in results:
+            result_type = result.get('type')
+            
+            # Extract the media object
+            if result_type == 'movie':
+                media = result.get('movie', {})
+            elif result_type == 'show':
+                media = result.get('show', {})
+            else:
+                continue
+            
+            result_title = media.get('title')
+            result_year = media.get('year')
+            ids = media.get('ids', {})
+            
+            logging.debug(f"  Candidate: '{result_title}' ({result_year}) - TMDB: {ids.get('tmdb')}")
+            
+            # If we have a year, try to match it
+            if year and result_year:
+                if result_year == year:
+                    logging.info(f"✅ Trakt API: Exact year match found: '{result_title}' ({result_year})")
+                    best_match = {
+                        "title": result_title,
+                        "year": result_year,
+                        "media_type": media_type,
+                        "tmdb_id": ids.get('tmdb'),
+                        "imdb_id": ids.get('imdb'),
+                        "trakt_id": ids.get('trakt')
+                    }
+                    exact_year_match = True
+                    break
+                elif not exact_year_match and abs(result_year - year) <= 1:
+                    # Close year match (±1 year)
+                    logging.info(f"🔶 Trakt API: Close year match: '{result_title}' ({result_year}) vs expected ({year})")
+                    if not best_match:
+                        best_match = {
+                            "title": result_title,
+                            "year": result_year,
+                            "media_type": media_type,
+                            "tmdb_id": ids.get('tmdb'),
+                            "imdb_id": ids.get('imdb'),
+                            "trakt_id": ids.get('trakt')
+                        }
+            else:
+                # No year to match against, take first result
+                if not best_match:
+                    logging.info(f"🔶 Trakt API: No year to match, using first result: '{result_title}' ({result_year})")
+                    best_match = {
+                        "title": result_title,
+                        "year": result_year,
+                        "media_type": media_type,
+                        "tmdb_id": ids.get('tmdb'),
+                        "imdb_id": ids.get('imdb'),
+                        "trakt_id": ids.get('trakt')
+                    }
+        
+        if best_match:
+            if best_match.get('tmdb_id'):
+                logging.info(f"✅ Trakt API: Found TMDB ID {best_match['tmdb_id']} for '{title}'")
+            else:
+                logging.warning(f"⚠️  Trakt API: Found match but no TMDB ID for '{title}'")
+            
+            logging.debug(f"Best match: {best_match}")
+            return best_match
+        else:
+            logging.info(f"❌ Trakt API: No suitable match found for '{title}' ({year})")
+            return None
+        
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 401:
+            logging.error("❌ Trakt API authentication failed. Check TRAKT_CLIENT_ID.")
+        else:
+            logging.error(f"❌ Trakt API error: {e.response.status_code} - {e.response.text}")
+        return None
+    except Exception as e:
+        logging.error(f"❌ Error searching Trakt by title '{title}': {str(e)}")
         return None

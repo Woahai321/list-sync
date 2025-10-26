@@ -74,9 +74,60 @@ class OverseerrClient:
             logging.error(f"Failed to set requester user. Error: {str(e)}")
             return "1"  # Default fallback
     
+    def get_media_by_tmdb_id(self, tmdb_id: int, media_type: str) -> Optional[Dict[str, Any]]:
+        """
+        Get media details directly by TMDB ID (no search needed).
+        
+        Args:
+            tmdb_id (int): TMDB ID
+            media_type (str): Media type (movie or tv)
+            
+        Returns:
+            Optional[Dict[str, Any]]: Media details with ID and status or None if not found
+        """
+        media_url = f"{self.overseerr_url}/api/v1/{media_type}/{tmdb_id}"
+        
+        try:
+            logging.info(f"🎯 Overseerr API: Direct lookup by TMDB ID: {tmdb_id} [{media_type}]")
+            logging.debug(f"Request URL: {media_url}")
+            
+            response = requests.get(media_url, headers=self.headers, timeout=10)
+            
+            if response.status_code == 404:
+                logging.info(f"❌ Overseerr API: TMDB ID {tmdb_id} not found in Overseerr")
+                return None
+            
+            response.raise_for_status()
+            media_data = response.json()
+            
+            # Extract the title for logging
+            media_title = media_data.get('title') if media_type == 'movie' else media_data.get('name')
+            media_year = None
+            try:
+                if media_type == 'movie' and 'releaseDate' in media_data:
+                    media_year = media_data['releaseDate'][:4]
+                elif media_type == 'tv' and 'firstAirDate' in media_data:
+                    media_year = media_data['firstAirDate'][:4]
+            except (ValueError, TypeError):
+                pass
+            
+            logging.info(f"✅ Overseerr API: Found '{media_title}' ({media_year}) via TMDB ID {tmdb_id}")
+            # Removed verbose media data logging to reduce log size
+            
+            return {
+                "id": tmdb_id,  # Use TMDB ID as the identifier
+                "mediaType": media_type,
+                "title": media_title,
+                "year": media_year
+            }
+            
+        except requests.exceptions.RequestException as e:
+            logging.error(f"❌ Overseerr API error for TMDB ID {tmdb_id}: {str(e)}")
+            return None
+    
     def search_media(self, media_title: str, media_type: str, release_year: int = None) -> Optional[Dict[str, Any]]:
         """
-        Search for media in Overseerr.
+        Search for media in Overseerr (fallback method when no TMDB ID available).
         
         Args:
             media_title (str): Title to search for
@@ -86,6 +137,7 @@ class OverseerrClient:
         Returns:
             Optional[Dict[str, Any]]: Search result or None if not found
         """
+        logging.info(f"🔍 Overseerr API: Fallback search by title: '{media_title}' ({release_year}) [{media_type}]")
         search_url = f"{self.overseerr_url}/api/v1/search"
         search_title = media_title  # Use the provided title
         
@@ -100,8 +152,8 @@ class OverseerrClient:
                 encoded_query = quote(search_title, safe='')
                 url = f"{search_url}?query={encoded_query}&page={page}&language=en"
                 
-                logging.debug(f"Searching for '{search_title}' (Year: {release_year})")
-                logging.debug(f"Encoded URL: {url}")
+                logging.info(f"  📄 Overseerr API: Searching page {page} for '{search_title}' (Year: {release_year})")
+                logging.debug(f"  Request URL: {url}")
                 response = requests.get(url, headers=self.headers, timeout=10)
                 
                 if response.status_code == 429:
@@ -146,12 +198,12 @@ class OverseerrClient:
                     if release_year and result_year:
                         if release_year == result_year:
                             score *= 2  # Double score for exact year match
-                            logging.debug(f"Exact year match for '{result_title}' ({result_year}) - Base similarity: {similarity}")
+                            logging.debug(f"  ✓ Exact year match for '{result_title}' ({result_year}) - Base similarity: {similarity}")
                         elif abs(release_year - result_year) <= 1:
                             score *= 1.5  # 1.5x score for off-by-one year
-                            logging.debug(f"Close year match for '{result_title}' ({result_year}) - Base similarity: {similarity}")
+                            logging.debug(f"  ≈ Close year match for '{result_title}' ({result_year}) - Base similarity: {similarity}")
                     
-                    logging.debug(f"Match candidate: '{result_title}' ({result_year}) - Score: {score}")
+                    logging.debug(f"  🔍 Match candidate: '{result_title}' ({result_year}) - Score: {score}")
                     
                     # Update best match if we have a better score
                     # For exact year matches, require a lower similarity threshold
@@ -160,7 +212,7 @@ class OverseerrClient:
                     if score > best_score and similarity >= min_similarity:
                         best_score = score
                         best_match = result
-                        logging.info(f"New best match: '{result_title}' ({result_year}) - Score: {score}")
+                        logging.info(f"  ⭐ New best match: '{result_title}' ({result_year}) - Score: {score}")
                 
                 # Only continue to next page if we haven't found a good match
                 if best_score > 1.5 or page >= search_results.get("totalPages", 1):
@@ -187,13 +239,13 @@ class OverseerrClient:
             except (ValueError, TypeError):
                 pass
             
-            logging.info(f"Final match for '{media_title}' ({release_year}): '{result_title}' ({result_year}) - Score: {best_score}")
+            logging.info(f"✅ Overseerr API: Final match for '{media_title}' ({release_year}): '{result_title}' ({result_year}) - Score: {best_score}")
             return {
                 "id": best_match["id"],
                 "mediaType": best_match["mediaType"],
             }
         
-        logging.warning(f'No matching results found for "{media_title}" ({release_year}) of type "{media_type}"')
+        logging.warning(f'❌ Overseerr API: No matching results found for "{media_title}" ({release_year}) of type "{media_type}"')
         return None
     
     def get_media_status(self, media_id: int, media_type: str) -> Tuple[bool, bool, int]:
@@ -213,7 +265,9 @@ class OverseerrClient:
             response = requests.get(media_url, headers=self.headers)
             response.raise_for_status()
             media_data = response.json()
-            logging.debug(f"Detailed response for {media_type} ID {media_id}: {json.dumps(media_data)}")
+            # Log only essential info instead of full response to reduce log size
+            status = media_data.get("mediaInfo", {}).get("status")
+            logging.debug(f"Overseerr {media_type} ID {media_id}: status={status}")
 
             media_info = media_data.get("mediaInfo", {})
             status = media_info.get("status")
@@ -271,7 +325,8 @@ class OverseerrClient:
         try:
             response = requests.post(request_url, headers=self.request_headers, json=payload)
             response.raise_for_status()
-            logging.debug(f"Request response for {media_type} ID {media_id}: {json.dumps(response.json())}")
+            # Log only success/error instead of full response to reduce log size
+            logging.debug(f"Request successful for {media_type} ID {media_id}")
             return "success"
         except Exception as e:
             logging.error(f"Error requesting {media_type} ID {media_id}: {str(e)}")
@@ -301,13 +356,45 @@ class OverseerrClient:
             "seasons": seasons_list
         }
         
-        logging.debug(f"Request payload for TV series ID {tv_id}: {json.dumps(payload, indent=4)}")
+        logging.debug(f"Requesting TV series ID {tv_id}: {number_of_seasons} seasons")
 
         try:
             response = requests.post(request_url, headers=self.request_headers, json=payload)
             response.raise_for_status()
-            logging.debug(f"Request response for TV series ID {tv_id}: {response.json()}")
+            logging.debug(f"TV series request successful for ID {tv_id}")
             return "success"
         except Exception as e:
             logging.error(f"Error requesting TV series ID {tv_id}: {str(e)}")
+            return "error"
+    
+    def request_specific_season(self, tv_id: int, season_number: int, is_4k: bool = False) -> str:
+        """
+        Request a specific season of a TV series in Overseerr.
+        
+        Args:
+            tv_id (int): TV series TMDB ID
+            season_number (int): Season number to request
+            is_4k (bool, optional): Whether to request 4K. Defaults to False.
+            
+        Returns:
+            str: Status of the request ("success" or "error")
+        """
+        request_url = f"{self.overseerr_url}/api/v1/request"
+        
+        payload = {
+            "mediaId": tv_id,
+            "mediaType": "tv",
+            "is4k": is_4k,
+            "seasons": [season_number]  # Request only the specific season
+        }
+        
+        logging.info(f"📺 Requesting Season {season_number} for TV series TMDB ID {tv_id}")
+
+        try:
+            response = requests.post(request_url, headers=self.request_headers, json=payload)
+            response.raise_for_status()
+            logging.info(f"✅ Successfully requested Season {season_number} for TV series ID {tv_id}")
+            return "success"
+        except Exception as e:
+            logging.error(f"❌ Error requesting Season {season_number} for TV series ID {tv_id}: {str(e)}")
             return "error"

@@ -11,18 +11,15 @@
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-blue?style=for-the-badge&logo=linkedin)](https://www.linkedin.com/company/soluify)
 
 ---
-**⚠️⚠️ Simkl developers have firmly stated that use of ListSync with Simkl constitutes a violation of their Terms of Service, which will lead to IP bans or account suspensions...**
-
-**Although all data and lists synced from Simkl are publicly available without requiring authentication, and ListSync uses SeleniumBase to intentionally simulate a standard user browser session (with built-in rate limiting and respect for robots.txt to minimize impact), users are explicitly warned not to proceed with this provider and modify the source code themselves, adhere to [Simkl's TOS](https://simkl.com/about/policies/terms/), and bear full accountability for any consequences; proceed only at your absolute own risk after thoroughly examining our [legal disclaimer](https://github.com/Woahai321/list-sync/blob/main/docs/legal-disclaimer.md#user-responsibility).**
 
 ## 🚀 What is ListSync? 
 
-ListSync automatically syncs your watchlists from IMDb, Trakt and many more with Overseerr/Jellyseerr. No more manual adding - just add movies and shows to your favorite watchlist, and they'll appear in your media server automatically.
+ListSync automatically syncs your watchlists from IMDb, Trakt and many more with Overseerr/Jellyseerr. No more manual adding - just add movies, shows, and anime to your favorite watchlist, and they'll appear in your media server automatically.
 
 <div align="center">
 
 [![Installation Guide](https://img.shields.io/badge/🚀_Installation_Guide-8b5cf6?style=for-the-badge&labelColor=6b21a8)](#-getting-started)
-[![List Setup Guide](https://img.shields.io/badge/📋_List_Setup_Guide-8b5cf6?style=for-the-badge&labelColor=6b21a8)](#-obtaining-list-ids)
+[![List Setup Guide](https://img.shields.io/badge/📋_List_Setup_Guide-8b5cf6?style=for-the-badge&labelColor=6b21a8)](#-api-keys--list-configuration)
 [![Troubleshooting](https://img.shields.io/badge/🛠️_Troubleshooting-8b5cf6?style=for-the-badge&labelColor=6b21a8)](#-troubleshooting)
 [![Documentation](https://img.shields.io/badge/📖_Documentation-8b5cf6?style=for-the-badge&labelColor=6b21a8)](docs/)
 
@@ -32,11 +29,11 @@ ListSync automatically syncs your watchlists from IMDb, Trakt and many more with
 
 ## 🖥️ Modern Web Dashboard
 
-ListSync now includes a **comprehensive web dashboard** built with Nuxt 3 and Vue 3, providing a modern interface to manage all your sync operations.
+ListSync now includes a **web dashboard** built with Nuxt 3 and Vue 3, providing a modern interface to manage all your sync operations.
 
 ![ListSync Web Dashboard](https://s.2ya.me/api/shares/bOlt1gfU/files/318acfa6-d44a-47f6-9b6f-219171413e8f)
 
-**Access your dashboard at:** `http://localhost:3222` (frontend) and `http://localhost:4222/api` (API)
+**Access your dashboard at:** `http://localhost:3222`
 
 ---
 
@@ -57,16 +54,14 @@ git clone https://github.com/Woahai321/list-sync.git && cd list-sync
 # 2. Copy environment file
 cp .env.example .env
 
-# 3. Edit .env - Add these three settings:
+# 3. Edit .env - Add these key settings:
 #    OVERSEERR_URL=http://your-overseerr:5055
 #    OVERSEERR_API_KEY=your-api-key
+#    TRAKT_CLIENT_ID=your-client-id
 #    IMDB_LISTS=top
 
 # 4. Start ListSync
 docker-compose up -d
-
-# 5. Open dashboard
-# Visit: http://localhost:3222
 ```
 
 **That's it!** Your first sync will start automatically. 🎉
@@ -172,20 +167,6 @@ Add your Client ID to your `.env` file:
 TRAKT_CLIENT_ID=your_client_id_here
 ```
 
-Or set it in your docker-compose environment variables:
-```yaml
-environment:
-  - TRAKT_CLIENT_ID=your_client_id_here
-```
-
-**That's it!** Trakt lists will now work automatically. No OAuth flow or authentication needed for public lists.
-
-#### **Benefits of API Integration:**
-- ✅ **Faster** - API calls are 10-20x faster than web scraping
-- ✅ **Reliable** - No more breakage when Trakt updates their UI
-- ✅ **Better Data** - Get TMDb IDs and IMDb IDs directly
-- ✅ **Rate Limits** - 1000 requests per 5 minutes (more than enough)
-
 </details>
 
 <details>
@@ -214,15 +195,6 @@ Add your API key to your `.env` file:
 # TMDB API Configuration
 TMDB_KEY=your_api_key_here
 ```
-
-**Benefits of TMDB API Integration:**
-- ✅ **Faster** - API calls are much faster than web scraping
-- ✅ **Reliable** - No more breakage when TMDB updates their UI
-- ✅ **Better Data** - Get comprehensive metadata directly
-- ✅ **Rate Limits** - 40 requests per 10 seconds (more than enough)
-
-**Note**: TMDB works with web scraping by default. API key is optional for better performance.
-
 </details>
 
 <details>
@@ -251,14 +223,6 @@ Add your API key to your `.env` file:
 # TVDB API Configuration
 TVDB_KEY=your_api_key_here
 ```
-
-**Benefits of TVDB API Integration:**
-- ✅ **Enhanced Data** - Get detailed series information and metadata
-- ✅ **Reliable** - Official API access for better stability
-- ✅ **Comprehensive** - Access to full TVDB database
-
-**Note**: TVDB works with web scraping by default. API key is optional for enhanced data.
-
 </details>
 
 ---
@@ -268,7 +232,7 @@ TVDB_KEY=your_api_key_here
 ListSync supports multiple list services. You can add them using either the raw URL or the list ID.
 
 <details>
-<summary>📋 IMDb Lists</summary>
+<summary>📋 IMDb</summary>
 
 #### **Using the Raw URL**:
 1. Navigate to your IMDb list in your browser.  
@@ -293,7 +257,7 @@ ListSync supports multiple list services. You can add them using either the raw 
 </details>
 
 <details>
-<summary>📋 Trakt Lists</summary>
+<summary>📋 Trakt</summary>
 
 #### **Using the Raw URL**:
 1. Navigate to your Trakt list in your browser.  
@@ -318,7 +282,7 @@ These special lists sync a configurable number of items (default: 20, can be set
 </details>
 
 <details>
-<summary>📋 TMDB Lists</summary>
+<summary>📋 TMDB</summary>
 
 #### **Using the Raw URL**:
 1. Navigate to your TMDB list in your browser.
@@ -331,7 +295,7 @@ These special lists sync a configurable number of items (default: 20, can be set
 </details>
 
 <details>
-<summary>📋 TVDB Lists</summary>
+<summary>📋 TVDB</summary>
 
 #### **Using the Raw URL**:
 1. Navigate to your TVDB list in your browser.
@@ -343,19 +307,46 @@ These special lists sync a configurable number of items (default: 20, can be set
 </details>
 
 <details>
-<summary>📋 Letterboxd Lists</summary>
+<summary>📋 Letterboxd</summary>
 
 #### **Using the Raw URL**:
 1. Navigate to your Letterboxd list in your browser.  
-2. Copy the URL from the address bar. Example:  
-   - `https://letterboxd.com/user/list/example-list/`  
-   - `https://letterboxd.com/user/watchlist/` (for watchlists)
+2. Copy the URL from the address bar. Examples:
+   - **Custom Lists**: `https://letterboxd.com/username/list/my-list/`  
+   - **User Watchlist**: `https://letterboxd.com/username/watchlist/`
 3. Paste the URL directly into ListSync.
-4. Please have patience with this list provider.  
+
+**Note**: Please have patience with this list provider as it relies on web scraping.
 </details>
 
 <details>
-<summary>📋 MDBList Collections</summary>
+<summary>📋 AniList</summary>
+
+#### **Using the Raw URL**:
+1. Navigate to your AniList profile in your browser.  
+2. Copy the URL from the address bar. Examples:
+   - **All Lists**: `https://anilist.co/user/username/animelist`  
+   - **Specific Status**: `https://anilist.co/user/username/animelist/Planning`
+3. Paste the URL directly into ListSync.
+
+#### **Using Just the Username**:
+1. You can also just enter the username:
+   - `username`
+2. This will sync all their anime lists (Watching, Planning, Completed, etc.)
+
+#### **Supported List Statuses**:
+- ✅ **Planning** - Anime planned to watch
+- ✅ **Watching** - Currently watching
+- ✅ **Completed** - Finished anime
+- ✅ **Paused** - On hold
+- ✅ **Dropped** - Dropped anime
+- ✅ **Custom Lists** - User-created custom lists
+
+**Note**: Anime titles are automatically resolved to TMDB IDs via Trakt API for Overseerr compatibility. Resolution works with both English and Romaji titles.
+</details>
+
+<details>
+<summary>📋 MDBList</summary>
 
 #### **Using the Raw URL**:
 1. Navigate to your MDBList list in your browser.
@@ -370,21 +361,20 @@ These special lists sync a configurable number of items (default: 20, can be set
 </details>
 
 <details>
-<summary>📋 Simkl Lists</summary>
+<summary>📋 SIMKL</summary>
 
-**Disclaimer**: Simkl developers have stated that using ListSync with their platform violates their Terms of Service (TOS) and may result in IP or account bans. It is entirely the user's responsibility to review Simkl's TOS, weigh the risks, and decide whether to proceed—all information is provided here for informed decision-making; use at your own risk and refer to our [legal disclaimer](https://github.com/Woahai321/list-sync/blob/main/docs/legal-disclaimer.md#user-responsibility) for full details.
+**⚠️ SIMKL provider is currently disabled.**
 
-#### **Using the Raw URL**:
-1. Navigate to your Simkl list in your browser.
-2. Copy the URL from the address bar. Examples:
-   - `https://simkl.com/5/list/1234-my-list`
-3. Paste the URL directly into ListSync.
-4. Please have patience with this list provider.
-**Note**: Simkl lists require the full URL format for proper access.
+SIMKL API currently only supports authenticated user watchlists and does not support custom public lists. We have been in contact with the developers and the required API endpoint for this tool does not have an ETA.
+
+**Future Plans:**
+SIMKL support may be re-enabled if/when SIMKL API adds support for custom public lists.
+
+**For now, please use Trakt, IMDB, Letterboxd or any other provider for list syncing.**
 </details>
 
 <details>
-<summary>📋 Steven Lu's Popular Movies</summary>
+<summary>📋 Steven Lu</summary>
 
 This is a curated list of popular movies maintained by Steven Lu, available at:
 - `https://s3.amazonaws.com/popular-movies/movies.json`
@@ -428,8 +418,10 @@ TVDB_KEY=...              # TVDB API Key (for enhanced data)
 IMDB_LISTS=top,boxoffice  # IMDb lists to sync
 TRAKT_LISTS=...           # Trakt lists to sync
 LETTERBOXD_LISTS=...      # Letterboxd lists to sync
+ANILIST_LISTS=...         # AniList anime lists to sync (username or full URL)
 MDBLIST_LISTS=...         # MDBList lists to sync
-SIMKL_LISTS=...           # Simkl lists to sync (full URLs)
+# SIMKL_CLIENT_ID=...     # SIMKL API Client ID (DISABLED - see SIMKL section)
+# SIMKL_USER_TOKEN=...    # SIMKL OAuth Token (DISABLED - see SIMKL section)
 TVDB_LISTS=...            # TVDB lists to sync (full URLs)
 TMDB_LISTS=...            # TMDB lists to sync (full URLs)
 STEVENLU_LISTS=stevenlu   # Steven Lu popular movies
@@ -593,7 +585,7 @@ For detailed information about SeerrBridge, visit the [SeerrBridge Repository](h
 ```mermaid
 graph TD
     %% User Journey
-    User[👤 User Opens Docker<br/>localhost:3222] --> AddLists[📝 Add Lists via Web UI<br/>IMDb • Trakt • Letterboxd • etc.]
+    User[👤 User Opens Docker<br/>localhost:3222] --> AddLists[📝 Add Lists via Web UI<br/>IMDb • Trakt • AniList • Letterboxd • etc.]
     AddLists --> Config[⚙️ Configure Settings<br/>Sync Interval • API Keys • Notifications]
     
     %% Application Stack
@@ -610,7 +602,7 @@ graph TD
     Selenium --> IMDb[IMDb Lists<br/>Charts • User Lists • Watchlists]
     Selenium --> Letterboxd[Letterboxd<br/>User Lists • Watchlists]
     Selenium --> MDBList[MDBList<br/>Curated Collections]
-    Selenium --> Simkl[Simkl<br/>User Lists • Watchlists]
+    Selenium --> Simkl[Simkl API Watchlists<br/>(OAuth)]
     Selenium --> TVDB[TVDB<br/>User Favorites • Public Lists]
     
     %% Direct API Calls
@@ -620,6 +612,10 @@ graph TD
     %% TMDB API
     Providers --> TMDBAPI[🎭 TMDB API<br/>The Movie Database API]
     TMDBAPI --> TMDB[TMDB Lists<br/>Public Lists • Collections]
+    
+    %% AniList GraphQL API
+    Providers --> AniListAPI[✨ AniList GraphQL<br/>Anime Database API]
+    AniListAPI --> AniList[AniList Lists<br/>User Anime Lists • Watchlists]
     
     %% Steven Lu S3 Bucket
     Providers --> StevenLuAPI[📦 Steven Lu S3<br/>JSON File from S3 Bucket]
@@ -704,7 +700,7 @@ We welcome contributions! For guidelines on how to contribute, please see our [C
 
 - **Security Best Practices:** Please read scripts you find online before running them.
 - **API Credentials:** Always keep your API credentials secure.
-- **Rate Limiting:** Be mindful of Overseerr's rate limiting policies during imports.
+- **Rate Limiting:** Be mindful of provider's rate limiting policies during imports.
 - **Permissions:** Only import and manage media you have the rights to handle.
 
 ---

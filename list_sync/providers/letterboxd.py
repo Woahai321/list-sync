@@ -75,44 +75,72 @@ def fetch_letterboxd_list(list_id: str) -> List[Dict[str, Any]]:
             else:
                 base_url = f"https://letterboxd.com/{list_id}"
             
-            # Use detail view for better data extraction
-            if not base_url.endswith('/detail/'):
-                base_url = f"{base_url}/detail/"
-            
             # Determine if this is a watchlist or regular list
             is_watchlist = '/watchlist' in base_url or list_id.endswith('/watchlist')
+            
+            # Use detail view for better data extraction (only for custom lists, not watchlists)
+            if not is_watchlist and not base_url.endswith('/detail/'):
+                base_url = f"{base_url}/detail/"
             
             logging.info(f"Processing Letterboxd {'watchlist' if is_watchlist else 'list'}: {base_url}")
             
             page = 1
+            next_page_url = None  # Track the next page URL
             while True:
-                # Construct page URL
-                current_url = base_url if page == 1 else f"{base_url}page/{page}/"
+                # Construct page URL - handle both first page and subsequent pages
+                if page == 1:
+                    current_url = base_url
+                elif next_page_url:
+                    # Use the specific next page URL we found
+                    current_url = next_page_url
+                else:
+                    # Fallback: construct URL manually
+                    if is_watchlist:
+                        current_url = f"{base_url}/page/{page}/"
+                    else:
+                        current_url = f"{base_url}page/{page}/"
+                
                 logging.info(f"Loading URL: {current_url}")
                 sb.open(current_url)
                 
-                # Wait for the list container to load
-                sb.wait_for_element_present("div.list-detailed-entries-list", timeout=20)
+                # Wait for the list container to load - different selectors for watchlists vs custom lists
+                if is_watchlist:
+                    try:
+                        sb.wait_for_element_present("ul.poster-list", timeout=20)
+                    except:
+                        logging.warning("Could not find ul.poster-list, attempting to continue")
+                else:
+                    sb.wait_for_element_present("div.list-detailed-entries-list", timeout=20)
+                
                 logging.info(f"Processing page {page}")
                 
                 # Scroll to load all lazy-loaded content
                 logging.info("Scrolling to load all content...")
-                for i in range(10):  # Multiple scroll attempts to ensure all content loads
+                scroll_attempts = 3 if is_watchlist else 10  # Watchlists load faster
+                for i in range(scroll_attempts):
                     sb.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                    sb.sleep(2)
+                    sb.sleep(1 if is_watchlist else 2)
                     
-                    # Also try scrolling to specific elements
-                    items = sb.find_elements("div.listitem.js-listitem")
-                    if items:
-                        sb.execute_script("arguments[0].scrollIntoView(true);", items[-1])
-                        sb.sleep(1)
+                    # Also try scrolling to specific elements (for custom lists)
+                    if not is_watchlist:
+                        items = sb.find_elements("div.listitem.js-listitem")
+                        if items:
+                            sb.execute_script("arguments[0].scrollIntoView(true);", items[-1])
+                            sb.sleep(1)
                 
                 logging.info("Scrolling complete")
                 
-                # Extract data from data attributes instead of text content
+                # Extract data - different structure for watchlists vs custom lists
                 logging.info("Extracting data from attributes...")
-                figures = sb.find_elements("div.react-component.figure[data-item-name]")
-                logging.info(f"Found {len(figures)} figures with data-item-name")
+                
+                if is_watchlist:
+                    # Watchlists use li.griditem structure
+                    figures = sb.find_elements("li.griditem")
+                    logging.info(f"Found {len(figures)} grid items (watchlist)")
+                else:
+                    # Custom lists use detail view with figures
+                    figures = sb.find_elements("div.react-component.figure[data-item-name]")
+                    logging.info(f"Found {len(figures)} figures (custom list)")
                 
                 # If we find 0 items, we've gone too far - break
                 if len(figures) == 0:
@@ -121,8 +149,23 @@ def fetch_letterboxd_list(list_id: str) -> List[Dict[str, Any]]:
                 
                 for figure in figures:
                     try:
-                        # Extract title and year from data-item-name
-                        item_name = figure.get_attribute("data-item-name")
+                        # Extract data - different attributes for watchlist vs custom list
+                        if is_watchlist:
+                            # For watchlists, find the react-component div within the grid item
+                            try:
+                                react_div = figure.find_element("css selector", "div.react-component")
+                            except:
+                                react_div = figure
+                            
+                            item_name = react_div.get_attribute("data-item-name")
+                            film_id = react_div.get_attribute("data-film-id")
+                            slug = react_div.get_attribute("data-item-slug")
+                        else:
+                            # For custom lists, use the figure element directly
+                            item_name = figure.get_attribute("data-item-name")
+                            film_id = figure.get_attribute("data-film-id")
+                            slug = figure.get_attribute("data-item-slug")
+                        
                         if not item_name:
                             continue
                         
@@ -140,10 +183,6 @@ def fetch_letterboxd_list(list_id: str) -> List[Dict[str, Any]]:
                             logging.warning("Skipping item with empty title")
                             continue
                         
-                        # Extract film ID and slug for additional metadata
-                        film_id = figure.get_attribute("data-film-id")
-                        slug = figure.get_attribute("data-item-slug")
-                        
                         # Determine media type (all appear to be films)
                         media_type = "movie"
                         
@@ -160,46 +199,48 @@ def fetch_letterboxd_list(list_id: str) -> List[Dict[str, Any]]:
                         logging.warning(f"Failed to parse item: {str(e)}")
                         continue
                 
-                # Check for next page
+                # Check for next page - improved logic for Letterboxd pagination
                 try:
-                    # Look for pagination links
-                    next_buttons = sb.find_elements("a.next")
                     has_next_page = False
-                    next_button = None
+                    next_page_url = None
                     
-                    if next_buttons:
-                        # Check if there's a valid next page button
-                        for btn in next_buttons:
-                            if btn.is_displayed() and btn.is_enabled():
+                    # Look for pagination container first
+                    pagination_container = sb.find_elements("div.pagination")
+                    if pagination_container:
+                        # Look for next button within pagination
+                        next_buttons = sb.find_elements("div.pagination a.next")
+                        if next_buttons and len(next_buttons) > 0:
+                            next_href = next_buttons[0].get_attribute("href")
+                            if next_href:
                                 has_next_page = True
-                                next_button = btn
-                                break
+                                # Convert relative URL to absolute URL
+                                if next_href.startswith('/'):
+                                    next_page_url = f"https://letterboxd.com{next_href}"
+                                else:
+                                    next_page_url = next_href
+                                logging.info(f"Found next page URL: {next_page_url}")
                     
-                    if has_next_page and next_button:
-                        # Click the next button to navigate
-                        try:
-                            # Scroll to make the button visible
-                            sb.execute_script("arguments[0].scrollIntoView(true);", next_button)
-                            sb.sleep(1)  # Wait a moment for scroll to complete
-                            
-                            # Click the button
-                            next_button.click()
-                            
-                            # Wait for the page to load
-                            sb.wait_for_element_present("div.list-detailed-entries-list", timeout=20)
-                            sb.sleep(2)  # Additional wait to ensure page loads
-                            page += 1
-                            logging.info(f"Successfully navigated to page {page}")
-                        except Exception as e:
-                            logging.warning(f"Error clicking next button: {str(e)}")
-                            # Try direct URL navigation as fallback
-                            fallback_url = f"{base_url}page/{page + 1}/"
-                            logging.info(f"Falling back to direct URL navigation: {fallback_url}")
-                            sb.open(fallback_url)
-                            sb.wait_for_element_present("div.list-detailed-entries-list", timeout=20)
-                            page += 1
+                    # Fallback: also check for numbered pagination
+                    if not has_next_page:
+                        page_links = sb.find_elements("div.pagination .paginate-pages a")
+                        if page_links:
+                            # Find the highest page number
+                            max_page = page
+                            for link in page_links:
+                                href = link.get_attribute("href")
+                                if href and f"page/{page + 1}/" in href:
+                                    has_next_page = True
+                                    next_page_url = href if href.startswith('http') else f"https://letterboxd.com{href}"
+                                    break
+                    
+                    if has_next_page and next_page_url:
+                        page += 1
+                        logging.info(f"Next page available, will load page {page} from URL: {next_page_url}")
+                        # Store the next page URL for the next iteration
+                        # The next_page_url variable will be used in the next loop iteration
+                        # Continue to next iteration of while loop which will load the next page
                     else:
-                        logging.info("No next page button found, must be the last page")
+                        logging.info("No next page found, must be the last page")
                         break
                 except Exception as e:
                     logging.warning(f"Error checking pagination: {str(e)}")

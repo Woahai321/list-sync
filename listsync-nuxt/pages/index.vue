@@ -23,8 +23,53 @@
 
     <!-- Loading State -->
     <div v-if="isInitialLoading" class="flex items-center justify-center py-20">
-      <LoadingSpinner size="lg" text="Loading dashboard..." />
+      <div class="text-center space-y-4">
+        <LoadingSpinner size="lg" :text="loadError ? 'Retrying...' : 'Loading dashboard...'" />
+        <div v-if="loadError" class="space-y-2">
+          <p class="text-sm text-yellow-400">
+            {{ loadError }}
+          </p>
+          <p class="text-xs text-muted-foreground">
+            Waiting for first sync to complete... (Attempt {{ retryCount }}/{{ maxRetries }})
+          </p>
+          <p class="text-xs text-muted-foreground">
+            Retrying in 5 seconds...
+          </p>
+        </div>
+        <p v-else class="text-sm text-muted-foreground">
+          Initializing dashboard components...
+        </p>
+      </div>
     </div>
+
+    <!-- Error State (after max retries) -->
+    <Card v-else-if="loadError && retryCount >= maxRetries" variant="default" class="glass-card">
+      <div class="text-center py-12">
+        <component :is="LayersIcon" :size="48" class="mx-auto text-red-400 mb-4" />
+        <h3 class="text-lg font-semibold mb-2 text-foreground">Unable to Load Dashboard</h3>
+        <p class="text-sm text-muted-foreground mb-4">
+          {{ loadError }}
+        </p>
+        <p class="text-sm text-muted-foreground mb-6">
+          This usually happens when the first sync hasn't completed yet. Please wait a few moments and try again.
+        </p>
+        <div class="flex items-center justify-center gap-3">
+          <Button
+            variant="primary"
+            :icon="RefreshIcon"
+            @click="() => { retryCount = 0; isInitialLoading = true; fetchDashboardData() }"
+          >
+            Retry Now
+          </Button>
+          <Button
+            variant="secondary"
+            @click="$router.push('/logs')"
+          >
+            View Logs
+          </Button>
+        </div>
+      </div>
+    </Card>
 
     <!-- Dashboard Content -->
     <template v-else>
@@ -144,6 +189,9 @@ const isRefreshing = ref(false)
 const recentActivities = ref<RecentActivity[]>([])
 const activitiesLoading = ref(false)
 const syncHistoryStats = ref<SyncHistoryStats | null>(null)
+const loadError = ref<string | null>(null)
+const retryCount = ref(0)
+const maxRetries = 10 // Retry for ~50 seconds (10 retries * 5 seconds)
 
 // Fetch recent activities
 const fetchRecentActivities = async () => {
@@ -187,18 +235,60 @@ const fetchSyncHistoryStats = async () => {
 // Fetch all dashboard data
 const fetchDashboardData = async () => {
   try {
+    loadError.value = null
+    
     await Promise.all([
-      statsStore.fetchStats(),
-      systemStore.checkHealth(),
-      systemStore.checkOverseerr(),
-      syncStore.fetchSyncInterval(),
-      fetchRecentActivities(),
-      fetchSyncHistoryStats(),
+      statsStore.fetchStats().catch(err => {
+        console.warn('Stats fetch failed (will retry):', err)
+        throw err
+      }),
+      systemStore.checkHealth().catch(err => {
+        console.warn('Health check failed (will retry):', err)
+        throw err
+      }),
+      systemStore.checkOverseerr().catch(err => {
+        console.warn('Overseerr check failed (will retry):', err)
+        // Don't throw - Overseerr might not be configured yet
+      }),
+      syncStore.fetchSyncInterval().catch(err => {
+        console.warn('Sync interval fetch failed (will retry):', err)
+        // Don't throw - sync interval might not be set yet
+      }),
+      fetchRecentActivities().catch(err => {
+        console.warn('Recent activities fetch failed (will retry):', err)
+        // Don't throw - activities might not exist yet
+      }),
+      fetchSyncHistoryStats().catch(err => {
+        console.warn('Sync history fetch failed (will retry):', err)
+        // Don't throw - history might not exist yet
+      }),
     ])
-  } catch (error) {
+    
+    // Successfully loaded
+    retryCount.value = 0
+    loadError.value = null
+  } catch (error: any) {
     console.error('Error loading dashboard:', error)
+    loadError.value = error.message || 'Failed to load dashboard data'
+    
+    // Retry if we haven't exceeded max retries
+    if (retryCount.value < maxRetries) {
+      retryCount.value++
+      console.log(`Retrying dashboard load (attempt ${retryCount.value}/${maxRetries})...`)
+      
+      // Retry after 5 seconds
+      setTimeout(() => {
+        fetchDashboardData()
+      }, 5000)
+    } else {
+      console.error('Max retries exceeded, giving up')
+      isInitialLoading.value = false
+    }
   } finally {
-    isInitialLoading.value = false
+    // Only stop loading if we succeeded or exceeded retries
+    if (loadError.value === null || retryCount.value >= maxRetries) {
+      isInitialLoading.value = false
+    }
   }
 }
 

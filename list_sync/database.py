@@ -49,6 +49,50 @@ def update_existing_list_urls():
             logging.info("All list URLs are correct")
 
 
+def remove_simkl_column():
+    """Remove the simkl_id column from synced_items table since SIMKL is disabled."""
+    with sqlite3.connect(DB_FILE) as conn:
+        cursor = conn.cursor()
+        
+        # Check if simkl_id column exists
+        cursor.execute("PRAGMA table_info(synced_items)")
+        columns = [column[1] for column in cursor.fetchall()]
+        
+        if 'simkl_id' in columns:
+            # SQLite doesn't support DROP COLUMN directly, so we need to recreate the table
+            logging.info("Removing simkl_id column from synced_items table")
+            
+            # Create new table without simkl_id column
+            cursor.execute('''
+                CREATE TABLE synced_items_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT NOT NULL,
+                    media_type TEXT NOT NULL,
+                    year INTEGER,
+                    imdb_id TEXT,
+                    tmdb_id TEXT,
+                    overseerr_id INTEGER,
+                    status TEXT,
+                    last_synced TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # Copy data from old table to new table (excluding simkl_id)
+            cursor.execute('''
+                INSERT INTO synced_items_new (id, title, media_type, year, imdb_id, tmdb_id, overseerr_id, status, last_synced)
+                SELECT id, title, media_type, year, imdb_id, tmdb_id, overseerr_id, status, last_synced
+                FROM synced_items
+            ''')
+            
+            # Drop old table and rename new table
+            cursor.execute('DROP TABLE synced_items')
+            cursor.execute('ALTER TABLE synced_items_new RENAME TO synced_items')
+            
+            conn.commit()
+            logging.info("Successfully removed simkl_id column from synced_items table")
+        else:
+            logging.info("simkl_id column does not exist in synced_items table")
+
 def migrate_list_urls():
     """Migrate existing lists to populate missing URLs and add item_count and last_synced columns."""
     from .utils.helpers import construct_list_url
@@ -163,13 +207,7 @@ def init_database():
             # Column already exists or other error
             pass
         
-        # Add simkl_id column if it doesn't exist (for existing databases)
-        try:
-            cursor.execute('ALTER TABLE synced_items ADD COLUMN simkl_id TEXT')
-            logging.info("Added simkl_id column to synced_items table")
-        except sqlite3.OperationalError:
-            # Column already exists or other error
-            pass
+        # SIMKL is disabled, so we don't add simkl_id column anymore
         
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS sync_interval (
@@ -181,6 +219,9 @@ def init_database():
     
     # Migrate existing lists to populate URLs and add item_count column
     migrate_list_urls()
+    
+    # Remove SIMKL column since SIMKL is disabled
+    remove_simkl_column()
 
 
 def save_list_id(list_id: str, list_type: str, list_url: Optional[str] = None, item_count: Optional[int] = None):
@@ -334,15 +375,26 @@ def should_sync_item(overseerr_id: int) -> bool:
         return result is None
 
 
-def save_sync_result(title: str, media_type: str, imdb_id: Optional[str], overseerr_id: Optional[int], status: str, year: Optional[int] = None, tmdb_id: Optional[str] = None, simkl_id: Optional[str] = None):
+def save_sync_result(title: str, media_type: str, imdb_id: Optional[str], overseerr_id: Optional[int], status: str, year: Optional[int] = None, tmdb_id: Optional[str] = None):
     """Save the result of a sync operation."""
     with sqlite3.connect(DB_FILE) as conn:
         cursor = conn.cursor()
-        cursor.execute('''
-            INSERT OR REPLACE INTO synced_items 
-            (title, media_type, year, imdb_id, tmdb_id, simkl_id, overseerr_id, status, last_synced)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        ''', (title, media_type, year, imdb_id, tmdb_id, simkl_id, overseerr_id, status))
+        
+        if status == "skipped":
+            # For skipped items, only insert if it doesn't exist (don't update last_synced)
+            cursor.execute('''
+                INSERT OR IGNORE INTO synced_items 
+                (title, media_type, year, imdb_id, tmdb_id, overseerr_id, status, last_synced)
+                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ''', (title, media_type, year, imdb_id, tmdb_id, overseerr_id, status))
+        else:
+            # For non-skipped items, update last_synced timestamp
+            cursor.execute('''
+                INSERT OR REPLACE INTO synced_items 
+                (title, media_type, year, imdb_id, tmdb_id, overseerr_id, status, last_synced)
+                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ''', (title, media_type, year, imdb_id, tmdb_id, overseerr_id, status))
+        
         conn.commit()
 
 

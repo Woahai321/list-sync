@@ -165,6 +165,15 @@ export class ApiService {
     )
   }
 
+  async getItems(
+    page: number = 1,
+    limit: number = 50
+  ): Promise<PaginatedResponse<any>> {
+    return this.request<PaginatedResponse<any>>(
+      `/items?page=${page}&limit=${limit}`
+    )
+  }
+
   async getProcessedItems(
     page: number = 1,
     limit: number = 50

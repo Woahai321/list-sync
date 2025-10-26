@@ -12,6 +12,24 @@
       </div>
 
       <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-muted-foreground">View:</span>
+          <Button
+            :variant="viewMode === 'pagination' ? 'primary' : 'secondary'"
+            size="sm"
+            @click="viewMode = 'pagination'"
+          >
+            Pages
+          </Button>
+          <Button
+            :variant="viewMode === 'infinite' ? 'primary' : 'secondary'"
+            size="sm"
+            @click="viewMode = 'infinite'"
+          >
+            Infinite Scroll
+          </Button>
+        </div>
+        
         <Button
           variant="secondary"
           :icon="DownloadIcon"
@@ -147,15 +165,15 @@
     <!-- Loading State -->
     <div v-if="isLoading" class="flex items-center justify-center py-20">
       <div class="text-center">
-        <LoadingSpinner size="lg" text="Loading all items..." />
+        <LoadingSpinner size="lg" text="Loading items..." />
         <p class="text-sm text-muted-foreground mt-2">
-          Fetching all pages to show complete list...
+          Fetching page {{ currentPage }} of {{ totalPages || '...' }}...
         </p>
       </div>
     </div>
 
     <!-- Items Table -->
-    <Card v-else-if="filteredItems.length > 0" variant="default" class="glass-card overflow-hidden">
+    <Card v-else-if="items.length > 0" variant="default" class="glass-card overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full">
           <thead>
@@ -220,17 +238,19 @@
       </div>
 
       <!-- Pagination -->
-      <div v-if="totalPages > 1" class="flex items-center justify-between p-4 border-t border-border/50">
+      <div v-if="viewMode === 'pagination' && totalPages > 1" class="flex items-center justify-between p-4 border-t border-border/50">
         <p class="text-sm text-muted-foreground">
-          Showing {{ (currentPage - 1) * perPage + 1 }} to {{ Math.min(currentPage * perPage, filteredItems.length) }} of {{ filteredItems.length }} items
+          Showing {{ filteredItems.length }} of {{ totalItems }} items
+          <span v-if="hasActiveFilters || searchQuery" class="text-purple-400">(filtered)</span>
         </p>
 
         <div class="flex items-center gap-2">
           <Button
             variant="ghost"
             size="sm"
-            :disabled="currentPage === 1"
-            @click="currentPage--"
+            :disabled="currentPage === 1 || isLoading"
+            :loading="isLoading && currentPage > 1"
+            @click="loadPreviousPage"
           >
             Previous
           </Button>
@@ -242,12 +262,32 @@
           <Button
             variant="ghost"
             size="sm"
-            :disabled="currentPage === totalPages"
-            @click="currentPage++"
+            :disabled="!hasMorePages || isLoading"
+            :loading="isLoading && hasMorePages"
+            @click="loadNextPage"
           >
             Next
           </Button>
         </div>
+      </div>
+
+      <!-- Infinite Scroll Load More -->
+      <div v-if="viewMode === 'infinite' && hasMorePages" class="flex items-center justify-center p-4 border-t border-border/50">
+        <Button
+          variant="ghost"
+          :loading="isLoading"
+          @click="loadNextPage"
+        >
+          Load More Items
+        </Button>
+      </div>
+
+      <!-- Infinite Scroll Info -->
+      <div v-if="viewMode === 'infinite'" class="flex items-center justify-center p-4 border-t border-border/50">
+        <p class="text-sm text-muted-foreground">
+          Showing {{ filteredItems.length }} of {{ totalItems }} items
+          <span v-if="hasActiveFilters || searchQuery" class="text-purple-400">(filtered)</span>
+        </p>
       </div>
     </Card>
 
@@ -255,9 +295,17 @@
     <Card v-else variant="default" class="glass-card">
       <div class="text-center py-12">
         <DatabaseIcon :size="48" class="mx-auto text-muted-foreground mb-4" />
-        <h3 class="text-lg font-semibold mb-2">No Items Found</h3>
+        <h3 class="text-lg font-semibold mb-2">
+          {{ searchQuery || hasActiveFilters ? 'No Matching Items' : 'No Items Found' }}
+        </h3>
         <p class="text-sm text-muted-foreground mb-6">
-          {{ searchQuery || hasActiveFilters ? 'Try adjusting your search or filters' : 'No items have been synced yet. Add lists and trigger a sync to populate your library.' }}
+          <template v-if="searchQuery || hasActiveFilters">
+            No items match your current filters.
+            <span v-if="totalItems > 0">There are {{ formatNumber(totalItems) }} total items available.</span>
+          </template>
+          <template v-else>
+            No items have been synced yet. Add lists and trigger a sync to populate your library.
+          </template>
         </p>
         <div class="flex items-center justify-center gap-3">
           <Button
@@ -265,7 +313,7 @@
             variant="primary"
             @click="clearFilters"
           >
-            Clear Filters
+            Clear All Filters
           </Button>
           <Button
             v-else
@@ -307,6 +355,7 @@ const isRefreshing = ref(false)
 const searchQuery = ref('')
 const currentPage = ref(1)
 const perPage = 50
+const viewMode = ref<'pagination' | 'infinite'>('pagination')
 
 // Filters
 const filters = ref({
@@ -316,6 +365,16 @@ const filters = ref({
 
 // Data
 const items = ref<any[]>([])
+const totalItems = ref(0)
+const totalPages = ref(0)
+const hasMorePages = ref(false)
+
+// Stats data (separate from paginated items)
+const stats = ref({
+  movies: 0,
+  shows: 0,
+  requested: 0,
+})
 
 // Filter options
 const mediaTypeOptions = [
@@ -326,9 +385,12 @@ const mediaTypeOptions = [
 
 const statusOptions = [
   { label: 'All Status', value: 'all' },
-  { label: 'Available', value: 'available' },
+  { label: 'Available', value: 'already_available' },
   { label: 'Requested', value: 'requested' },
-  { label: 'Processing', value: 'processing' },
+  { label: 'Already Requested', value: 'already_requested' },
+  { label: 'Not Found', value: 'not_found' },
+  { label: 'Error', value: 'error' },
+  { label: 'Skipped', value: 'skipped' },
 ]
 
 // Computed
@@ -357,25 +419,17 @@ const filteredItems = computed(() => {
   return filtered
 })
 
-const paginatedItems = computed(() => {
-  const start = (currentPage.value - 1) * perPage
-  const end = start + perPage
-  return filteredItems.value.slice(start, end)
-})
+// Use filtered items for display
+const paginatedItems = computed(() => filteredItems.value)
 
-const totalPages = computed(() => Math.ceil(filteredItems.value.length / perPage))
-
-const totalItems = computed(() => items.value.length)
-
-const stats = computed(() => ({
-  movies: items.value.filter(i => i.media_type === 'movie').length,
-  shows: items.value.filter(i => i.media_type === 'tv' || i.media_type === 'show').length,
-  requested: items.value.filter(i => i.status === 'requested').length,
-}))
+// Stats are now fetched separately from API
 
 const hasActiveFilters = computed(() =>
   filters.value.mediaType !== 'all' || filters.value.status !== 'all'
 )
+
+// Get filtered count for display
+const filteredCount = computed(() => filteredItems.value.length)
 
 // Format number with commas
 const formatNumber = (num: number) => {
@@ -384,96 +438,153 @@ const formatNumber = (num: number) => {
 
 // Format status
 const formatStatus = (status: string) => {
-  return status?.charAt(0).toUpperCase() + status?.slice(1) || 'Unknown'
+  const statusMap: Record<string, string> = {
+    'already_available': 'Available',
+    'requested': 'Requested',
+    'already_requested': 'Already Requested',
+    'not_found': 'Not Found',
+    'error': 'Error',
+    'skipped': 'Skipped',
+  }
+  return statusMap[status] || status?.charAt(0).toUpperCase() + status?.slice(1) || 'Unknown'
 }
 
 // Get status badge variant
 const getStatusVariant = (status: string): 'success' | 'warning' | 'danger' | 'default' => {
   switch (status) {
-    case 'available':
+    case 'already_available':
       return 'success'
     case 'requested':
+    case 'already_requested':
       return 'warning'
-    case 'processing':
+    case 'error':
+    case 'not_found':
+      return 'danger'
+    case 'skipped':
       return 'default'
     default:
       return 'default'
   }
 }
 
-// Clear filters
-const clearFilters = () => {
-  searchQuery.value = ''
-  filters.value.mediaType = 'all'
-  filters.value.status = 'all'
-  currentPage.value = 1
-}
-
-// Fetch items with pagination to get all items
-const fetchItems = async () => {
+// Fetch stats separately from paginated items
+const fetchStats = async () => {
   try {
+    // Get total count from items API metadata first
+    const metadataResponse: any = await api.getItems(1, 1)
+    if (metadataResponse && metadataResponse.total) {
+      totalItems.value = metadataResponse.total
+    }
+    
+    // Fetch ALL items by looping through all pages
     let allItems: any[] = []
     let currentPage = 1
-    const pageSize = 100 // API max limit
-    let hasMorePages = true
+    let hasMore = true
+    const pageSize = 100 // Use larger page size for efficiency
     
-    // Fetch all pages of processed items
-    while (hasMorePages) {
-      const response: any = await api.getProcessedItems(currentPage, pageSize)
+    console.log('Fetching all items for stats calculation...')
+    
+    while (hasMore) {
+      const response: any = await api.getItems(currentPage, pageSize)
       
-      let pageItems: any[] = []
-      if (Array.isArray(response)) {
-        pageItems = response
-      } else if (response && response.items) {
-        pageItems = response.items
-      } else if (response && response.data) {
-        pageItems = response.data
-      }
-      
-      if (pageItems.length === 0) {
-        hasMorePages = false
-      } else {
-        allItems = allItems.concat(pageItems)
+      if (response && response.items && response.items.length > 0) {
+        allItems = allItems.concat(response.items)
+        console.log(`Fetched page ${currentPage}: ${response.items.length} items (total so far: ${allItems.length})`)
+        
+        // Check if there are more pages
+        hasMore = currentPage < (response.total_pages || 0)
         currentPage++
         
         // Safety check to prevent infinite loops
-        if (currentPage > 50) { // Max 5000 items (50 pages * 100 items)
-          console.warn('Reached maximum page limit (50), stopping pagination')
+        if (currentPage > 1000) {
+          console.warn('Reached maximum page limit (1000), stopping')
           break
         }
+      } else {
+        hasMore = false
       }
     }
     
-    items.value = allItems
-    console.log(`Loaded ${items.value.length} items from API (${currentPage - 1} pages)`)
+    console.log(`Total items fetched for stats: ${allItems.length}`)
+    
+    // Calculate stats from ALL items
+    stats.value.movies = allItems.filter((item: any) => item.media_type === 'movie').length
+    stats.value.shows = allItems.filter((item: any) => item.media_type === 'tv' || item.media_type === 'show').length
+    // Only count "requested" status, NOT "already_requested" to match filter
+    stats.value.requested = allItems.filter((item: any) => item.status === 'requested').length
+    
+    // Update total items to match what we actually got
+    totalItems.value = allItems.length
+    
+    console.log('Stats calculated:', {
+      total: totalItems.value,
+      movies: stats.value.movies,
+      shows: stats.value.shows,
+      requested: stats.value.requested
+    })
+  } catch (error) {
+    console.error('Error fetching stats:', error)
+  }
+}
+
+// Fetch items with server-side pagination
+const fetchItems = async (page: number = 1, reset: boolean = true) => {
+  try {
+    if (reset) {
+      isLoading.value = true
+    }
+    
+    const response: any = await api.getProcessedItems(page, perPage)
+    
+    if (response && response.items) {
+      if (reset) {
+        items.value = response.items
+      } else {
+        // For infinite scroll, append to existing items
+        items.value = [...items.value, ...response.items]
+      }
+      
+      totalItems.value = response.total || 0
+      totalPages.value = response.total_pages || 0
+      hasMorePages.value = page < totalPages.value
+      
+      console.log(`Loaded page ${page}: ${response.items.length} items (${response.total || 0} total)`)
+    } else {
+      // Fallback to getItems if processed items fails
+      const fallbackResponse: any = await api.getItems(page, perPage)
+      if (fallbackResponse && fallbackResponse.items) {
+        if (reset) {
+          items.value = fallbackResponse.items
+        } else {
+          items.value = [...items.value, ...fallbackResponse.items]
+        }
+        
+        totalItems.value = fallbackResponse.total || 0
+        totalPages.value = fallbackResponse.total_pages || 0
+        hasMorePages.value = page < totalPages.value
+        
+        console.log(`Fallback: Loaded page ${page}: ${fallbackResponse.items.length} items`)
+      } else {
+        items.value = []
+        totalItems.value = 0
+        totalPages.value = 0
+        hasMorePages.value = false
+      }
+    }
     
   } catch (error: any) {
     console.error('Error fetching items:', error)
     
-    // Fallback to getItems if processed items fails
-    try {
-      const fallbackResponse: any = await api.getItems()
-      if (Array.isArray(fallbackResponse)) {
-        items.value = fallbackResponse
-      } else if (fallbackResponse && fallbackResponse.items) {
-        items.value = fallbackResponse.items
-      } else if (fallbackResponse && fallbackResponse.data) {
-        items.value = fallbackResponse.data
-      } else {
-        items.value = []
-      }
-      console.log(`Fallback: Loaded ${items.value.length} items from getItems API`)
-    } catch (fallbackError: any) {
-      console.error('Fallback also failed:', fallbackError)
-      
-      // Check if it's a 404 (endpoint doesn't exist yet)
-      if (error.statusCode === 404 || error.response?.status === 404) {
-        showError('Feature Coming Soon', 'The items endpoint is not yet available')
-      } else {
-        showError('Failed to load items', error.message || 'Please try again later')
-      }
-      items.value = []
+    if (error.statusCode === 404 || error.response?.status === 404) {
+      showError('Feature Coming Soon', 'The items endpoint is not yet available')
+    } else {
+      showError('Failed to load items', error.message || 'Please try again later')
     }
+    
+    items.value = []
+    totalItems.value = 0
+    totalPages.value = 0
+    hasMorePages.value = false
   } finally {
     isLoading.value = false
   }
@@ -483,7 +594,11 @@ const fetchItems = async () => {
 const refreshData = async () => {
   isRefreshing.value = true
   try {
-    await fetchItems()
+    currentPage.value = 1
+    await Promise.all([
+      fetchItems(1, true),
+      fetchStats() // Also refresh stats
+    ])
     showSuccess('Items refreshed')
   } catch (error: any) {
     showError('Refresh failed', error.message)
@@ -492,11 +607,27 @@ const refreshData = async () => {
   }
 }
 
+// Load next page
+const loadNextPage = async () => {
+  if (hasMorePages.value && !isLoading.value) {
+    currentPage.value++
+    await fetchItems(currentPage.value, false)
+  }
+}
+
+// Load previous page
+const loadPreviousPage = async () => {
+  if (currentPage.value > 1 && !isLoading.value) {
+    currentPage.value--
+    await fetchItems(currentPage.value, true)
+  }
+}
+
 // Export to CSV
 const exportToCSV = () => {
   try {
     const headers = ['Title', 'Type', 'Year', 'Status', 'IMDb ID', 'Overseerr ID', 'List Name']
-    const rows = filteredItems.value.map(item => [
+    const rows = items.value.map(item => [
       item.title,
       item.media_type,
       item.year || '',
@@ -537,11 +668,25 @@ const openOverseerr = (url: string) => {
 // Watch filters to reset pagination
 watch([searchQuery, filters], () => {
   currentPage.value = 1
+  // Note: For now, we'll keep client-side filtering
+  // In the future, we could implement server-side filtering
 }, { deep: true })
+
+// Watch view mode changes
+watch(viewMode, (newMode) => {
+  if (newMode === 'infinite') {
+    // Reset to first page and reload all items for infinite scroll
+    currentPage.value = 1
+    fetchItems(1, true)
+  }
+})
 
 // Load data on mount
 onMounted(() => {
-  fetchItems()
+  Promise.all([
+    fetchItems(1, true),
+    fetchStats() // Fetch stats on mount
+  ])
 })
 </script>
 

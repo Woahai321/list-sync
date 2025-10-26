@@ -305,6 +305,12 @@ def load_env_lists() -> bool:
                 if list_id.strip():
                     add_list_if_new(list_id.strip(), "letterboxd")
         
+        # Process AniList lists
+        if anilist_lists := os.getenv('ANILIST_LISTS'):
+            for list_id in anilist_lists.split(','):
+                if list_id.strip():
+                    add_list_if_new(list_id.strip(), "anilist")
+        
         # Process MDBList lists
         if mdblist_lists := os.getenv('MDBLIST_LISTS'):
             for list_id in mdblist_lists.split(','):
@@ -324,11 +330,30 @@ def load_env_lists() -> bool:
                 if list_id.strip():
                     add_list_if_new(list_id.strip(), "tmdb")
         
-        # Process Simkl lists
-        if simkl_lists := os.getenv('SIMKL_LISTS'):
-            for list_id in simkl_lists.split(','):
-                if list_id.strip():
-                    add_list_if_new(list_id.strip(), "simkl")
+        # Process Simkl lists (API-only, requires authentication)
+        simkl_client_id = os.getenv('SIMKL_CLIENT_ID')
+        simkl_user_token = os.getenv('SIMKL_USER_TOKEN')
+        simkl_lists = os.getenv('SIMKL_LISTS')
+        
+        # Check for deprecated SIMKL_LISTS without API credentials
+        if simkl_lists and not (simkl_client_id and simkl_user_token):
+            logging.warning("SIMKL_LISTS is deprecated. SIMKL now uses API authentication.")
+            logging.warning("Please set SIMKL_CLIENT_ID and SIMKL_USER_TOKEN instead.")
+            logging.warning("Get credentials at: https://simkl.com/settings/developer/")
+            logging.warning("SIMKL API only supports authenticated user watchlists, not custom public lists.")
+        
+        # Only process SIMKL if both credentials are provided
+        if simkl_client_id and simkl_user_token:
+            if simkl_lists:
+                for list_id in simkl_lists.split(','):
+                    if list_id.strip():
+                        add_list_if_new(list_id.strip(), "simkl")
+            else:
+                # Default to authenticated user watchlist if no specific lists provided
+                add_list_if_new("user_watchlist", "simkl")
+                logging.info("SIMKL: Using authenticated user watchlist (no specific lists configured)")
+        elif simkl_lists:
+            logging.warning("SIMKL lists configured but missing API credentials. Skipping SIMKL provider.")
         
         # Process TVDB lists
         if tvdb_lists := os.getenv('TVDB_LISTS'):

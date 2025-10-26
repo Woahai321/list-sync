@@ -20,6 +20,7 @@ services:
       - IMDB_LISTS=${IMDB_LISTS}
       - TRAKT_LISTS=${TRAKT_LISTS}
       - LETTERBOXD_LISTS=${LETTERBOXD_LISTS}
+      - ANILIST_LISTS=${ANILIST_LISTS}
       - MDBLIST_LISTS=${MDBLIST_LISTS}
       - STEVENLU_LISTS=${STEVENLU_LISTS}
       - TRAKT_SPECIAL_LISTS=${TRAKT_SPECIAL_LISTS}
@@ -27,6 +28,10 @@ services:
       
       # Trakt API Configuration
       - TRAKT_CLIENT_ID=${TRAKT_CLIENT_ID}
+
+      # SIMKL API Configuration
+      - SIMKL_CLIENT_ID=${SIMKL_CLIENT_ID}
+      - SIMKL_USER_TOKEN=${SIMKL_USER_TOKEN}
 
       # Optional Discord webhook 
       - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}

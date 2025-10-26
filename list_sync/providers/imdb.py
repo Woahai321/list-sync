@@ -173,7 +173,7 @@ def _process_imdb_chart(sb) -> List[Dict[str, Any]]:
                 try:
                     items = ul.find_elements("css selector", "li")
                     if len(items) > 5:  # If we find a list with several items, it's likely our chart
-                        logging.info(f"Found a ul with {len(items)} items, likely our chart")
+                        logging.debug(f"Found a ul with {len(items)} items, likely our chart")
                         chart_found = True
                         break
                 except Exception:
@@ -212,7 +212,7 @@ def _process_imdb_chart(sb) -> List[Dict[str, Any]]:
     
     for selector in item_selectors:
         try:
-            logging.info(f"Trying to find list items with selector: {selector}")
+            logging.debug(f"Trying to find list items with selector: {selector}")
             items = sb.find_elements(selector)
             if items and len(items) > 0:
                 logging.info(f"Found {len(items)} items using selector: {selector}")
@@ -420,7 +420,7 @@ def _process_imdb_list(sb, url) -> List[Dict[str, Any]]:
                 logging.info("Looking for list items...")
                 sb.wait_for_element_present("li.ipc-metadata-list-summary-item", timeout=10)
                 content_found = True
-                logging.info("Found list items")
+                logging.debug("Found list items")
                 # Add extra wait after finding the element
                 sb.sleep(2)
             except Exception as e:
