@@ -32,6 +32,7 @@ from .ui.display import (
 )
 from .utils.helpers import custom_input, format_time_remaining, init_selenium_driver, color_gradient, construct_list_url
 from .utils.logger import setup_logging, ensure_data_directory_exists
+from .utils.log_rotation import get_log_rotator, check_and_rotate_logs
 
 
 def startup():
@@ -213,7 +214,13 @@ def fetch_media_from_lists(list_ids: List[Dict[str, str]]) -> Tuple[List[Dict[st
 
 def process_media_item(item: Dict[str, Any], overseerr_client: OverseerrClient, dry_run: bool, is_4k: bool = False) -> Dict[str, Any]:
     """
-    Process a single media item for sync to Overseerr.
+    Process a single media item for sync to Overseerr using smart ID-based matching.
+    
+    Workflow:
+    1. Try direct TMDB ID lookup (if available)
+    2. Try IMDB ID → Trakt → TMDB ID (if IMDB ID available)
+    3. Try Title/Year → Trakt → TMDB ID
+    4. Fallback to Overseerr title search (less reliable)
     
     Args:
         item (Dict[str, Any]): Media item to process
@@ -231,7 +238,12 @@ def process_media_item(item: Dict[str, Any], overseerr_client: OverseerrClient, 
     year = item.get('year')
     imdb_id = item.get('imdb_id')
     tmdb_id = item.get('tmdb_id')
-    simkl_id = item.get('simkl_id')
+    season_number = item.get('season_number')  # Check if specific season is requested
+    
+    # Log item details (boundaries handled at batch level)
+    season_info = f" Season {season_number}" if season_number else ""
+    logging.info(f"🎬 PROCESSING: '{title}' ({year}) [{media_type}]{season_info}")
+    logging.info(f"   IDs: TMDB={tmdb_id}, IMDB={imdb_id}")
     
     # Strip any year from the title (e.g., "Cinderella 1997" -> "Cinderella")
     # But only if there's text remaining after removal (to handle titles like "1917")
@@ -255,43 +267,117 @@ def process_media_item(item: Dict[str, Any], overseerr_client: OverseerrClient, 
         return result
 
     try:
-        search_result = overseerr_client.search_media(
-            search_title,  # Use cleaned title for search
-            media_type,
-            year
-        )
+        # Import Trakt search functions
+        from .providers.trakt import search_trakt_by_imdb_id, search_trakt_by_title
+        
+        search_result = None
+        match_method = None
+        
+        # METHOD 1: Direct TMDB ID lookup (fastest, most reliable)
+        if tmdb_id:
+            logging.info(f"🎯 METHOD 1: Direct TMDB ID lookup (ID: {tmdb_id})")
+            search_result = overseerr_client.get_media_by_tmdb_id(tmdb_id, media_type)
+            if search_result:
+                match_method = "TMDB_ID_DIRECT"
+                logging.info(f"✅ SUCCESS: Direct TMDB ID lookup")
+        
+        # METHOD 2: IMDB ID → Trakt → TMDB ID
+        if not search_result and imdb_id:
+            logging.info(f"🔍 METHOD 2: IMDB ID → Trakt → TMDB ID (IMDB: {imdb_id})")
+            trakt_result = search_trakt_by_imdb_id(imdb_id)
+            if trakt_result and trakt_result.get('tmdb_id'):
+                resolved_tmdb_id = trakt_result['tmdb_id']
+                logging.info(f"✅ Trakt resolved IMDB {imdb_id} → TMDB {resolved_tmdb_id}")
+                search_result = overseerr_client.get_media_by_tmdb_id(resolved_tmdb_id, media_type)
+                if search_result:
+                    match_method = "IMDB_TO_TMDB"
+                    logging.info(f"✅ SUCCESS: IMDB→Trakt→TMDB chain")
+                    # Update tmdb_id for database storage
+                    tmdb_id = resolved_tmdb_id
+            else:
+                logging.info(f"⚠️  WARNING: Trakt could not resolve IMDB ID {imdb_id} to TMDB ID")
+        
+        # METHOD 3: Title/Year → Trakt → TMDB ID
+        if not search_result:
+            logging.info(f"🔍 METHOD 3: Title/Year → Trakt → TMDB ID")
+            trakt_result = search_trakt_by_title(search_title, year, media_type)
+            if trakt_result and trakt_result.get('tmdb_id'):
+                resolved_tmdb_id = trakt_result['tmdb_id']
+                logging.info(f"✅ Trakt resolved '{search_title}' ({year}) → TMDB {resolved_tmdb_id}")
+                search_result = overseerr_client.get_media_by_tmdb_id(resolved_tmdb_id, media_type)
+                if search_result:
+                    match_method = "TITLE_TO_TMDB"
+                    logging.info(f"✅ SUCCESS: Title→Trakt→TMDB chain")
+                    # Update IDs for database storage
+                    tmdb_id = resolved_tmdb_id
+                    if trakt_result.get('imdb_id') and not imdb_id:
+                        imdb_id = trakt_result['imdb_id']
+            else:
+                logging.info(f"⚠️  Trakt could not find TMDB ID for '{search_title}' ({year})")
+        
+        # METHOD 4: Fallback to Overseerr title search (least reliable)
+        if not search_result:
+            logging.warning(f"⚠️  METHOD 4: Falling back to Overseerr title search (less reliable)")
+            search_result = overseerr_client.search_media(
+                search_title,  # Use cleaned title for search
+                media_type,
+                year
+            )
+            if search_result:
+                match_method = "OVERSEERR_SEARCH_FALLBACK"
+                logging.warning(f"⚠️  SUCCESS: Fallback title search (may be less accurate)")
+        
         if search_result:
             overseerr_id = search_result["id"]
             
+            logging.info(f"📊 MATCH SUMMARY: Method={match_method}, Overseerr_ID={overseerr_id}")
+            
             # Check if we should skip this item based on last sync time
             if not should_sync_item(overseerr_id):
-                save_sync_result(title, media_type, imdb_id, overseerr_id, "skipped", year, tmdb_id, simkl_id)
+                logging.info(f"⏭️  SKIP: Recently synced (within skip window)")
+                save_sync_result(title, media_type, imdb_id, overseerr_id, "skipped", year, tmdb_id)
                 return {"title": title, "status": "skipped", "year": year, "media_type": media_type}
 
+            logging.info(f"🔍 Checking media status in Overseerr...")
             is_available, is_requested, number_of_seasons = overseerr_client.get_media_status(overseerr_id, search_result["mediaType"])
             
             if is_available:
-                save_sync_result(title, media_type, imdb_id, overseerr_id, "already_available", year, tmdb_id, simkl_id)
+                logging.info(f"☑️ STATUS: Already available in library")
+                save_sync_result(title, media_type, imdb_id, overseerr_id, "already_available", year, tmdb_id)
                 return {"title": title, "status": "already_available", "year": year, "media_type": media_type}
             elif is_requested:
-                save_sync_result(title, media_type, imdb_id, overseerr_id, "already_requested", year, tmdb_id, simkl_id)
+                logging.info(f"📌 STATUS: Already requested (pending)")
+                save_sync_result(title, media_type, imdb_id, overseerr_id, "already_requested", year, tmdb_id)
                 return {"title": title, "status": "already_requested", "year": year, "media_type": media_type}
             else:
+                logging.info(f"🚀 STATUS: Requesting media...")
                 if search_result["mediaType"] == 'tv':
-                    request_status = overseerr_client.request_tv_series(overseerr_id, number_of_seasons, is_4k)
+                    # Check if a specific season is requested
+                    if season_number is not None:
+                        logging.info(f"📺 TV SERIES: Requesting Season {season_number} specifically")
+                        request_status = overseerr_client.request_specific_season(overseerr_id, season_number, is_4k)
+                    else:
+                        logging.info(f"📺 TV SERIES: Requesting {number_of_seasons} season(s)")
+                        request_status = overseerr_client.request_tv_series(overseerr_id, number_of_seasons, is_4k)
                 else:
+                    logging.info(f"🎬 MOVIE: Submitting request")
                     request_status = overseerr_client.request_media(overseerr_id, search_result["mediaType"], is_4k)
                 
                 if request_status == "success":
-                    save_sync_result(title, media_type, imdb_id, overseerr_id, "requested", year, tmdb_id, simkl_id)
+                    logging.info(f"✅ SUCCESS: Request submitted successfully!")
+                    save_sync_result(title, media_type, imdb_id, overseerr_id, "requested", year, tmdb_id)
                     return {"title": title, "status": "requested", "year": year, "media_type": media_type}
                 else:
-                    save_sync_result(title, media_type, imdb_id, overseerr_id, "request_failed", year, tmdb_id, simkl_id)
+                    logging.error(f"❌ ERROR: Request failed")
+                    save_sync_result(title, media_type, imdb_id, overseerr_id, "request_failed", year, tmdb_id)
                     return {"title": title, "status": "request_failed", "year": year, "media_type": media_type}
         else:
-            save_sync_result(title, media_type, imdb_id, None, "not_found", year, tmdb_id, simkl_id)
+            logging.error(f"❌ ERROR: Could not find match using any method")
+            save_sync_result(title, media_type, imdb_id, None, "not_found", year, tmdb_id)
             return {"title": title, "status": "not_found", "year": year, "media_type": media_type}
     except Exception as e:
+        logging.error(f"❌ ERROR: Exception during processing: {str(e)}")
+        logging.debug(f"Exception details:", exc_info=True)
         result["status"] = "error"
         result["error_message"] = str(e)
         return result
@@ -326,61 +412,137 @@ def sync_media_to_overseerr(
 
     print(f"\n🎬  Processing {sync_results.total_items} media items...")
     
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        future_to_item = {executor.submit(process_media_item, item, overseerr_client, dry_run, is_4k): item for item in media_items}
-        for future in as_completed(future_to_item):
-            item = future_to_item[future]
-            current_item += 1
+    # Intelligent batching for optimal performance with readable logs
+    batch_size = int(os.getenv('LISTSYNC_BATCH_SIZE', '3'))  # Default batch size of 3
+    sequential_mode = os.getenv('LISTSYNC_SEQUENTIAL_MODE', 'false').lower() == 'true'
+    
+    if sequential_mode:
+        logging.info("🔄 Sequential processing mode enabled (LISTSYNC_SEQUENTIAL_MODE=true)")
+        print("🔄 Sequential processing mode enabled")
+        
+        # Process items sequentially to avoid race conditions
+        for i, item in enumerate(media_items, 1):
             try:
-                result = future.result()
+                result = process_media_item(item, overseerr_client, dry_run, is_4k)
                 status = result["status"]
                 sync_results.results[status] += 1
                 
-                # Track additional information
-                if status == "not_found":
-                    # Ensure consistent title (year) format
-                    title = result["title"].strip()
-                    year = result["year"]
-                    # Remove any existing year format first
-                    if year:
-                        title_with_year = f"{title} ({year})"
-                    else:
-                        title_with_year = title
-                    sync_results.not_found_items.append({
-                        "title": title_with_year,
-                        "year": year
-                    })
-                elif status == "error":
-                    sync_results.error_items.append({
-                        "title": result["title"],
-                        "error": result["error_message"]
-                    })
+                # Display progress
+                title = item.get('title', 'Unknown')
+                year = item.get('year', '')
+                year_str = f" ({year})" if year else ""
                 
-                # Track media type counts
-                if result["media_type"] in sync_results.media_type_counts:
-                    sync_results.media_type_counts[result["media_type"]] += 1
+                if status == "requested":
+                    print(f"✅ {title}{year_str}: Successfully Requested ({i}/{sync_results.total_items})")
+                elif status == "already_available":
+                    print(f"☑️ {title}{year_str}: Already Available ({i}/{sync_results.total_items})")
+                elif status == "already_requested":
+                    print(f"📌 {title}{year_str}: Already Requested ({i}/{sync_results.total_items})")
+                elif status == "skipped":
+                    print(f"⏭️  {title}{year_str}: Skipped ({i}/{sync_results.total_items})")
+                else:
+                    print(f"❓ {title}{year_str}: {status} ({i}/{sync_results.total_items})")
                 
-                # Track year distribution
-                if result["year"]:
-                    year = int(result["year"])
-                    if year < 1980:
-                        sync_results.year_distribution["pre-1980"] += 1
-                    elif year < 2000:
-                        sync_results.year_distribution["1980-1999"] += 1
-                    elif year < 2020:
-                        sync_results.year_distribution["2000-2019"] += 1
-                    else:
-                        sync_results.year_distribution["2020+"] += 1
-
-                # Display status
-                display_item_status(result, current_item, sync_results.total_items, dry_run)
-
-            except Exception as exc:
+                current_item += 1
+                
+            except Exception as e:
+                logging.error(f"❌ ERROR: Exception during processing: {str(e)}")
                 sync_results.results["error"] += 1
-                sync_results.error_items.append({
-                    "title": item["title"],
-                    "error": str(exc)
-                })
+                current_item += 1
+    else:
+        logging.info(f"⚡ Intelligent batching mode enabled (batch size: {batch_size})")
+        print(f"⚡ Intelligent batching mode enabled - processing {batch_size} items at a time")
+        
+        # Process items in batches for optimal performance with clean logging
+        total_batches = (len(media_items) + batch_size - 1) // batch_size
+        
+        for batch_num in range(total_batches):
+            start_idx = batch_num * batch_size
+            end_idx = min(start_idx + batch_size, len(media_items))
+            batch_items = media_items[start_idx:end_idx]
+            
+            logging.info(f"📦 BATCH {batch_num + 1}/{total_batches}: Processing items {start_idx + 1}-{end_idx}")
+            
+            # Process batch items sequentially to maintain clean log boundaries
+            for i, item in enumerate(batch_items):
+                # Add clear log boundary before each item
+                logging.info(f"\n{'='*80}")
+                logging.info(f"🎬 PROCESSING ITEM {start_idx + i + 1}/{sync_results.total_items}")
+                logging.info(f"{'='*80}")
+                
+                try:
+                    result = process_media_item(item, overseerr_client, dry_run, is_4k)
+                    status = result["status"]
+                    sync_results.results[status] += 1
+                    
+                    # Add clear log boundary after each item
+                    logging.info(f"{'='*80}")
+                    logging.info(f"✅ COMPLETED ITEM {start_idx + i + 1}/{sync_results.total_items} - Status: {status.upper()}")
+                    logging.info(f"{'='*80}\n")
+                    
+                    # Display each item individually
+                    title = item.get('title', 'Unknown')
+                    year = item.get('year', '')
+                    year_str = f" ({year})" if year else ""
+                    index = start_idx + i + 1
+                    
+                    if status == "requested":
+                        print(f"✅ {title}{year_str}: Successfully Requested ({index}/{sync_results.total_items})")
+                    elif status == "already_available":
+                        print(f"☑️ {title}{year_str}: Already Available ({index}/{sync_results.total_items})")
+                    elif status == "already_requested":
+                        print(f"📌 {title}{year_str}: Already Requested ({index}/{sync_results.total_items})")
+                    elif status == "skipped":
+                        print(f"⏭️ {title}{year_str}: Skipped ({index}/{sync_results.total_items})")
+                    else:
+                        print(f"❓ {title}{year_str}: {status} ({index}/{sync_results.total_items})")
+                    
+                    current_item += 1
+                    
+                    # Track additional information
+                    if status == "not_found":
+                        title = result["title"].strip()
+                        year = result["year"]
+                        if year:
+                            title_with_year = f"{title} ({year})"
+                        else:
+                            title_with_year = title
+                        sync_results.not_found_items.append({
+                            "title": title_with_year,
+                            "year": year
+                        })
+                    elif status == "error":
+                        sync_results.error_items.append({
+                            "title": result["title"],
+                            "error": result.get("error_message", "Unknown error")
+                        })
+                    
+                    # Track media type counts
+                    if result["media_type"] in sync_results.media_type_counts:
+                        sync_results.media_type_counts[result["media_type"]] += 1
+                    
+                    # Track year distribution
+                    if result["year"]:
+                        year = int(result["year"])
+                        if year < 1980:
+                            sync_results.year_distribution["pre-1980"] += 1
+                        elif year < 2000:
+                            sync_results.year_distribution["1980-1999"] += 1
+                        elif year < 2020:
+                            sync_results.year_distribution["2000-2019"] += 1
+                        else:
+                            sync_results.year_distribution["2020+"] += 1
+                    
+                except Exception as e:
+                    # Add clear log boundary for errors too
+                    logging.error(f"{'='*80}")
+                    logging.error(f"❌ ERROR PROCESSING ITEM {start_idx + i + 1}/{sync_results.total_items}: {str(e)}")
+                    logging.error(f"{'='*80}\n")
+                    sync_results.results["error"] += 1
+                    current_item += 1
+            
+            # Display progress
+            logging.info(f"📊 PROGRESS: {current_item}/{sync_results.total_items} items processed")
 
     return sync_results
 
@@ -626,7 +788,7 @@ def automated_sync(
                 display_summary(sync_results)
                 
                 # Send to Discord webhook if configured
-                send_to_discord_webhook(summary_text, sync_results)
+                send_to_discord_webhook(summary_text, sync_results, automated=automated_mode)
                 
                 logging.info("Full sync operation completed successfully")
                 return True
@@ -714,6 +876,9 @@ def run_sync(
         is_4k (bool, optional): Whether to request 4K. Defaults to False.
         automated_mode (bool, optional): Whether to run in automated mode. Defaults to False.
     """
+    # Check and rotate logs if necessary before starting sync
+    check_and_rotate_logs()
+    
     # Generate unique session ID for this sync
     import uuid
     session_id = f"{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}"
@@ -769,7 +934,7 @@ def run_sync(
     
     # Send to Discord webhook if configured
     if not dry_run:
-        send_to_discord_webhook(summary_text, sync_results)
+        send_to_discord_webhook(summary_text, sync_results, automated=automated_mode)
     
     # Log sync complete with clear marker
     sync_end_marker = f"========== SYNC COMPLETE [FULL] - Session: {session_id} - Status: SUCCESS =========="
@@ -802,6 +967,9 @@ def sync_single_list(
         Dict[str, Any]: Sync results
     """
     try:
+        # Check and rotate logs if necessary before starting sync
+        check_and_rotate_logs()
+        
         # Generate unique session ID for this sync
         import uuid
         session_id = f"{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}"

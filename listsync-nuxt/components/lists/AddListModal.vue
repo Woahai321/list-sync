@@ -647,6 +647,7 @@ import {
   Monitor as MonitorIcon,
   Plus as PlusIcon,
   Trash2 as TrashIcon,
+  Sparkles as SparklesIcon,
 } from 'lucide-vue-next'
 import { useSyncStore } from '~/stores/sync'
 
@@ -777,6 +778,15 @@ const sources = [
     borderColor: 'border-indigo-500/40',
     description: 'TV series database'
   },
+  { 
+    label: 'AniList', 
+    value: 'anilist', 
+    icon: SparklesIcon, 
+    color: 'text-amber-400',
+    bgColor: 'bg-amber-500/20',
+    borderColor: 'border-amber-500/40',
+    description: 'Anime tracking platform'
+  },
 ]
 
 // Trakt special list options
@@ -817,7 +827,7 @@ const paginatedSources = computed(() => {
 })
 
 const isUrlRequired = computed(() => {
-  return ['letterboxd', 'mdblist', 'tmdb', 'simkl', 'tvdb'].includes(selectedSource.value)
+  return ['letterboxd', 'mdblist', 'tmdb', 'simkl', 'tvdb', 'anilist'].includes(selectedSource.value)
 })
 
 const isTraktSpecial = computed(() => {
@@ -868,14 +878,15 @@ const formatListSource = (source: string) => {
 const getPlaceholder = (source: string) => {
   const placeholders: Record<string, string> = {
     imdb: "'top' or 'ls026785255'",
-    trakt: 'https://app.trakt.tv/users/{user}/lists/{name}',
+    trakt: 'https://trakt.tv/users/{user}/watchlist or /lists/{name}',
     trakt_special: 'Select from predefined lists below',
-    letterboxd: 'https://letterboxd.com/{user}/list/{name}/',
+    letterboxd: 'https://letterboxd.com/{user}/list/{name}/ or /watchlist',
     mdblist: 'https://mdblist.com/lists/{user}/{name}',
     stevenlu: "'stevenlu'",
     tmdb: 'https://www.themoviedb.org/list/{id-name}',
     simkl: 'https://simkl.com/{id}/list/{id}/{name}',
     tvdb: 'https://www.thetvdb.com/lists/{idorname}',
+    anilist: 'https://anilist.co/user/{username}/animelist or {username}',
   }
   return placeholders[source] || 'Enter list ID or URL'
 }
@@ -884,14 +895,15 @@ const getPlaceholder = (source: string) => {
 const getHelperText = (source: string) => {
   const helpers: Record<string, string> = {
     imdb: 'Enter a chart name like "top" or a list ID like "ls026785255"',
-    trakt: 'Enter the full Trakt user list URL: https://app.trakt.tv/users/{user}/lists/{name}',
+    trakt: 'Enter the full Trakt URL: https://trakt.tv/users/{user}/watchlist or https://app.trakt.tv/users/{user}/lists/{name}',
     trakt_special: 'Select a list type and media type from the dropdowns below to sync curated Trakt lists',
-    letterboxd: 'Enter the full Letterboxd list URL: https://letterboxd.com/{user}/list/{name}/',
+    letterboxd: 'Enter the full Letterboxd URL: https://letterboxd.com/{user}/list/{name}/ or https://letterboxd.com/{user}/watchlist/',
     mdblist: 'Enter the full MDBList URL: https://mdblist.com/lists/{user}/{name}',
     stevenlu: 'Click the button above to sync Steven Lu\'s curated movie collection (use "stevenlu")',
     tmdb: 'Enter the full TMDB list URL: https://www.themoviedb.org/list/{id-name}',
     simkl: 'Enter the full Simkl list URL: https://simkl.com/{id}/list/{id}/{name}',
     tvdb: 'Enter the full TVDB list URL: https://www.thetvdb.com/lists/{idorname}',
+    anilist: 'Enter the full AniList URL: https://anilist.co/user/{username}/animelist or https://anilist.co/user/{username}/animelist/{status} (Planning, Watching, Completed, etc.) or just the username',
   }
   return helpers[source] || 'Enter the list identifier'
 }
@@ -1158,15 +1170,21 @@ const validateInput = () => {
       return false
     }
   } else if (selectedSource.value === 'trakt') {
-    // Trakt: validate URL format
-    if (!value.startsWith('https://app.trakt.tv/users/') || !value.includes('/lists/')) {
-      error.value = 'Enter a valid Trakt URL: https://app.trakt.tv/users/{user}/lists/{name}'
+    // Trakt: validate URL format (accept both custom lists and watchlists)
+    const isTraktUrl = value.includes('trakt.tv/users/')
+    const hasValidEndpoint = value.includes('/lists/') || value.includes('/watchlist')
+    
+    if (!isTraktUrl || !hasValidEndpoint) {
+      error.value = 'Enter a valid Trakt URL: https://trakt.tv/users/{user}/watchlist or /lists/{name}'
       return false
     }
   } else if (selectedSource.value === 'letterboxd') {
-    // Letterboxd: validate URL format
-    if (!value.startsWith('https://letterboxd.com/') || !value.includes('/list/')) {
-      error.value = 'Enter a valid Letterboxd URL: https://letterboxd.com/{user}/list/{name}/'
+    // Letterboxd: validate URL format (accept both custom lists and watchlists)
+    const isLetterboxdUrl = value.startsWith('https://letterboxd.com/')
+    const hasValidEndpoint = value.includes('/list/') || value.includes('/watchlist')
+    
+    if (!isLetterboxdUrl || !hasValidEndpoint) {
+      error.value = 'Enter a valid Letterboxd URL: https://letterboxd.com/{user}/list/{name}/ or /watchlist/'
       return false
     }
   } else if (selectedSource.value === 'mdblist') {
@@ -1191,6 +1209,15 @@ const validateInput = () => {
     // TVDB: validate URL format
     if (!value.startsWith('https://www.thetvdb.com/lists/')) {
       error.value = 'Enter a valid TVDB URL: https://www.thetvdb.com/lists/{idorname}'
+      return false
+    }
+  } else if (selectedSource.value === 'anilist') {
+    // AniList: validate URL format or username
+    const isAniListUrl = value.startsWith('https://anilist.co/user/') && value.includes('/animelist')
+    const isUsername = /^[a-zA-Z0-9_-]+$/.test(value)
+    
+    if (!isAniListUrl && !isUsername) {
+      error.value = 'Enter a valid AniList URL or username: https://anilist.co/user/{username}/animelist or just username'
       return false
     }
   }

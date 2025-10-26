@@ -115,10 +115,10 @@
           <Button
             variant="ghost"
             size="sm"
-            :icon="ScrollToBottomIcon"
+            :icon="ScrollToLatestIcon"
             @click="scrollToBottom"
           >
-            Scroll to Bottom
+            Scroll to Latest
           </Button>
           <Button
             variant="ghost"
@@ -145,7 +145,7 @@
           </div>
           <div class="h-4 w-px bg-border"></div>
           <span class="text-sm text-muted-foreground">
-            {{ logLines.length }} lines
+            {{ logLines.length }} lines ({{ currentPage }}/{{ totalPages }} pages)
           </span>
           <div class="h-4 w-px bg-border"></div>
           <span class="text-sm text-muted-foreground">
@@ -169,6 +169,12 @@
         </div>
         
         <div v-else class="space-y-1">
+          <!-- Loading indicator for more logs -->
+          <div v-if="isLoadingMore" class="text-center py-4 text-muted-foreground">
+            <div class="animate-spin w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full mx-auto mb-2"></div>
+            Loading more logs...
+          </div>
+          
           <div
             v-for="(line, index) in displayLines"
             :key="index"
@@ -176,6 +182,11 @@
             class="whitespace-pre-wrap break-words leading-relaxed"
           >
             {{ line }}
+          </div>
+          
+          <!-- End of logs indicator -->
+          <div v-if="!hasNextPage && logLines.length > 0" class="text-center py-4 text-muted-foreground text-sm">
+            End of logs
           </div>
         </div>
       </div>
@@ -189,7 +200,7 @@ import {
   Play as PlayIcon,
   Pause as PauseIcon,
   Download as DownloadIcon,
-  ArrowDown as ScrollToBottomIcon,
+  ArrowDown as ScrollToLatestIcon,
   Trash2 as ClearIcon,
   FileText as FileTextIcon,
 } from 'lucide-vue-next'
@@ -206,12 +217,21 @@ const logLines = ref<string[]>([])
 const isRefreshing = ref(false)
 const isAutoRefresh = ref(true)
 const refreshInterval = ref('2000')
-const maxLines = ref('1000')
+const maxLines = ref('200') // Reduced from 1000 to 200 for pagination
 const isConnected = ref(false)
 const lastUpdated = ref('')
 const autoRefreshTimer = ref<NodeJS.Timeout | null>(null)
 const logContainer = ref<HTMLElement | null>(null)
 const isAtBottom = ref(true)
+
+// Pagination state
+const currentPage = ref(1)
+const totalPages = ref(1)
+const totalLines = ref(0)
+const hasNextPage = ref(false)
+const hasPrevPage = ref(false)
+const isLoadingMore = ref(false)
+const isInitialLoad = ref(true)
 
 // Select options
 const intervalOptions = [
@@ -231,25 +251,77 @@ const lineOptions = [
 
 // Computed
 const displayLines = computed(() => {
-  const max = parseInt(maxLines.value)
-  if (max === 0) return logLines.value
-  return logLines.value.slice(-max)
+  // Return all lines - pagination is handled by the API
+  return logLines.value
 })
 
 // Methods
-const fetchLogs = async () => {
+const fetchLogs = async (page: number | null = null, append: boolean = false) => {
   try {
-    isRefreshing.value = true
+    if (!append) {
+      isRefreshing.value = true
+    } else {
+      isLoadingMore.value = true
+    }
+    
     const endpoint = activeTab.value === 'frontend' ? '/api/logs/live' : '/api/logs/backend'
-    const response = await $fetch(endpoint)
+    
+    // If this is initial load or refresh, fetch last page (newest logs)
+    let requestedPage = page
+    if (requestedPage === null) {
+      // First fetch to get total pages
+      const metaResponse = await $fetch(endpoint, { 
+        params: { page: 1, limit: parseInt(maxLines.value), sort_order: 'asc' } 
+      })
+      if (metaResponse.success) {
+        requestedPage = metaResponse.total_pages // Start with last page (newest)
+      } else {
+        requestedPage = 1
+      }
+    }
+    
+    const params = {
+      page: requestedPage,
+      limit: parseInt(maxLines.value),
+      sort_order: 'asc' // Get oldest to newest from API
+    }
+    
+    const response = await $fetch(endpoint, { params })
     
     if (response.success) {
-      logLines.value = response.lines
+      if (append) {
+        // Save scroll position before adding content at top
+        const oldScrollHeight = logContainer.value?.scrollHeight || 0
+        
+        // Prepend older logs to the beginning
+        logLines.value = [...response.lines, ...logLines.value]
+        
+        // Restore scroll position after DOM update
+        nextTick(() => {
+          if (logContainer.value) {
+            const newScrollHeight = logContainer.value.scrollHeight
+            logContainer.value.scrollTop = newScrollHeight - oldScrollHeight
+          }
+        })
+      } else {
+        // Replace lines for refresh
+        logLines.value = response.lines
+        isInitialLoad.value = false
+      }
+      
+      // Update pagination info
+      currentPage.value = response.page
+      totalPages.value = response.total_pages
+      totalLines.value = response.total_lines
+      // For reverse chronological: hasPrev means older logs (lower page numbers)
+      hasNextPage.value = response.has_prev // Has older logs (previous pages)
+      hasPrevPage.value = response.has_next // Has newer logs (next pages)
+      
       isConnected.value = true
       lastUpdated.value = new Date().toLocaleTimeString()
       
-      // Auto-scroll to bottom if user was at bottom
-      if (isAtBottom.value) {
+      // Auto-scroll to bottom for new logs (only on initial load or refresh)
+      if (!append) {
         nextTick(() => {
           scrollToBottom()
         })
@@ -263,11 +335,21 @@ const fetchLogs = async () => {
     console.error('Error fetching logs:', error)
   } finally {
     isRefreshing.value = false
+    isLoadingMore.value = false
   }
 }
 
 const handleRefresh = () => {
-  fetchLogs()
+  // Reset to initial state and fetch newest logs (last page)
+  isInitialLoad.value = true
+  fetchLogs(null, false)
+}
+
+// Load older logs when scrolling up (going backwards in time = lower page numbers)
+const loadOlderLogs = () => {
+  if (hasNextPage.value && !isLoadingMore.value && currentPage.value > 1) {
+    fetchLogs(currentPage.value - 1, true)
+  }
 }
 
 const toggleAutoRefresh = () => {
@@ -278,6 +360,13 @@ const scrollToBottom = () => {
   if (logContainer.value) {
     logContainer.value.scrollTop = logContainer.value.scrollHeight
     isAtBottom.value = true
+  }
+}
+
+const scrollToTop = () => {
+  if (logContainer.value) {
+    logContainer.value.scrollTop = 0
+    isAtBottom.value = false
   }
 }
 
@@ -301,7 +390,15 @@ const downloadLogs = () => {
 const handleScroll = () => {
   if (logContainer.value) {
     const { scrollTop, scrollHeight, clientHeight } = logContainer.value
-    isAtBottom.value = scrollTop + clientHeight >= scrollHeight - 10
+    const isAtBottomNow = scrollTop + clientHeight >= scrollHeight - 10
+    const isAtTop = scrollTop <= 10
+    
+    isAtBottom.value = isAtBottomNow
+    
+    // Load older logs when user scrolls to top (to see older messages)
+    if (isAtTop && hasNextPage.value && !isLoadingMore.value) {
+      loadOlderLogs()
+    }
   }
 }
 
@@ -332,14 +429,14 @@ watch(refreshInterval, (newInterval) => {
   }
   
   if (isAutoRefresh.value) {
-    autoRefreshTimer.value = setInterval(fetchLogs, parseInt(newInterval))
+    autoRefreshTimer.value = setInterval(() => fetchLogs(null, false), parseInt(newInterval))
   }
 })
 
 // Watch for auto-refresh toggle
 watch(isAutoRefresh, (enabled) => {
   if (enabled) {
-    autoRefreshTimer.value = setInterval(fetchLogs, parseInt(refreshInterval.value))
+    autoRefreshTimer.value = setInterval(() => fetchLogs(null, false), parseInt(refreshInterval.value))
   } else if (autoRefreshTimer.value) {
     clearInterval(autoRefreshTimer.value)
     autoRefreshTimer.value = null
@@ -348,14 +445,21 @@ watch(isAutoRefresh, (enabled) => {
 
 // Watch for tab changes
 watch(activeTab, () => {
-  fetchLogs()
+  isInitialLoad.value = true
+  fetchLogs(null, false)
+})
+
+// Watch for line limit changes
+watch(maxLines, () => {
+  isInitialLoad.value = true
+  fetchLogs(null, false)
 })
 
 // Lifecycle
 onMounted(() => {
-  fetchLogs()
+  fetchLogs(null, false)
   if (isAutoRefresh.value) {
-    autoRefreshTimer.value = setInterval(fetchLogs, parseInt(refreshInterval.value))
+    autoRefreshTimer.value = setInterval(() => fetchLogs(null, false), parseInt(refreshInterval.value))
   }
 })
 

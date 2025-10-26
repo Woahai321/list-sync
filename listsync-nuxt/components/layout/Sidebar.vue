@@ -3,8 +3,12 @@
     <!-- Logo / Header -->
     <div class="flex items-center justify-between px-6 py-6 border-b border-purple-500/20">
       <NuxtLink to="/" class="flex items-center gap-3 text-foreground hover:text-purple-400 transition-colors">
-        <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-purple-500/20">
-          <component :is="ListIcon" :size="24" class="text-purple-400" />
+        <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-purple-500/20 overflow-hidden">
+          <img 
+            src="https://s.2ya.me/api/shares/RN2Yziau/files/535b57e0-9c64-410b-a36f-414fba74854b" 
+            alt="ListSync Logo" 
+            class="w-8 h-8 object-contain"
+          />
         </div>
         <span v-if="!uiStore.sidebarCollapsed" class="text-xl font-bold titillium-web-bold">
           ListSync

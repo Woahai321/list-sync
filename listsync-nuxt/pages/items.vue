@@ -12,6 +12,24 @@
       </div>
 
       <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-muted-foreground">View:</span>
+          <Button
+            :variant="viewMode === 'pagination' ? 'primary' : 'secondary'"
+            size="sm"
+            @click="viewMode = 'pagination'"
+          >
+            Pages
+          </Button>
+          <Button
+            :variant="viewMode === 'infinite' ? 'primary' : 'secondary'"
+            size="sm"
+            @click="viewMode = 'infinite'"
+          >
+            Infinite Scroll
+          </Button>
+        </div>
+        
         <Button
           variant="secondary"
           :icon="DownloadIcon"
@@ -147,15 +165,15 @@
     <!-- Loading State -->
     <div v-if="isLoading" class="flex items-center justify-center py-20">
       <div class="text-center">
-        <LoadingSpinner size="lg" text="Loading all items..." />
+        <LoadingSpinner size="lg" text="Loading items..." />
         <p class="text-sm text-muted-foreground mt-2">
-          Fetching all pages to show complete list...
+          Fetching page {{ currentPage }} of {{ totalPages || '...' }}...
         </p>
       </div>
     </div>
 
     <!-- Items Table -->
-    <Card v-else-if="filteredItems.length > 0" variant="default" class="glass-card overflow-hidden">
+    <Card v-else-if="items.length > 0" variant="default" class="glass-card overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full">
           <thead>
@@ -220,17 +238,18 @@
       </div>
 
       <!-- Pagination -->
-      <div v-if="totalPages > 1" class="flex items-center justify-between p-4 border-t border-border/50">
+      <div v-if="viewMode === 'pagination' && totalPages > 1" class="flex items-center justify-between p-4 border-t border-border/50">
         <p class="text-sm text-muted-foreground">
-          Showing {{ (currentPage - 1) * perPage + 1 }} to {{ Math.min(currentPage * perPage, filteredItems.length) }} of {{ filteredItems.length }} items
+          Showing {{ (currentPage - 1) * perPage + 1 }} to {{ Math.min(currentPage * perPage, totalItems) }} of {{ totalItems }} items
         </p>
 
         <div class="flex items-center gap-2">
           <Button
             variant="ghost"
             size="sm"
-            :disabled="currentPage === 1"
-            @click="currentPage--"
+            :disabled="currentPage === 1 || isLoading"
+            :loading="isLoading && currentPage > 1"
+            @click="loadPreviousPage"
           >
             Previous
           </Button>
@@ -242,12 +261,31 @@
           <Button
             variant="ghost"
             size="sm"
-            :disabled="currentPage === totalPages"
-            @click="currentPage++"
+            :disabled="!hasMorePages || isLoading"
+            :loading="isLoading && hasMorePages"
+            @click="loadNextPage"
           >
             Next
           </Button>
         </div>
+      </div>
+
+      <!-- Infinite Scroll Load More -->
+      <div v-if="viewMode === 'infinite' && hasMorePages" class="flex items-center justify-center p-4 border-t border-border/50">
+        <Button
+          variant="ghost"
+          :loading="isLoading"
+          @click="loadNextPage"
+        >
+          Load More Items
+        </Button>
+      </div>
+
+      <!-- Infinite Scroll Info -->
+      <div v-if="viewMode === 'infinite'" class="flex items-center justify-center p-4 border-t border-border/50">
+        <p class="text-sm text-muted-foreground">
+          Showing {{ items.length }} of {{ totalItems }} items
+        </p>
       </div>
     </Card>
 
@@ -307,6 +345,7 @@ const isRefreshing = ref(false)
 const searchQuery = ref('')
 const currentPage = ref(1)
 const perPage = 50
+const viewMode = ref<'pagination' | 'infinite'>('pagination')
 
 // Filters
 const filters = ref({
@@ -316,6 +355,9 @@ const filters = ref({
 
 // Data
 const items = ref<any[]>([])
+const totalItems = ref(0)
+const totalPages = ref(0)
+const hasMorePages = ref(false)
 
 // Filter options
 const mediaTypeOptions = [
@@ -326,9 +368,12 @@ const mediaTypeOptions = [
 
 const statusOptions = [
   { label: 'All Status', value: 'all' },
-  { label: 'Available', value: 'available' },
+  { label: 'Available', value: 'already_available' },
   { label: 'Requested', value: 'requested' },
-  { label: 'Processing', value: 'processing' },
+  { label: 'Already Requested', value: 'already_requested' },
+  { label: 'Not Found', value: 'not_found' },
+  { label: 'Error', value: 'error' },
+  { label: 'Skipped', value: 'skipped' },
 ]
 
 // Computed
@@ -357,20 +402,13 @@ const filteredItems = computed(() => {
   return filtered
 })
 
-const paginatedItems = computed(() => {
-  const start = (currentPage.value - 1) * perPage
-  const end = start + perPage
-  return filteredItems.value.slice(start, end)
-})
-
-const totalPages = computed(() => Math.ceil(filteredItems.value.length / perPage))
-
-const totalItems = computed(() => items.value.length)
+// Items are already paginated from API, so we use them directly
+const paginatedItems = computed(() => items.value)
 
 const stats = computed(() => ({
   movies: items.value.filter(i => i.media_type === 'movie').length,
   shows: items.value.filter(i => i.media_type === 'tv' || i.media_type === 'show').length,
-  requested: items.value.filter(i => i.status === 'requested').length,
+  requested: items.value.filter(i => i.status === 'requested' || i.status === 'already_requested').length,
 }))
 
 const hasActiveFilters = computed(() =>
@@ -384,17 +422,29 @@ const formatNumber = (num: number) => {
 
 // Format status
 const formatStatus = (status: string) => {
-  return status?.charAt(0).toUpperCase() + status?.slice(1) || 'Unknown'
+  const statusMap: Record<string, string> = {
+    'already_available': 'Available',
+    'requested': 'Requested',
+    'already_requested': 'Already Requested',
+    'not_found': 'Not Found',
+    'error': 'Error',
+    'skipped': 'Skipped',
+  }
+  return statusMap[status] || status?.charAt(0).toUpperCase() + status?.slice(1) || 'Unknown'
 }
 
 // Get status badge variant
 const getStatusVariant = (status: string): 'success' | 'warning' | 'danger' | 'default' => {
   switch (status) {
-    case 'available':
+    case 'already_available':
       return 'success'
     case 'requested':
+    case 'already_requested':
       return 'warning'
-    case 'processing':
+    case 'error':
+    case 'not_found':
+      return 'danger'
+    case 'skipped':
       return 'default'
     default:
       return 'default'
@@ -409,71 +459,64 @@ const clearFilters = () => {
   currentPage.value = 1
 }
 
-// Fetch items with pagination to get all items
-const fetchItems = async () => {
+// Fetch items with server-side pagination
+const fetchItems = async (page: number = 1, reset: boolean = true) => {
   try {
-    let allItems: any[] = []
-    let currentPage = 1
-    const pageSize = 100 // API max limit
-    let hasMorePages = true
-    
-    // Fetch all pages of processed items
-    while (hasMorePages) {
-      const response: any = await api.getProcessedItems(currentPage, pageSize)
-      
-      let pageItems: any[] = []
-      if (Array.isArray(response)) {
-        pageItems = response
-      } else if (response && response.items) {
-        pageItems = response.items
-      } else if (response && response.data) {
-        pageItems = response.data
-      }
-      
-      if (pageItems.length === 0) {
-        hasMorePages = false
-      } else {
-        allItems = allItems.concat(pageItems)
-        currentPage++
-        
-        // Safety check to prevent infinite loops
-        if (currentPage > 50) { // Max 5000 items (50 pages * 100 items)
-          console.warn('Reached maximum page limit (50), stopping pagination')
-          break
-        }
-      }
+    if (reset) {
+      isLoading.value = true
     }
     
-    items.value = allItems
-    console.log(`Loaded ${items.value.length} items from API (${currentPage - 1} pages)`)
+    const response: any = await api.getProcessedItems(page, perPage)
+    
+    if (response && response.items) {
+      if (reset) {
+        items.value = response.items
+      } else {
+        // For infinite scroll, append to existing items
+        items.value = [...items.value, ...response.items]
+      }
+      
+      totalItems.value = response.total || 0
+      totalPages.value = response.total_pages || 0
+      hasMorePages.value = page < totalPages.value
+      
+      console.log(`Loaded page ${page}: ${response.items.length} items (${response.total || 0} total)`)
+    } else {
+      // Fallback to getItems if processed items fails
+      const fallbackResponse: any = await api.getItems(page, perPage)
+      if (fallbackResponse && fallbackResponse.items) {
+        if (reset) {
+          items.value = fallbackResponse.items
+        } else {
+          items.value = [...items.value, ...fallbackResponse.items]
+        }
+        
+        totalItems.value = fallbackResponse.total || 0
+        totalPages.value = fallbackResponse.total_pages || 0
+        hasMorePages.value = page < totalPages.value
+        
+        console.log(`Fallback: Loaded page ${page}: ${fallbackResponse.items.length} items`)
+      } else {
+        items.value = []
+        totalItems.value = 0
+        totalPages.value = 0
+        hasMorePages.value = false
+      }
+    }
     
   } catch (error: any) {
     console.error('Error fetching items:', error)
     
-    // Fallback to getItems if processed items fails
-    try {
-      const fallbackResponse: any = await api.getItems()
-      if (Array.isArray(fallbackResponse)) {
-        items.value = fallbackResponse
-      } else if (fallbackResponse && fallbackResponse.items) {
-        items.value = fallbackResponse.items
-      } else if (fallbackResponse && fallbackResponse.data) {
-        items.value = fallbackResponse.data
-      } else {
-        items.value = []
-      }
-      console.log(`Fallback: Loaded ${items.value.length} items from getItems API`)
-    } catch (fallbackError: any) {
-      console.error('Fallback also failed:', fallbackError)
-      
-      // Check if it's a 404 (endpoint doesn't exist yet)
-      if (error.statusCode === 404 || error.response?.status === 404) {
-        showError('Feature Coming Soon', 'The items endpoint is not yet available')
-      } else {
-        showError('Failed to load items', error.message || 'Please try again later')
-      }
-      items.value = []
+    if (error.statusCode === 404 || error.response?.status === 404) {
+      showError('Feature Coming Soon', 'The items endpoint is not yet available')
+    } else {
+      showError('Failed to load items', error.message || 'Please try again later')
     }
+    
+    items.value = []
+    totalItems.value = 0
+    totalPages.value = 0
+    hasMorePages.value = false
   } finally {
     isLoading.value = false
   }
@@ -483,7 +526,8 @@ const fetchItems = async () => {
 const refreshData = async () => {
   isRefreshing.value = true
   try {
-    await fetchItems()
+    currentPage.value = 1
+    await fetchItems(1, true)
     showSuccess('Items refreshed')
   } catch (error: any) {
     showError('Refresh failed', error.message)
@@ -492,11 +536,27 @@ const refreshData = async () => {
   }
 }
 
+// Load next page
+const loadNextPage = async () => {
+  if (hasMorePages.value && !isLoading.value) {
+    currentPage.value++
+    await fetchItems(currentPage.value, false)
+  }
+}
+
+// Load previous page
+const loadPreviousPage = async () => {
+  if (currentPage.value > 1 && !isLoading.value) {
+    currentPage.value--
+    await fetchItems(currentPage.value, true)
+  }
+}
+
 // Export to CSV
 const exportToCSV = () => {
   try {
     const headers = ['Title', 'Type', 'Year', 'Status', 'IMDb ID', 'Overseerr ID', 'List Name']
-    const rows = filteredItems.value.map(item => [
+    const rows = items.value.map(item => [
       item.title,
       item.media_type,
       item.year || '',
@@ -537,11 +597,22 @@ const openOverseerr = (url: string) => {
 // Watch filters to reset pagination
 watch([searchQuery, filters], () => {
   currentPage.value = 1
+  // Note: For now, we'll keep client-side filtering
+  // In the future, we could implement server-side filtering
 }, { deep: true })
+
+// Watch view mode changes
+watch(viewMode, (newMode) => {
+  if (newMode === 'infinite') {
+    // Reset to first page and reload all items for infinite scroll
+    currentPage.value = 1
+    fetchItems(1, true)
+  }
+})
 
 // Load data on mount
 onMounted(() => {
-  fetchItems()
+  fetchItems(1, true)
 })
 </script>
 

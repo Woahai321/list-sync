@@ -1,0 +1,134 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+title: "[Bug]: "
+labels: ["bug"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the form below to help us understand and fix the issue.
+        
+        **Before submitting, please check:**
+        - [ ] Search existing issues to see if this has already been reported
+        - [ ] You've tried restarting the application or process
+        - [ ] You've verified your configuration is correct
+
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: 🐛 Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: Describe the issue you're experiencing...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: 📋 Expected Behavior
+      description: What did you expect to happen?
+      placeholder: Describe what you expected to happen...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: ❌ Actual Behavior
+      description: What actually happened?
+      placeholder: Describe what actually happened...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: 🔄 Steps to Reproduce
+      description: Please provide detailed steps to reproduce the issue.
+      placeholder: |
+        1. Go to...
+        2. Click on...
+        3. Scroll down to...
+        4. See error
+    validations:
+      required: true
+
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: 💻 Operating System
+      description: What operating system are you running?
+      options:
+        - Windows 10
+        - Windows 11
+        - Ubuntu
+        - Other Linux
+    validations:
+      required: true
+
+  - type: dropdown
+    id: installation-method
+    attributes:
+      label: 🔧 Installation Method
+      description: How did you install ListSync?
+      options:
+        - Docker
+        - Local Python
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: error-messages
+    attributes:
+      label: 🚨 Error Messages
+      description: Please paste any error messages or stack traces.
+      placeholder: Paste error messages here...
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: affected-areas
+    attributes:
+      label: 🛠️ Affected Areas
+      description: Which parts of the application are affected?
+      options:
+        - label: Synchronization
+        - label: User Interface
+        - label: Data Processing
+        - label: Configuration
+        - label: Performance
+        - label: Other (specify in additional context)
+    validations:
+      required: false
+
+  - type: textarea
+    id: log-entries
+    attributes:
+      label: 📝 Relevant Log Entries
+      description: Please paste relevant log entries (remove sensitive information).
+      placeholder: Paste relevant log entries here...
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: configuration
+    attributes:
+      label: ⚙️ Configuration
+      description: If relevant, share your configuration (remove sensitive information).
+      placeholder: Paste relevant config sections here...
+      render: yaml
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 📋 Additional Context
+      description: Add any other context about the problem here, including screenshots if applicable.
+      placeholder: Any additional information that might be helpful...
+    validations:
+      required: false

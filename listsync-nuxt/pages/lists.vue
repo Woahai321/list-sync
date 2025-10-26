@@ -7,7 +7,7 @@
           Lists
         </h1>
         <p class="text-muted-foreground mt-1">
-          Manage your watchlists from IMDb, Trakt, Letterboxd, TMDB, Simkl, and more
+          Manage your watchlists from IMDb, Trakt, Letterboxd, AniList, TMDB, Simkl, and more
         </p>
       </div>
 

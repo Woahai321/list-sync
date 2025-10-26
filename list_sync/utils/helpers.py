@@ -210,7 +210,7 @@ def construct_list_url(list_type: str, list_id: str) -> str:
     Construct the full URL for a list based on its type and ID.
     
     Args:
-        list_type (str): Type of list (imdb, trakt, trakt_special, letterboxd, mdblist, stevenlu)
+        list_type (str): Type of list (imdb, trakt, trakt_special, letterboxd, anilist, mdblist, stevenlu, tmdb, simkl, tvdb)
         list_id (str): List ID or URL
         
     Returns:
@@ -317,6 +317,29 @@ def construct_list_url(list_type: str, list_id: str) -> str:
         # Handle Simkl list IDs
         if list_id.isdigit():
             return f"https://simkl.com/5/list/{list_id}"
+        else:
+            # If it's already a URL, return as is
+            return list_id
+    
+    elif list_type.lower() == "anilist":
+        # Handle AniList URLs and usernames
+        if list_id.startswith(('http://', 'https://')):
+            # Already a full URL, return as is
+            return list_id
+        
+        # Handle username or username with status
+        # Pattern: username or full path like "username/animelist/Planning"
+        if '/animelist' in list_id:
+            # Full path format (e.g., "demo/animelist/Planning")
+            return f"https://anilist.co/user/{list_id}"
+        else:
+            # Just username - default to all lists
+            return f"https://anilist.co/user/{list_id}/animelist"
+    
+    elif list_type.lower() == "tvdb":
+        # Handle TVDB list IDs (typically numeric)
+        if list_id.isdigit():
+            return f"https://www.thetvdb.com/lists/{list_id}"
         else:
             # If it's already a URL, return as is
             return list_id

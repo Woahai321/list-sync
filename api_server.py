@@ -5407,8 +5407,12 @@ async def get_sync_session(session_id: str):
 
 
 @app.get("/api/logs/live")
-async def get_live_logs():
-    """Get live log content from the core log file."""
+async def get_live_logs(
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    limit: int = Query(200, ge=1, le=500, description="Lines per page (max 500)"),
+    sort_order: str = Query("desc", regex="^(asc|desc)$", description="Sort order: asc or desc")
+):
+    """Get live log content from the core log file with pagination."""
     try:
         # Try different log locations
         log_paths = [
@@ -5419,11 +5423,13 @@ async def get_live_logs():
         ]
         
         log_content = ""
+        log_file_used = None
         for log_path in log_paths:
             if os.path.exists(log_path):
                 try:
                     with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
                         log_content = f.read()
+                    log_file_used = log_path
                     break
                 except Exception as e:
                     print(f"Error reading log file {log_path}: {e}")
@@ -5433,30 +5439,67 @@ async def get_live_logs():
             return {
                 "success": False,
                 "error": "No log file found",
-                "lines": []
+                "lines": [],
+                "total_lines": 0,
+                "page": page,
+                "limit": limit,
+                "total_pages": 0,
+                "has_next": False,
+                "has_prev": False
             }
         
-        # Split into lines and return the last 1000 lines
-        lines = log_content.strip().split('\n')
+        # Split into lines
+        all_lines = log_content.strip().split('\n')
+        total_lines = len(all_lines)
+        
+        # Calculate pagination
+        total_pages = (total_lines + limit - 1) // limit  # Ceiling division
+        start_idx = (page - 1) * limit
+        end_idx = start_idx + limit
+        
+        # Get the requested page of lines
+        if sort_order == "desc":
+            # Reverse order (newest first)
+            lines = all_lines[::-1][start_idx:end_idx]
+        else:
+            # Normal order (oldest first)
+            lines = all_lines[start_idx:end_idx]
         
         return {
             "success": True,
             "lines": lines,
-            "total_lines": len(lines),
-            "file_size": len(log_content)
+            "total_lines": total_lines,
+            "file_size": len(log_content),
+            "file_path": log_file_used,
+            "page": page,
+            "limit": limit,
+            "total_pages": total_pages,
+            "has_next": page < total_pages,
+            "has_prev": page > 1,
+            "sort_order": sort_order
         }
         
     except Exception as e:
         return {
             "success": False,
             "error": str(e),
-            "lines": []
+            "lines": [],
+            "total_lines": 0,
+            "page": page,
+            "limit": limit,
+            "total_pages": 0,
+            "has_next": False,
+            "has_prev": False
         }
 
 
 @app.get("/api/logs/backend")
-async def get_backend_logs():
-    """Get backend log content from the data/list_sync.log file."""
+async def get_backend_logs(
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    limit: int = Query(200, ge=1, le=500, description="Lines per page (max 500)"),
+    sort_order: str = Query("desc", regex="^(asc|desc)$", description="Sort order: asc or desc")
+):
+    """Get backend log content from the data/list_sync.log file with pagination."""
     try:
         # Backend log file path
         log_path = "data/list_sync.log"
@@ -5465,28 +5508,104 @@ async def get_backend_logs():
             return {
                 "success": False,
                 "error": "Backend log file not found",
-                "lines": []
+                "lines": [],
+                "total_lines": 0,
+                "page": page,
+                "limit": limit,
+                "total_pages": 0,
+                "has_next": False,
+                "has_prev": False
             }
         
         # Read the log file
         with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
             log_content = f.read()
         
-        # Split into lines and return the last 1000 lines
-        lines = log_content.strip().split('\n')
+        # Split into lines
+        all_lines = log_content.strip().split('\n')
+        total_lines = len(all_lines)
+        
+        # Calculate pagination
+        total_pages = (total_lines + limit - 1) // limit  # Ceiling division
+        start_idx = (page - 1) * limit
+        end_idx = start_idx + limit
+        
+        # Get the requested page of lines
+        if sort_order == "desc":
+            # Reverse order (newest first)
+            lines = all_lines[::-1][start_idx:end_idx]
+        else:
+            # Normal order (oldest first)
+            lines = all_lines[start_idx:end_idx]
         
         return {
             "success": True,
             "lines": lines,
-            "total_lines": len(lines),
-            "file_size": len(log_content)
+            "total_lines": total_lines,
+            "file_size": len(log_content),
+            "file_path": log_path,
+            "page": page,
+            "limit": limit,
+            "total_pages": total_pages,
+            "has_next": page < total_pages,
+            "has_prev": page > 1,
+            "sort_order": sort_order
         }
         
     except Exception as e:
         return {
             "success": False,
             "error": str(e),
-            "lines": []
+            "lines": [],
+            "total_lines": 0,
+            "page": page,
+            "limit": limit,
+            "total_pages": 0,
+            "has_next": False,
+            "has_prev": False
+        }
+
+
+@app.get("/api/logs/rotation-info")
+async def get_log_rotation_info():
+    """Get information about log rotation status."""
+    try:
+        from list_sync.utils.log_rotation import get_log_rotator
+        
+        rotator = get_log_rotator()
+        info = rotator.get_log_file_info()
+        
+        return {
+            "success": True,
+            "rotation_info": info
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "rotation_info": None
+        }
+
+
+@app.get("/api/logs/rotate")
+async def rotate_logs():
+    """Manually trigger log rotation."""
+    try:
+        from list_sync.utils.log_rotation import check_and_rotate_logs
+        
+        success = check_and_rotate_logs()
+        
+        return {
+            "success": success,
+            "message": "Log rotation completed" if success else "No rotation needed"
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Log rotation failed"
         }
 
 

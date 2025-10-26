@@ -468,3 +468,5 @@ def configure_sync_interval_menu():
         print(f'\n{color_gradient(f"✅  Sync interval configured to {display_interval}.", "#00ff00", "#00aa00")}\n')
     except ValueError:
         print(color_gradient("\n❌ Please enter a valid number (e.g., 1, 0.5, 2.5).", "#ff0000", "#aa0000"))
+
+

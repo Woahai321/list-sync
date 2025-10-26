@@ -148,6 +148,7 @@ import {
   Heart as HeartIcon,
   Calendar as CalendarIcon,
   Monitor as MonitorIcon,
+  Sparkles as SparklesIcon,
 } from 'lucide-vue-next'
 import type { List } from '~/types'
 import { extractUrlSegment } from '~/utils/urlHelpers'
@@ -256,6 +257,15 @@ const sources = [
     bgColor: 'bg-indigo-500/20',
     borderColor: 'border-indigo-500/40',
     description: 'TV series database'
+  },
+  { 
+    label: 'AniList', 
+    value: 'anilist', 
+    icon: SparklesIcon, 
+    color: 'text-amber-400',
+    bgColor: 'bg-amber-500/20',
+    borderColor: 'border-amber-500/40',
+    description: 'Anime tracking platform'
   },
 ]
 
