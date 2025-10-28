@@ -152,6 +152,10 @@ def fetch_anilist_animelist_graphql(username: str, status_filter: Optional[str] 
         all_entries = []
         total_count = 0
         
+        # Translate "WATCHING" to "CURRENT" for AniList API compatibility
+        if status_filter and status_filter.upper() == "WATCHING":
+            status_filter = "CURRENT"
+        
         for list_data in lists:
             list_name = list_data.get("name")
             list_status = list_data.get("status")
