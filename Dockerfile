@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Multi-stage Dockerfile for Complete ListSync Web Application
 # Includes: ListSync Core Service + FastAPI Backend + Nuxt 3 Frontend 
 

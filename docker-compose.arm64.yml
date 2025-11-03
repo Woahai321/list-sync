@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  listsync:
+    build:
+      context: .
+      dockerfile: Dockerfile.arm64
+      platforms:
+        - linux/arm64
+    
+    # OU si vous utilisez l'image pre-built :
+    # image: ghcr.io/YOUR_USERNAME/list-sync:arm64-latest
+    
+    container_name: listsync-arm64
+    restart: unless-stopped
+    
+    ports:
+      - "3222:3222"
+      - "4222:4222"
+    
+    environment:
+      TZ: ${TZ:-UTC+1}
+      OVERSEERR_URL: ${OVERSEERR_URL}
+      OVERSEERR_API_KEY: ${OVERSEERR_API_KEY}
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+    
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4222/api/system/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    
+    platform: linux/arm64

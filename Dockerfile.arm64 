@@ -1,0 +1,64 @@
+# syntax=docker/dockerfile:1
+
+# Build stage
+FROM --platform=$BUILDPLATFORM python:3.9-slim AS builder
+
+ARG TARGETOS
+ARG TARGETARCH
+ARG TARGETPLATFORM
+
+WORKDIR /src
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt poetry.lock* pyproject.toml* ./
+
+RUN if [ -f poetry.lock ]; then \
+        pip install poetry && \
+        poetry config virtualenvs.in-project true && \
+        poetry install --no-root --no-interaction --no-ansi; \
+    else \
+        pip install --no-cache-dir --user -r requirements.txt; \
+    fi
+
+# Final stage
+FROM python:3.9-slim
+
+ARG TARGETPLATFORM
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    chromium-browser \
+    chromium-driver \
+    libgbm1 \
+    libnspr4 \
+    libnss3 \
+    libwayland-server0 \
+    xdg-utils \
+    ca-certificates \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /src/.venv /app/.venv
+COPY . /app/
+
+RUN useradd -m -u 1000 listsync && chown -R listsync:listsync /app
+
+USER listsync
+
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    CHROMIUM_BIN=/usr/bin/chromium-browser \
+    CHROMEDRIVER_BIN=/usr/bin/chromedriver \
+    PYTHONDONTWRITEBYTECODE=1
+
+EXPOSE 3222 4222
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:4222/api/system/health || exit 1
+
+CMD ["python", "-m", "list_sync"]
