@@ -1,31 +1,31 @@
 <template>
-  <Card class="glass-card">
-    <div class="text-center py-8">
+  <Card class="glass-card border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
+    <div class="text-center py-6">
       <!-- Status Icon -->
-      <div class="flex items-center justify-center mb-6">
+      <div class="flex items-center justify-center mb-4">
         <div
-          class="relative w-24 h-24 rounded-full flex items-center justify-center"
+          class="relative w-16 h-16 rounded-full flex items-center justify-center"
           :class="[
             isSyncing
-              ? 'bg-primary/10 border-2 border-primary animate-pulse'
-              : 'bg-primary/5 border-2 border-primary/20'
+              ? 'bg-purple-600/20 border-2 border-purple-500 animate-pulse'
+              : 'bg-purple-600/10 border-2 border-purple-500/20'
           ]"
         >
           <component
             :is="statusIcon"
             :class="[
-              'w-12 h-12',
-              isSyncing ? 'text-primary animate-spin' : 'text-primary'
+              'w-8 h-8',
+              isSyncing ? 'text-purple-400 animate-spin' : 'text-purple-400'
             ]"
           />
         </div>
       </div>
 
       <!-- Status Text -->
-      <h2 class="text-2xl font-bold mb-2 titillium-web-bold">
+      <h2 class="text-xl font-bold mb-1.5 titillium-web-bold">
         {{ statusTitle }}
       </h2>
-      <p class="text-muted-foreground mb-8">
+      <p class="text-muted-foreground mb-6 text-sm">
         {{ statusDescription }}
       </p>
 

@@ -5,52 +5,41 @@
     size="lg"
     @close="handleClose"
   >
-    <div class="space-y-6">
+    <div class="space-y-4">
       <!-- Progress Indicator -->
       <div class="flex items-center justify-center gap-2">
         <div
           v-for="step in 4"
           :key="step"
           :class="[
-            'h-2 rounded-full transition-all',
+            'h-1.5 rounded-full transition-all',
             step === currentStep ? 'w-8 bg-purple-500' : step < currentStep ? 'w-6 bg-purple-500/50' : 'w-6 bg-white/10'
           ]"
         />
       </div>
 
       <!-- Step 1: Choose Sources -->
-      <div v-if="currentStep === 1" class="space-y-6">
-        <div class="text-center space-y-2">
-          <p class="text-sm text-muted-foreground">
-            Select the sources for your lists
+      <div v-if="currentStep === 1" class="space-y-4">
+        <div class="text-center space-y-1.5">
+          <p class="text-xs text-muted-foreground font-medium">
+            Select a source for your list
           </p>
-          <p class="text-xs text-muted-foreground">
-            You can select multiple providers to add lists from
+          <p class="text-[10px] text-muted-foreground">
+            Choose one provider to add a list from
           </p>
         </div>
 
-        <!-- Selected Providers Display -->
-        <div v-if="selectedProviders.length > 0" class="space-y-3">
-          <p class="text-sm font-medium text-foreground">Selected Providers ({{ selectedProviders.length }})</p>
-          <div class="flex flex-wrap gap-2">
-            <div
-              v-for="provider in selectedProviders"
-              :key="provider"
-              class="flex items-center gap-2 px-3 py-2 rounded-lg bg-purple-500/20 border border-purple-500/40"
-            >
-              <component :is="getSourceIcon(provider)" :size="16" :class="getSourceColor(provider).color" />
-              <span class="text-sm font-medium text-foreground">{{ formatListSource(provider) }}</span>
-              <button
-                @click="removeProvider(provider)"
-                class="p-1 rounded hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors"
-              >
-                <component :is="TrashIcon" :size="12" />
-              </button>
-            </div>
+        <!-- Lists Already Selected Indicator -->
+        <div v-if="listsToAdd.length > 0" class="flex items-center justify-center">
+          <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20">
+            <component :is="CheckCircleIcon" :size="14" class="text-purple-400" />
+            <span class="text-xs font-medium text-foreground">
+              {{ listsToAdd.length }} list{{ listsToAdd.length > 1 ? 's' : '' }} already selected
+            </span>
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-2 gap-3">
           <button
             v-for="source in paginatedSources"
             :key="source.value"
@@ -287,42 +276,33 @@
           </p>
         </div>
 
+        <!-- Add More Lists Section -->
+        <div class="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
+          <div class="flex items-start gap-3">
+            <component :is="InfoIcon" :size="16" class="text-purple-400 flex-shrink-0 mt-0.5" />
+            <div class="flex-1">
+              <p class="text-sm font-medium text-foreground mb-2">
+                Want to add more lists?
+              </p>
+              <p class="text-xs text-muted-foreground mb-3">
+                Add more lists before continuing to sync all at once
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                :icon="PlusIcon"
+                @click="addAnotherList"
+                class="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
+              >
+                Add Another List{{ listsToAdd.length > 0 ? ` (${listsToAdd.length} selected)` : '' }}
+              </Button>
+            </div>
+          </div>
+        </div>
+
         <!-- Sync Options -->
         <div class="space-y-3">
-          <!-- Option 1: Just Add (Scheduled) -->
-          <button
-            type="button"
-            :class="[
-              'w-full p-4 rounded-lg border-2 text-left transition-all',
-              selectedSyncOption === 'schedule'
-                ? 'border-purple-500 bg-purple-500/10'
-                : 'border-border bg-black/20 hover:border-purple-500/50'
-            ]"
-            @click="selectedSyncOption = 'schedule'"
-          >
-            <div class="flex items-start gap-3">
-              <div class="flex-shrink-0 mt-1">
-                <div
-                  :class="[
-                    'w-5 h-5 rounded-full border-2 flex items-center justify-center',
-                    selectedSyncOption === 'schedule'
-                      ? 'border-purple-500 bg-purple-500'
-                      : 'border-border'
-                  ]"
-                >
-                  <div v-if="selectedSyncOption === 'schedule'" class="w-2 h-2 bg-white rounded-full" />
-                </div>
-              </div>
-              <div class="flex-1">
-                <p class="font-medium text-foreground">Add to Next Scheduled Sync</p>
-                <p class="text-xs text-muted-foreground mt-1">
-                  List will be synced automatically during the next scheduled sync interval
-                </p>
-              </div>
-            </div>
-          </button>
-
-          <!-- Option 2: Sync This One Now -->
+          <!-- Option 1: Sync This One Now -->
           <button
             type="button"
             :class="[
@@ -355,7 +335,7 @@
             </div>
           </button>
 
-          <!-- Option 3: Sync All Now -->
+          <!-- Option 2: Sync All Now -->
           <button
             type="button"
             :class="[
@@ -383,6 +363,39 @@
                 <p class="font-medium text-foreground">Sync All Lists Now</p>
                 <p class="text-xs text-muted-foreground mt-1">
                   Immediately sync all configured lists including this new one
+                </p>
+              </div>
+            </div>
+          </button>
+
+          <!-- Option 3: Just Add (Scheduled) -->
+          <button
+            type="button"
+            :class="[
+              'w-full p-4 rounded-lg border-2 text-left transition-all',
+              selectedSyncOption === 'schedule'
+                ? 'border-purple-500 bg-purple-500/10'
+                : 'border-border bg-black/20 hover:border-purple-500/50'
+            ]"
+            @click="selectedSyncOption = 'schedule'"
+          >
+            <div class="flex items-start gap-3">
+              <div class="flex-shrink-0 mt-1">
+                <div
+                  :class="[
+                    'w-5 h-5 rounded-full border-2 flex items-center justify-center',
+                    selectedSyncOption === 'schedule'
+                      ? 'border-purple-500 bg-purple-500'
+                      : 'border-border'
+                  ]"
+                >
+                  <div v-if="selectedSyncOption === 'schedule'" class="w-2 h-2 bg-white rounded-full" />
+                </div>
+              </div>
+              <div class="flex-1">
+                <p class="font-medium text-foreground">Add to Next Scheduled Sync</p>
+                <p class="text-xs text-muted-foreground mt-1">
+                  List will be synced automatically during the next scheduled sync interval
                 </p>
               </div>
             </div>
@@ -443,40 +456,7 @@
 
         <!-- Sync Options -->
         <div class="space-y-3">
-          <!-- Option 1: Just Add (Scheduled) -->
-          <button
-            type="button"
-            :class="[
-              'w-full p-4 rounded-lg border-2 text-left transition-all',
-              selectedSyncOption === 'schedule'
-                ? 'border-purple-500 bg-purple-500/10'
-                : 'border-border bg-black/20 hover:border-purple-500/50'
-            ]"
-            @click="selectedSyncOption = 'schedule'"
-          >
-            <div class="flex items-start gap-3">
-              <div class="flex-shrink-0 mt-1">
-                <div
-                  :class="[
-                    'w-5 h-5 rounded-full border-2 flex items-center justify-center',
-                    selectedSyncOption === 'schedule'
-                      ? 'border-purple-500 bg-purple-500'
-                      : 'border-border'
-                  ]"
-                >
-                  <div v-if="selectedSyncOption === 'schedule'" class="w-2 h-2 bg-white rounded-full" />
-                </div>
-              </div>
-              <div class="flex-1">
-                <p class="font-medium text-foreground">Add to Next Scheduled Sync</p>
-                <p class="text-xs text-muted-foreground mt-1">
-                  Lists will be synced automatically during the next scheduled sync interval
-                </p>
-              </div>
-            </div>
-          </button>
-
-          <!-- Option 2: Sync These Lists Now -->
+          <!-- Option 1: Sync These Lists Now -->
           <button
             type="button"
             :class="[
@@ -509,7 +489,7 @@
             </div>
           </button>
 
-          <!-- Option 3: Sync All Now -->
+          <!-- Option 2: Sync All Now -->
           <button
             type="button"
             :class="[
@@ -541,6 +521,39 @@
               </div>
             </div>
           </button>
+
+          <!-- Option 3: Just Add (Scheduled) -->
+          <button
+            type="button"
+            :class="[
+              'w-full p-4 rounded-lg border-2 text-left transition-all',
+              selectedSyncOption === 'schedule'
+                ? 'border-purple-500 bg-purple-500/10'
+                : 'border-border bg-black/20 hover:border-purple-500/50'
+            ]"
+            @click="selectedSyncOption = 'schedule'"
+          >
+            <div class="flex items-start gap-3">
+              <div class="flex-shrink-0 mt-1">
+                <div
+                  :class="[
+                    'w-5 h-5 rounded-full border-2 flex items-center justify-center',
+                    selectedSyncOption === 'schedule'
+                      ? 'border-purple-500 bg-purple-500'
+                      : 'border-border'
+                  ]"
+                >
+                  <div v-if="selectedSyncOption === 'schedule'" class="w-2 h-2 bg-white rounded-full" />
+                </div>
+              </div>
+              <div class="flex-1">
+                <p class="font-medium text-foreground">Add to Next Scheduled Sync</p>
+                <p class="text-xs text-muted-foreground mt-1">
+                  Lists will be synced automatically during the next scheduled sync interval
+                </p>
+              </div>
+            </div>
+          </button>
         </div>
       </div>
     </div>
@@ -565,23 +578,6 @@
             Back
           </Button>
 
-          <Button
-            v-if="currentStep === 1"
-            variant="secondary"
-            :disabled="loading"
-            @click="handleClose"
-          >
-            Cancel
-          </Button>
-
-          <Button
-            v-if="currentStep === 1"
-            variant="primary"
-            :disabled="selectedProviders.length === 0"
-            @click="startAddingLists"
-          >
-            Continue with {{ selectedProviders.length }} Provider{{ selectedProviders.length > 1 ? 's' : '' }}
-          </Button>
 
           <Button
             v-if="currentStep === 2"
@@ -594,23 +590,13 @@
           </Button>
 
           <Button
-            v-if="currentStep === 2"
-            variant="ghost"
-            :disabled="!canProceed"
-            :loading="loading"
-            @click="proceedToSchedule"
-          >
-            Skip This Provider
-          </Button>
-
-          <Button
             v-if="currentStep === 3"
             variant="primary"
             :disabled="!canProceed"
             :loading="loading"
-            @click="handleNext"
+            @click="handleStep3Submit"
           >
-            Add List & {{ getSyncButtonText() }}
+            Add {{ listsToAdd.length > 0 ? `${listsToAdd.length + 1} Lists` : 'List' }} & {{ getSyncButtonText() }}
           </Button>
 
           <Button
@@ -648,6 +634,7 @@ import {
   Plus as PlusIcon,
   Trash2 as TrashIcon,
   Sparkles as SparklesIcon,
+  CheckCircle as CheckCircleIcon,
 } from 'lucide-vue-next'
 import { useSyncStore } from '~/stores/sync'
 
@@ -663,6 +650,7 @@ const emit = defineEmits<{
 }>()
 
 const { showSuccess, showError } = useToast()
+const router = useRouter()
 
 // Computed for v-model
 const isOpen = computed({
@@ -676,7 +664,7 @@ const selectedSource = ref('')
 const listId = ref('')
 const error = ref('')
 const loading = ref(false)
-const selectedSyncOption = ref<'all' | 'single' | 'schedule'>('schedule')
+const selectedSyncOption = ref<'all' | 'single' | 'schedule'>('single')
 const currentPage = ref(1)
 const itemsPerPage = 6
 
@@ -910,39 +898,24 @@ const getHelperText = (source: string) => {
 
 // Get source button class
 const getSourceButtonClass = (source: string) => {
-  const isSelected = selectedSource.value === source
-  
   const baseClasses = [
     'w-full p-6 rounded-xl border-2 transition-all duration-300 group',
-    'hover:scale-105 hover:shadow-lg',
+    'hover:scale-105 hover:shadow-lg cursor-pointer',
+    'bg-black/20 border-border text-muted-foreground',
+    'hover:bg-purple-500/5 hover:border-purple-500/40 hover:text-foreground',
+    'hover:shadow-lg hover:shadow-purple-500/10',
   ]
 
-  if (isSelected) {
-    return [
-      ...baseClasses,
-      'bg-purple-500/10 border-purple-500/50 text-purple-300',
-      'shadow-lg shadow-purple-500/20 scale-105',
-    ].join(' ')
-  }
-
-  return [
-    ...baseClasses,
-    'bg-black/20 border-border text-muted-foreground',
-    'hover:bg-white/5 hover:border-purple-500/30 hover:text-foreground',
-    'hover:shadow-lg hover:shadow-purple-500/10',
-  ].join(' ')
+  return baseClasses.join(' ')
 }
 
 // Handlers
 const selectSource = (source: string) => {
-  // Toggle provider selection
-  if (selectedProviders.value.includes(source)) {
-    // Remove from selection
-    selectedProviders.value = selectedProviders.value.filter(p => p !== source)
-  } else {
-    // Add to selection
-    selectedProviders.value.push(source)
-  }
+  // Select single provider and immediately proceed to step 2
+  selectedSource.value = source
+  selectedProviders.value = [source] // Keep for compatibility with existing logic
+  currentProvider.value = source
+  currentStep.value = 2
 }
 
 // Start adding lists for selected providers
@@ -979,11 +952,20 @@ const removeProvider = (source: string) => {
 
 // Add list to batch
 const addListToBatch = () => {
-  if (!validateInput()) return
+  if (!validateInput()) {
+    console.warn('[Add List to Batch] Validation failed')
+    return
+  }
 
   const listId = getFinalListId()
   const listType = getFinalListType()
   const displayName = getDisplayName()
+
+  console.log('[Add List to Batch] Adding:', {
+    listType,
+    listId,
+    displayName
+  })
 
   const newList = {
     id: `${listType}-${listId}-${Date.now()}`,
@@ -995,6 +977,7 @@ const addListToBatch = () => {
   }
 
   listsToAdd.value.push(newList)
+  console.log('[Add List to Batch] Total in batch:', listsToAdd.value.length)
   
   // Move to next provider or go to summary
   nextProvider()
@@ -1046,8 +1029,41 @@ const removeListFromBatch = (index: number) => {
   listsToAdd.value.splice(index, 1)
 }
 
-// Add another list
-const addAnotherList = () => {
+// Add another list - save current one first, then go back to provider selection
+const addAnotherList = async () => {
+  // First add the current list to the batch if we're in Step 3
+  if (currentStep.value === 3) {
+    // Validate before saving
+    if (!validateInput()) {
+      console.warn('[Add Another List] Validation failed, not saving current list')
+      error.value = 'Please fix errors before adding another list'
+      return
+    }
+
+    const finalListId = getFinalListId()
+    const finalListType = getFinalListType()
+    const displayName = getDisplayName()
+
+    console.log('[Add Another List] Saving current list:', {
+      listType: finalListType,
+      listId: finalListId,
+      displayName
+    })
+
+    const newList = {
+      id: `${finalListType}-${finalListId}-${Date.now()}`,
+      source: selectedSource.value,
+      listId: finalListId,
+      displayName: displayName,
+      listType: finalListType,
+      mediaType: isTraktSpecial.value ? selectedTraktMedia.value : undefined
+    }
+
+    listsToAdd.value.push(newList)
+    console.log('[Add Another List] Lists in batch:', listsToAdd.value.length)
+  }
+  
+  // Reset to step 1 for adding another list
   currentStep.value = 1
   selectedSource.value = ''
   listId.value = ''
@@ -1055,6 +1071,8 @@ const addAnotherList = () => {
   selectedTraktMedia.value = ''
   error.value = ''
   currentPage.value = 1
+  selectedProviders.value = []
+  currentProvider.value = ''
 }
 
 // Proceed to schedule (single list)
@@ -1246,6 +1264,40 @@ const handleNext = () => {
   }
 }
 
+// Handle Step 3 submit - check if we have batched lists
+const handleStep3Submit = async () => {
+  if (!validateInput()) return
+
+  // If we have batched lists, add current list to batch and use multi-submit
+  if (listsToAdd.value.length > 0) {
+    console.log('[Step 3 Submit] Found batched lists, adding current and submitting all')
+    
+    // Add current list to batch
+    const finalListId = getFinalListId()
+    const finalListType = getFinalListType()
+    const displayName = getDisplayName()
+
+    const newList = {
+      id: `${finalListType}-${finalListId}-${Date.now()}`,
+      source: selectedSource.value,
+      listId: finalListId,
+      displayName: displayName,
+      listType: finalListType,
+      mediaType: isTraktSpecial.value ? selectedTraktMedia.value : undefined
+    }
+
+    listsToAdd.value.push(newList)
+    console.log('[Step 3 Submit] Total lists to add:', listsToAdd.value.length)
+
+    // Use multi-submit logic
+    await handleSubmitMultiple()
+  } else {
+    // No batched lists, use single submit
+    console.log('[Step 3 Submit] No batched lists, submitting single list')
+    await handleSubmit()
+  }
+}
+
 const handleSubmit = async () => {
   if (!validateInput()) return
 
@@ -1273,21 +1325,73 @@ const handleSubmit = async () => {
 
     showSuccess('List Added', `Successfully added ${finalListType} list`)
     
+    // Refresh lists store to ensure backend has the list loaded
+    await listsStore.fetchLists(true)
+    
+    // Small delay to ensure backend has fully processed the list addition
+    await new Promise(resolve => setTimeout(resolve, 300))
+    
     // Step 2: Handle sync option
     if (selectedSyncOption.value === 'single') {
       // Sync just this list
       showSuccess('Syncing List', 'Starting sync for this list...')
       const api = useApiService()
       await api.syncSingleList(finalListType, finalListId)
-      navigateTo('/sync')
+      // Emit event and close modal
+      emit('list-added')
+      handleClose()
+      // Navigate to logs - use setTimeout to ensure modal closes first
+      if (process.client) {
+        setTimeout(() => {
+          try {
+            router.push('/logs')
+          } catch (err) {
+            console.error('Navigation error:', err)
+            // Fallback to window.location if router fails
+            window.location.href = '/logs'
+          }
+        }, 150)
+      }
+      return // Exit early to prevent further execution
     } else if (selectedSyncOption.value === 'all') {
       // Sync all lists
       showSuccess('Syncing All', 'Starting sync for all lists...')
       await syncStore.triggerSync()
-      navigateTo('/sync')
+      // Emit event and close modal
+      emit('list-added')
+      handleClose()
+      // Navigate to logs - use setTimeout to ensure modal closes first
+      if (process.client) {
+        setTimeout(() => {
+          try {
+            router.push('/logs')
+          } catch (err) {
+            console.error('Navigation error:', err)
+            // Fallback to window.location if router fails
+            window.location.href = '/logs'
+          }
+        }, 150)
+      }
+      return // Exit early to prevent further execution
     } else {
       // Just schedule for next sync
       showSuccess('Scheduled', 'List will sync during the next scheduled interval')
+      // Emit event and close modal
+      emit('list-added')
+      handleClose()
+      // Navigate to logs - use setTimeout to ensure modal closes first
+      if (process.client) {
+        setTimeout(() => {
+          try {
+            router.push('/logs')
+          } catch (err) {
+            console.error('Navigation error:', err)
+            // Fallback to window.location if router fails
+            window.location.href = '/logs'
+          }
+        }, 150)
+      }
+      return // Exit early to prevent further execution
     }
 
     emit('list-added')
@@ -1301,7 +1405,16 @@ const handleSubmit = async () => {
 }
 
 const handleSubmitMultiple = async () => {
-  if (listsToAdd.value.length === 0) return
+  if (listsToAdd.value.length === 0) {
+    console.warn('[Submit Multiple] No lists in batch!')
+    return
+  }
+
+  console.log('[Submit Multiple] Submitting lists:', listsToAdd.value.map(l => ({
+    type: l.listType,
+    id: l.listId,
+    name: l.displayName
+  })))
 
   loading.value = true
   error.value = ''
@@ -1312,6 +1425,7 @@ const handleSubmitMultiple = async () => {
     
     // Add all lists
     for (const list of listsToAdd.value) {
+      console.log('[Submit Multiple] Adding list:', list.listType, list.listId)
       await listsStore.addList({
         list_type: list.listType,
         list_id: list.listId,
@@ -1319,6 +1433,12 @@ const handleSubmitMultiple = async () => {
     }
 
     showSuccess('Lists Added', `Successfully added ${listsToAdd.value.length} lists`)
+    
+    // Refresh lists store to ensure backend has all lists loaded
+    await listsStore.fetchLists(true)
+    
+    // Small delay to ensure backend has fully processed all list additions
+    await new Promise(resolve => setTimeout(resolve, 500))
     
     // Handle sync option
     if (selectedSyncOption.value === 'single') {
@@ -1354,16 +1474,61 @@ const handleSubmitMultiple = async () => {
         showError('Some Syncs Failed', `${failCount} list(s) failed to start: ${errors.join(', ')}`)
       }
       
-      // Navigate to sync page to monitor progress
-      navigateTo('/sync')
+      // Emit event and close modal
+      emit('list-added')
+      handleClose()
+      // Navigate to logs - use setTimeout to ensure modal closes first
+      if (process.client) {
+        setTimeout(() => {
+          try {
+            router.push('/logs')
+          } catch (err) {
+            console.error('Navigation error:', err)
+            // Fallback to window.location if router fails
+            window.location.href = '/logs'
+          }
+        }, 150)
+      }
+      return // Exit early to prevent further execution
     } else if (selectedSyncOption.value === 'all') {
       // Sync all lists
       showSuccess('Syncing All', 'Starting sync for all lists...')
       await syncStore.triggerSync()
-      navigateTo('/sync')
+      // Emit event and close modal
+      emit('list-added')
+      handleClose()
+      // Navigate to logs - use setTimeout to ensure modal closes first
+      if (process.client) {
+        setTimeout(() => {
+          try {
+            router.push('/logs')
+          } catch (err) {
+            console.error('Navigation error:', err)
+            // Fallback to window.location if router fails
+            window.location.href = '/logs'
+          }
+        }, 150)
+      }
+      return // Exit early to prevent further execution
     } else {
       // Just schedule for next sync
       showSuccess('Scheduled', `${listsToAdd.value.length} lists will sync during the next scheduled interval`)
+      // Emit event and close modal
+      emit('list-added')
+      handleClose()
+      // Navigate to logs - use setTimeout to ensure modal closes first
+      if (process.client) {
+        setTimeout(() => {
+          try {
+            router.push('/logs')
+          } catch (err) {
+            console.error('Navigation error:', err)
+            // Fallback to window.location if router fails
+            window.location.href = '/logs'
+          }
+        }, 150)
+      }
+      return // Exit early to prevent further execution
     }
 
     emit('list-added')
@@ -1385,7 +1550,7 @@ const handleClose = () => {
     listId.value = ''
     selectedTraktType.value = ''
     selectedTraktMedia.value = ''
-    selectedSyncOption.value = 'schedule'
+    selectedSyncOption.value = 'single'
     error.value = ''
     currentPage.value = 1
     listsToAdd.value = []

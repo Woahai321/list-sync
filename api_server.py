@@ -41,6 +41,7 @@ from list_sync.database import (
     DB_FILE
 )
 from list_sync.config import load_env_config
+# Removed in-memory sync tracker - now using database-based tracking
 
 # Import new timezone utilities
 from list_sync.utils.timezone_utils import (
@@ -1733,6 +1734,673 @@ async def get_health_check():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# ============================================================================
+# Setup Wizard Endpoints - First-Run Configuration
+# ============================================================================
+
+@app.get("/api/setup/status")
+async def get_setup_status():
+    """
+    Check setup status and determine if wizard should be shown.
+    
+    Returns:
+        - is_complete: Whether setup wizard has been completed
+        - has_env: Whether .env file exists with basic config
+        - needs_migration: Whether .env should be auto-migrated to database
+        - settings_count: Number of settings in database
+    """
+    try:
+        from list_sync.config import ConfigManager
+        
+        config = ConfigManager()
+        
+        # Check if setup is marked complete in database
+        is_complete = config.is_setup_complete()
+        
+        # Check if .env exists with configuration
+        has_env = config.has_env_config()
+        
+        # Check how many settings are in database
+        settings_count = config.database.count_settings()
+        
+        # Needs migration if: has .env, not complete, and no/few settings in DB
+        needs_migration = has_env and not is_complete and settings_count < 5
+        
+        return {
+            "is_complete": is_complete,
+            "has_env": has_env,
+            "needs_migration": needs_migration,
+            "settings_count": settings_count
+        }
+    except Exception as e:
+        logging.error(f"Error checking setup status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/setup/migrate-from-env")
+async def migrate_from_env():
+    """
+    Migrate settings from .env file to database.
+    Auto-runs on startup if .env exists and database is empty.
+    """
+    try:
+        from list_sync.config import ConfigManager
+        
+        config = ConfigManager()
+        
+        # Perform migration
+        migrated_count = config.migrate_env_to_database()
+        
+        # Mark setup as complete after successful migration
+        if migrated_count > 0:
+            config.mark_setup_complete()
+        
+        logging.info(f"Environment migration complete: {migrated_count} settings migrated")
+        
+        return {
+            "success": True,
+            "settings_migrated": migrated_count,
+            "message": f"Successfully migrated {migrated_count} settings from .env to database"
+        }
+    except Exception as e:
+        logging.error(f"Migration failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/setup/test/overseerr")
+async def test_overseerr_connection(data: dict):
+    """
+    Test Overseerr connection with provided URL and API key.
+    
+    Expected data:
+        - overseerr_url: str
+        - overseerr_api_key: str
+    """
+    try:
+        overseerr_url = data.get('overseerr_url', '').strip().rstrip('/')
+        overseerr_api_key = data.get('overseerr_api_key', '').strip()
+        
+        # Basic validation
+        if not overseerr_url:
+            return {
+                "valid": False,
+                "error": "Overseerr URL is required"
+            }
+        
+        if not overseerr_api_key:
+            return {
+                "valid": False,
+                "error": "Overseerr API Key is required"
+            }
+        
+        if not overseerr_url.startswith(('http://', 'https://')):
+            return {
+                "valid": False,
+                "error": "URL must start with http:// or https://"
+            }
+        
+        # Test connection with an endpoint that REQUIRES authentication
+        # Use /api/v1/user which requires a valid API key
+        try:
+            headers = {"X-Api-Key": overseerr_api_key}
+            
+            logging.info(f"Testing Overseerr API key validation with endpoint: {overseerr_url}/api/v1/user")
+            
+            # First test with /api/v1/user to validate API key (requires auth)
+            user_response = requests.get(f"{overseerr_url}/api/v1/user", headers=headers, timeout=10)
+            
+            logging.info(f"Overseerr API key test response status: {user_response.status_code}")
+            
+            # If we get 401, the API key is invalid
+            if user_response.status_code == 401:
+                return {
+                    "valid": False,
+                    "error": "Invalid API key. Please check your Overseerr API key."
+                }
+            
+            # If we get 403, the API key doesn't have permission
+            if user_response.status_code == 403:
+                return {
+                    "valid": False,
+                    "error": "API key does not have required permissions. Please check your API key."
+                }
+            
+            # Raise for other HTTP errors
+            user_response.raise_for_status()
+            
+            # Also test /api/v1/status to get version info (optional, but good to verify)
+            try:
+                status_response = requests.get(f"{overseerr_url}/api/v1/status", headers=headers, timeout=5)
+                status_data = status_response.json() if status_response.status_code == 200 else {}
+            except:
+                status_data = {}
+            
+            logging.info("Overseerr connection test successful - API key validated")
+            
+            return {
+                "valid": True,
+                "message": "Overseerr connection successful",
+                "version": status_data.get("version", "Unknown"),
+                "updateAvailable": status_data.get("updateAvailable", False)
+            }
+        except requests.exceptions.Timeout:
+            return {
+                "valid": False,
+                "error": "Connection timeout. Check your Overseerr URL."
+            }
+        except requests.exceptions.ConnectionError:
+            return {
+                "valid": False,
+                "error": "Could not connect to Overseerr. Check your URL and network."
+            }
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 401:
+                return {
+                    "valid": False,
+                    "error": "Invalid API key. Please check your Overseerr API key."
+                }
+            return {
+                "valid": False,
+                "error": f"HTTP {e.response.status_code}: {e.response.text[:100]}"
+            }
+        except requests.exceptions.RequestException as e:
+            return {
+                "valid": False,
+                "error": f"Connection test failed: {str(e)}"
+            }
+    except Exception as e:
+        logging.error(f"Error testing Overseerr connection: {e}")
+        return {
+            "valid": False,
+            "error": f"Unexpected error: {str(e)}"
+        }
+
+
+@app.post("/api/setup/test/trakt")
+async def test_trakt_client_id(data: dict):
+    """
+    Test Trakt Client ID validity.
+    
+    Expected data:
+        - trakt_client_id: str
+    """
+    try:
+        trakt_client_id = data.get('trakt_client_id', '').strip()
+        
+        # Basic validation
+        if not trakt_client_id:
+            return {
+                "valid": False,
+                "error": "Trakt Client ID is required"
+            }
+        
+        # Validate Trakt Client ID format first
+        # Trakt Client IDs are typically hex strings (alphanumeric lowercase)
+        # They can vary in length but should be at least 16 characters
+        import re
+        
+        # Check length (Trakt Client IDs should be reasonable length)
+        if len(trakt_client_id) < 16:
+            return {
+                "valid": False,
+                "error": "Invalid Trakt Client ID format. Client ID is too short (minimum 16 characters)."
+            }
+        
+        # Check if it contains only valid hex characters (0-9, a-f)
+        # Trakt Client IDs are typically lowercase hex strings
+        if not re.match(r'^[a-f0-9]+$', trakt_client_id.lower()):
+            return {
+                "valid": False,
+                "error": "Invalid Trakt Client ID format. Client ID should contain only hexadecimal characters (0-9, a-f)."
+            }
+        
+        # Test Trakt API with an endpoint that validates the Client ID
+        # Use a public endpoint that will reject invalid Client IDs
+        try:
+            headers = {
+                "Content-Type": "application/json",
+                "trakt-api-version": "2",
+                "trakt-api-key": trakt_client_id
+            }
+            
+            # Try to access a simple public endpoint
+            # This endpoint should work with a valid Client ID even without OAuth
+            # An invalid Client ID should return 401
+            response = requests.get(
+                "https://api.trakt.tv/calendars/all/movies/2024-01-01/1",
+                headers=headers,
+                timeout=10
+            )
+            
+            # Check response status
+            # Trakt API returns 401 for unauthorized/invalid Client IDs
+            if response.status_code == 401:
+                # 401 means unauthorized - this indicates an invalid Client ID
+                try:
+                    error_data = response.json()
+                    error_message = error_data.get('error', '').lower()
+                    # Check for specific error messages
+                    if 'invalid' in error_message or 'unauthorized' in error_message or 'forbidden' in error_message:
+                        return {
+                            "valid": False,
+                            "error": "Invalid Trakt Client ID. Please verify your Client ID is correct."
+                        }
+                except:
+                    pass
+                # Default to invalid if we get 401
+                return {
+                    "valid": False,
+                    "error": "Invalid Trakt Client ID. The API returned unauthorized. Please check your Client ID."
+                }
+            
+            # If we get 400, it's likely an invalid request format or Client ID
+            if response.status_code == 400:
+                return {
+                    "valid": False,
+                    "error": "Invalid Trakt Client ID format. Please check your Client ID."
+                }
+            
+            # Check response headers for Client ID validation
+            # Trakt API might include validation info in headers
+            api_key_header = response.headers.get('X-API-Key-Status', '').lower()
+            if 'invalid' in api_key_header or 'rejected' in api_key_header:
+                return {
+                    "valid": False,
+                    "error": "Invalid Trakt Client ID. The API rejected the Client ID."
+                }
+            
+            # 200 or 404 means the request was accepted (Client ID appears valid)
+            # 404 is acceptable for calendar endpoints if the date doesn't exist
+            if response.status_code in [200, 404]:
+                logging.info("Trakt Client ID validation successful")
+                return {
+                    "valid": True,
+                    "message": "Trakt Client ID is valid"
+                }
+            
+            # For any other status, be more cautious
+            logging.warning(f"Trakt Client ID validation returned unexpected status: {response.status_code}")
+            # If we get an unexpected status, assume invalid for safety
+            return {
+                "valid": False,
+                "error": f"Unexpected response from Trakt API (status {response.status_code}). Please check your Client ID."
+            }
+        except requests.exceptions.Timeout:
+            return {
+                "valid": False,
+                "error": "Connection timeout. Check your network connection."
+            }
+        except requests.exceptions.ConnectionError:
+            return {
+                "valid": False,
+                "error": "Could not connect to Trakt API. Check your network."
+            }
+        except requests.exceptions.RequestException as e:
+            return {
+                "valid": False,
+                "error": f"Validation failed: {str(e)}"
+            }
+    except Exception as e:
+        logging.error(f"Error testing Trakt Client ID: {e}")
+        return {
+            "valid": False,
+            "error": f"Unexpected error: {str(e)}"
+        }
+
+
+@app.post("/api/setup/step1/essential")
+async def save_step1_essential(data: dict):
+    """
+    Save and validate Step 1: Essential configuration (Overseerr + Trakt).
+    
+    Expected data:
+        - overseerr_url: str
+        - overseerr_api_key: str
+        - overseerr_user_id: str
+        - overseerr_4k: bool
+        - trakt_client_id: str
+    """
+    try:
+        from list_sync.config import ConfigManager
+        
+        config = ConfigManager()
+        errors = {}
+        
+        # Validate Overseerr URL
+        overseerr_url = data.get('overseerr_url', '').strip().rstrip('/')
+        if not overseerr_url:
+            errors['overseerr_url'] = 'Overseerr URL is required'
+        elif not overseerr_url.startswith(('http://', 'https://')):
+            errors['overseerr_url'] = 'URL must start with http:// or https://'
+        
+        # Validate Overseerr API Key
+        overseerr_api_key = data.get('overseerr_api_key', '').strip()
+        if not overseerr_api_key:
+            errors['overseerr_api_key'] = 'Overseerr API Key is required'
+        
+        # Validate Trakt Client ID
+        trakt_client_id = data.get('trakt_client_id', '').strip()
+        if not trakt_client_id:
+            errors['trakt_client_id'] = 'Trakt Client ID is required'
+        
+        # Test Overseerr connection if no errors so far
+        # Use /api/v1/user endpoint which REQUIRES authentication to properly validate API key
+        if not errors and overseerr_url and overseerr_api_key:
+            try:
+                headers = {"X-Api-Key": overseerr_api_key}
+                
+                # Test with /api/v1/user to validate API key (requires auth)
+                response = requests.get(f"{overseerr_url}/api/v1/user", headers=headers, timeout=10)
+                
+                # If we get 401, the API key is invalid
+                if response.status_code == 401:
+                    errors['overseerr_api_key'] = 'Invalid API key. Please check your Overseerr API key.'
+                    logging.error("Overseerr API key validation failed: 401 Unauthorized")
+                # If we get 403, the API key doesn't have permission
+                elif response.status_code == 403:
+                    errors['overseerr_api_key'] = 'API key does not have required permissions. Please check your API key.'
+                    logging.error("Overseerr API key validation failed: 403 Forbidden")
+                else:
+                    # Raise for other HTTP errors
+                    response.raise_for_status()
+                    logging.info("Overseerr connection test successful - API key validated")
+            except requests.exceptions.Timeout:
+                errors['overseerr_url'] = 'Connection timeout. Check your Overseerr URL.'
+            except requests.exceptions.ConnectionError:
+                errors['overseerr_url'] = 'Could not connect to Overseerr. Check your URL and network.'
+            except requests.exceptions.HTTPError as e:
+                # Handle other HTTP errors
+                if e.response.status_code == 401:
+                    errors['overseerr_api_key'] = 'Invalid API key. Please check your Overseerr API key.'
+                elif e.response.status_code == 403:
+                    errors['overseerr_api_key'] = 'API key does not have required permissions. Please check your API key.'
+                else:
+                    errors['overseerr_url'] = f'HTTP {e.response.status_code}: Connection test failed'
+            except requests.exceptions.RequestException as e:
+                errors['overseerr_url'] = f'Connection test failed: {str(e)}'
+                logging.error(f"Overseerr connection test failed: {e}")
+        
+        # Test Trakt Client ID if no errors so far
+        if not errors and trakt_client_id:
+            # Validate format first - check for valid hex string
+            import re
+            if len(trakt_client_id) < 16:
+                errors['trakt_client_id'] = 'Invalid Trakt Client ID format. Client ID is too short (minimum 16 characters).'
+                logging.error("Trakt Client ID validation failed: Too short")
+            elif not re.match(r'^[a-f0-9]+$', trakt_client_id.lower()):
+                errors['trakt_client_id'] = 'Invalid Trakt Client ID format. Client ID should contain only hexadecimal characters (0-9, a-f).'
+                logging.error("Trakt Client ID validation failed: Invalid format")
+            else:
+                try:
+                    headers = {
+                        "Content-Type": "application/json",
+                        "trakt-api-version": "2",
+                        "trakt-api-key": trakt_client_id
+                    }
+                    # Use a public endpoint that validates Client ID
+                    response = requests.get(
+                        "https://api.trakt.tv/calendars/all/movies/2024-01-01/1",
+                        headers=headers,
+                        timeout=10
+                    )
+                    
+                    # Check response status
+                    # Trakt API returns 401 for unauthorized/invalid Client IDs
+                    if response.status_code == 401:
+                        # 401 means unauthorized - this indicates an invalid Client ID
+                        try:
+                            error_data = response.json()
+                            error_message = error_data.get('error', '').lower()
+                            if 'invalid' in error_message or 'unauthorized' in error_message or 'forbidden' in error_message:
+                                errors['trakt_client_id'] = 'Invalid Trakt Client ID. Please verify your Client ID is correct.'
+                                logging.error("Trakt Client ID validation failed: Invalid Client ID")
+                            else:
+                                errors['trakt_client_id'] = 'Invalid Trakt Client ID. The API returned unauthorized. Please check your Client ID.'
+                                logging.error("Trakt Client ID validation failed: Unauthorized")
+                        except:
+                            # Can't parse error, assume invalid Client ID
+                            errors['trakt_client_id'] = 'Invalid Trakt Client ID. The API returned unauthorized. Please check your Client ID.'
+                            logging.error("Trakt Client ID validation failed: Unauthorized")
+                    elif response.status_code == 400:
+                        errors['trakt_client_id'] = 'Invalid Trakt Client ID format. Please check your Client ID.'
+                        logging.error("Trakt Client ID validation failed: Bad request")
+                    else:
+                        # Check response headers for Client ID validation
+                        api_key_header = response.headers.get('X-API-Key-Status', '').lower()
+                        if 'invalid' in api_key_header or 'rejected' in api_key_header:
+                            errors['trakt_client_id'] = 'Invalid Trakt Client ID. The API rejected the Client ID.'
+                            logging.error("Trakt Client ID validation failed: Rejected by API")
+                        elif response.status_code in [200, 404]:
+                            # 200 or 404 means the request was accepted (Client ID appears valid)
+                            logging.info("Trakt Client ID validation successful")
+                        else:
+                            # Unexpected status - be more cautious
+                            logging.warning(f"Trakt Client ID validation returned unexpected status: {response.status_code}")
+                            errors['trakt_client_id'] = f'Unexpected response from Trakt API (status {response.status_code}). Please check your Client ID.'
+                            logging.error(f"Trakt Client ID validation failed: Unexpected status {response.status_code}")
+                except requests.exceptions.Timeout:
+                    errors['trakt_client_id'] = 'Connection timeout. Check your network connection.'
+                except requests.exceptions.ConnectionError:
+                    errors['trakt_client_id'] = 'Could not connect to Trakt API. Check your network.'
+                except requests.exceptions.RequestException as e:
+                    errors['trakt_client_id'] = f'Validation failed: {str(e)}'
+                    logging.error(f"Trakt Client ID validation failed: {e}")
+        
+        # If validation failed, return errors
+        if errors:
+            return {
+                "valid": False,
+                "errors": errors
+            }
+        
+        # Save settings to database
+        config.save_setting('overseerr_url', overseerr_url)
+        config.save_setting('overseerr_api_key', overseerr_api_key)
+        config.save_setting('overseerr_user_id', data.get('overseerr_user_id', '1'))
+        config.save_setting('overseerr_4k', data.get('overseerr_4k', False))
+        config.save_setting('trakt_client_id', trakt_client_id)
+        
+        logging.info("Step 1 (Essential) configuration saved")
+        
+        return {
+            "valid": True,
+            "message": "Essential configuration saved successfully"
+        }
+    except Exception as e:
+        logging.error(f"Error in step 1: {e}")
+        import traceback
+        logging.error(f"Traceback: {traceback.format_exc()}")
+        # Return error in same format as validation errors
+        return {
+            "valid": False,
+            "errors": {
+                "_general": f"An unexpected error occurred: {str(e)}"
+            }
+        }
+
+
+@app.post("/api/setup/step2/configuration")
+async def save_step2_configuration(data: dict):
+    """
+    Save and validate Step 2: Configuration (Sync settings + Notifications).
+    
+    Expected data:
+        - sync_interval: int
+        - auto_sync: bool
+        - timezone: str
+        - discord_webhook: str (optional)
+        - discord_enabled: bool
+    """
+    try:
+        from list_sync.config import ConfigManager
+        from list_sync.utils.timezone_utils import normalize_timezone_input
+        
+        config = ConfigManager()
+        errors = {}
+        
+        # Validate sync interval
+        sync_interval = data.get('sync_interval', 24)
+        try:
+            sync_interval = int(sync_interval)
+            if sync_interval < 1 or sync_interval > 168:
+                errors['sync_interval'] = 'Sync interval must be between 1 and 168 hours'
+        except (ValueError, TypeError):
+            errors['sync_interval'] = 'Sync interval must be a number'
+        
+        # Validate timezone
+        timezone = data.get('timezone', 'UTC').strip()
+        try:
+            normalized_tz = normalize_timezone_input(timezone)
+            if not normalized_tz:
+                errors['timezone'] = 'Invalid timezone'
+        except Exception as e:
+            errors['timezone'] = f'Invalid timezone: {str(e)}'
+        
+        # Validate Discord webhook if provided
+        discord_webhook = data.get('discord_webhook', '').strip()
+        discord_enabled = data.get('discord_enabled', False)
+        
+        if discord_enabled and discord_webhook:
+            if not discord_webhook.startswith('https://discord.com/api/webhooks/'):
+                errors['discord_webhook'] = 'Invalid Discord webhook URL format'
+            # Note: Webhook is tested by the frontend before submission, so we don't need to test again here
+        
+        # If validation failed, return errors
+        if errors:
+            return {
+                "valid": False,
+                "errors": errors
+            }
+        
+        # Save settings to database
+        config.save_setting('sync_interval', sync_interval)
+        config.save_setting('auto_sync', data.get('auto_sync', True))
+        config.save_setting('timezone', timezone)
+        
+        if discord_webhook:
+            config.save_setting('discord_webhook', discord_webhook)
+            config.save_setting('discord_enabled', discord_enabled)
+        
+        # Also save to sync_interval table (for compatibility)
+        configure_sync_interval(sync_interval)
+        
+        logging.info("Step 2 (Configuration) saved")
+        
+        return {
+            "valid": True,
+            "message": "Configuration saved successfully"
+        }
+    except Exception as e:
+        logging.error(f"Error in step 2: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/setup/step3/content-sources")
+async def save_step3_content_sources(data: dict):
+    """
+    Save and validate Step 3: Content Sources (at least one required).
+    
+    Expected data:
+        - imdb_lists: str
+        - trakt_lists: str
+        - trakt_special_lists: str
+        - trakt_special_items_limit: int
+        - letterboxd_lists: str
+        - anilist_lists: str
+        - mdblist_lists: str
+        - stevenlu_lists: str
+        - tmdb_key: str (optional)
+        - tmdb_lists: str
+        - tvdb_lists: str
+        - simkl_lists: str
+    """
+    try:
+        from list_sync.config import ConfigManager
+        
+        config = ConfigManager()
+        errors = {}
+        validated_sources = []
+        
+        # Check if at least one list source is provided
+        list_fields = [
+            'imdb_lists', 'trakt_lists', 'trakt_special_lists', 'letterboxd_lists',
+            'anilist_lists', 'mdblist_lists', 'stevenlu_lists', 'tmdb_lists',
+            'tvdb_lists', 'simkl_lists'
+        ]
+        
+        has_any_list = any(data.get(field, '').strip() for field in list_fields)
+        
+        if not has_any_list:
+            errors['general'] = 'At least one content source is required'
+            return {
+                "valid": False,
+                "errors": errors
+            }
+        
+        # Validate and collect sources
+        for field in list_fields:
+            value = data.get(field, '').strip()
+            if value:
+                provider = field.replace('_lists', '').replace('_', ' ').title()
+                validated_sources.append(provider)
+        
+        # Save all settings
+        for field in list_fields:
+            config.save_setting(field, data.get(field, ''))
+        
+        # Save TMDB API key if provided
+        if tmdb_key := data.get('tmdb_key', '').strip():
+            config.save_setting('tmdb_key', tmdb_key)
+        
+        # Save special items limit
+        trakt_limit = data.get('trakt_special_items_limit', 20)
+        try:
+            trakt_limit = int(trakt_limit)
+        except:
+            trakt_limit = 20
+        config.save_setting('trakt_special_items_limit', trakt_limit)
+        
+        logging.info(f"Step 3 (Content Sources) saved: {', '.join(validated_sources)}")
+        
+        return {
+            "valid": True,
+            "message": "Content sources saved successfully",
+            "validated_sources": validated_sources
+        }
+    except Exception as e:
+        logging.error(f"Error in step 3: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/setup/complete")
+async def complete_setup():
+    """
+    Mark setup wizard as completed and trigger initial sync.
+    """
+    try:
+        from list_sync.config import ConfigManager
+        
+        config = ConfigManager()
+        
+        # Mark setup as complete
+        config.mark_setup_complete()
+        
+        # Load lists from config into database
+        from list_sync.config import load_env_lists
+        load_env_lists()
+        
+        logging.info("Setup wizard completed successfully")
+        
+        return {
+            "success": True,
+            "message": "Setup completed successfully. ListSync is ready to sync!"
+        }
+    except Exception as e:
+        logging.error(f"Error completing setup: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/sync-interval")
 async def get_sync_interval():
     """Get current sync interval with source tracking"""
@@ -2320,6 +2988,163 @@ async def get_items(page: int = Query(1, ge=1), limit: int = Query(50, ge=1, le=
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# Simple in-memory cache for metadata (expires after 1 hour)
+_metadata_cache = {}
+_cache_ttl = 3600  # 1 hour in seconds
+
+@app.post("/api/items/enriched/clear-cache")
+async def clear_enriched_cache():
+    """Clear the metadata cache (useful after fixing data issues)"""
+    global _metadata_cache
+    cache_size = len(_metadata_cache)
+    _metadata_cache = {}
+    logging.info(f"Cleared metadata cache ({cache_size} entries)")
+    return {"message": f"Cleared {cache_size} cached entries", "success": True}
+
+@app.get("/api/items/enriched")
+async def get_enriched_items(page: int = Query(1, ge=1), limit: int = Query(50, ge=1, le=100)):
+    """Get synced items enriched with Trakt metadata (poster, rating, etc.)"""
+    try:
+        from list_sync.providers.trakt import get_trakt_metadata
+        from list_sync.database import DB_FILE
+        import time
+        
+        # Get base items (deduplicated)
+        unique_items = get_deduplicated_items()
+        
+        # Calculate pagination
+        total = len(unique_items)
+        total_pages = (total + limit - 1) // limit
+        start = (page - 1) * limit
+        end = start + limit
+        
+        # Sort by last_synced descending (most recently synced first)
+        # Handle None values by putting them at the end
+        sorted_items = sorted(
+            unique_items, 
+            key=lambda x: x[7] if x[7] is not None else '', 
+            reverse=True
+        )
+        page_items = sorted_items[start:end]
+        
+        # Get overseerr URL for constructing links
+        config_tuple = load_env_config()
+        overseerr_url = config_tuple[0] if config_tuple else None
+        
+        # Batch fetch tmdb_ids from database (more efficient)
+        item_ids = [item[0] for item in page_items]
+        tmdb_id_map = {}
+        
+        try:
+            with sqlite3.connect(DB_FILE) as conn:
+                cursor = conn.cursor()
+                placeholders = ','.join('?' * len(item_ids))
+                cursor.execute(f"SELECT id, tmdb_id FROM synced_items WHERE id IN ({placeholders})", item_ids)
+                for row in cursor.fetchall():
+                    if row[1]:
+                        try:
+                            # Handle both string and int tmdb_ids
+                            tmdb_id_map[row[0]] = int(row[1]) if isinstance(row[1], str) else row[1]
+                        except (ValueError, TypeError):
+                            logging.warning(f"Invalid tmdb_id format for item {row[0]}: {row[1]}")
+        except Exception as e:
+            logging.warning(f"Failed to batch fetch tmdb_ids: {e}")
+        
+        enriched_items = []
+        current_time = time.time()
+        
+        for item in page_items:
+            item_id, title, media_type, year, imdb_id, overseerr_id, status, last_synced = item
+            
+            # Get tmdb_id from batch fetch
+            tmdb_id = tmdb_id_map.get(item_id)
+            
+            # Create base enriched item
+            enriched_item = {
+                "id": item_id,
+                "title": title,
+                "media_type": media_type,
+                "year": year,
+                "imdb_id": imdb_id,
+                "tmdb_id": tmdb_id,
+                "overseerr_id": overseerr_id,
+                "status": status,
+                "last_synced": last_synced,
+                "poster_url": None,
+                "rating": None,
+                "overview": None,
+                "genres": [],
+                "overseerr_url": None
+            }
+            
+            # Construct Overseerr URL if available
+            if overseerr_id and overseerr_url:
+                media_type_path = "tv" if media_type == "tv" else "movie"
+                enriched_item["overseerr_url"] = f"{overseerr_url.rstrip('/')}/{media_type_path}/{overseerr_id}"
+            
+            # Skip enrichment if no IDs available
+            if not tmdb_id and not imdb_id:
+                enriched_items.append(enriched_item)
+                continue
+            
+            # Try to enrich with metadata from cache or API
+            cache_key = f"{media_type}_{tmdb_id or imdb_id}"
+            
+            # Check cache
+            if cache_key in _metadata_cache:
+                cached_data, cache_time = _metadata_cache[cache_key]
+                if current_time - cache_time < _cache_ttl:
+                    # Use cached data
+                    enriched_item.update({
+                        "poster_url": cached_data.get("poster_url"),
+                        "rating": cached_data.get("rating"),
+                        "overview": cached_data.get("overview"),
+                        "genres": cached_data.get("genres", [])
+                    })
+                    enriched_items.append(enriched_item)
+                    continue
+            
+            # Fetch from API if not in cache or cache expired
+            try:
+                metadata = get_trakt_metadata(
+                    tmdb_id=tmdb_id,
+                    imdb_id=imdb_id,
+                    media_type=media_type
+                )
+                
+                if metadata:
+                    # Cache the metadata (even if some fields are None)
+                    _metadata_cache[cache_key] = (metadata, current_time)
+                    
+                    # Enrich item
+                    enriched_item.update({
+                        "poster_url": metadata.get("poster_url"),
+                        "rating": metadata.get("rating"),
+                        "overview": metadata.get("overview"),
+                        "genres": metadata.get("genres", [])
+                    })
+                else:
+                    # Cache negative result to avoid repeated failed lookups
+                    _metadata_cache[cache_key] = ({}, current_time)
+            except Exception as e:
+                logging.warning(f"Failed to enrich item '{title}' (ID: {item_id}): {e}")
+                # Cache the error to avoid repeated attempts
+                _metadata_cache[cache_key] = ({}, current_time)
+            
+            enriched_items.append(enriched_item)
+        
+        return {
+            "items": enriched_items,
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "total_pages": total_pages
+        }
+        
+    except Exception as e:
+        logging.error(f"Error in enriched items endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/overseerr/status")
 async def get_overseerr_status():
     """Check Overseerr connection status"""
@@ -2755,6 +3580,94 @@ async def get_sync_status():
     except Exception as e:
         print(f"Error getting sync status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/sync/{job_id}/cancel")
+async def cancel_sync(job_id: str):
+    """Cancel a running sync by sending SIGTERM signal to ListSync process"""
+    try:
+        # Check if sync is running - use get_live_sync_status logic
+        # Call the endpoint function directly to avoid circular import
+        try:
+            live_status_response = await get_live_sync_status()
+            is_running = live_status_response.get("is_running", False)
+        except Exception as e:
+            logging.warning(f"Could not check live sync status: {e}")
+            # If we can't check status, still allow cancel attempt if process exists
+            is_running = True  # Assume running if we can't determine
+        
+        if not is_running:
+            return {
+                "success": False,
+                "message": "No sync is currently running",
+                "job_id": job_id,
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        # Find ListSync processes
+        processes = find_listsync_processes()
+        
+        if not processes:
+            return {
+                "success": False,
+                "message": "No ListSync process found",
+                "job_id": job_id,
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        # Send SIGTERM signal to cancel sync (graceful shutdown)
+        signals_sent = []
+        errors = []
+        
+        for process in processes:
+            try:
+                # Send SIGTERM for graceful shutdown
+                os.kill(process.pid, signal.SIGTERM)
+                signals_sent.append({
+                    "pid": process.pid,
+                    "status": "signal_sent",
+                    "signal": "SIGTERM"
+                })
+                logging.info(f"Sent SIGTERM signal to cancel sync for process PID {process.pid}")
+            except (psutil.NoSuchProcess, ProcessLookupError) as e:
+                errors.append({
+                    "pid": process.pid,
+                    "error": f"Process not found: {str(e)}"
+                })
+                logging.warning(f"Could not send signal to process {process.pid}: {e}")
+            except PermissionError as e:
+                errors.append({
+                    "pid": process.pid,
+                    "error": f"Permission denied: {str(e)}"
+                })
+                logging.error(f"Permission denied sending signal to process {process.pid}: {e}")
+            except Exception as e:
+                errors.append({
+                    "pid": process.pid,
+                    "error": f"Unexpected error: {str(e)}"
+                })
+                logging.error(f"Unexpected error canceling sync for process {process.pid}: {e}")
+        
+        if signals_sent:
+            return {
+                "success": True,
+                "message": f"Cancel signal sent to {len(signals_sent)} process(es)",
+                "job_id": job_id,
+                "processes": signals_sent,
+                "errors": errors if errors else None,
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            return {
+                "success": False,
+                "message": "Failed to send cancel signal to any process",
+                "job_id": job_id,
+                "errors": errors,
+                "timestamp": datetime.now().isoformat()
+            }
+        
+    except Exception as e:
+        logging.error(f"Error canceling sync: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to cancel sync: {str(e)}")
 
 @app.get("/api/failures")
 async def get_failures(
@@ -4302,141 +5215,73 @@ async def get_recent_activity(
 
 @app.get("/api/sync/status/live")
 async def get_live_sync_status():
-    """Get real-time sync status by checking logs/listsync-core.log for sync activity patterns"""
+    """Get real-time sync status by checking database"""
     try:
-        # Try multiple log file paths in order of preference
-        log_file_paths = [
-            "/var/log/supervisor/listsync-core.log",  # Docker supervisor log
-            "logs/listsync-core.log",  # Mounted log directory
-            "/usr/src/app/logs/listsync-core.log",  # Container app logs
-            "data/list_sync.log"  # Fallback to data directory
-        ]
+        # Import database function
+        from list_sync.database import get_current_sync_status
         
-        log_content = None
-        log_file_used = None
+        # Get current sync status from database
+        sync_status = get_current_sync_status()
         
-        for log_path in log_file_paths:
-            try:
-                if os.path.exists(log_path):
-                    with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
-                        # Read last 100 lines for recent activity check
-                        lines = f.readlines()
-                        log_content = ''.join(lines[-100:]) if len(lines) > 100 else ''.join(lines)
-                        log_file_used = log_path
-                        break
-            except Exception as e:
-                print(f"Could not read log file {log_path}: {e}")
-                continue
-        
-        if not log_content:
+        if sync_status and sync_status.get('in_progress') == 1:
+            # Sync is currently running
+            sync_type = sync_status.get('sync_type', 'unknown')
+            status = f"running_{sync_type}" if sync_type != 'unknown' else "running"
+            
+            # Calculate duration if start time is available
+            duration = None
+            start_time_str = sync_status.get('start_time')
+            if start_time_str:
+                try:
+                    # Parse SQLite timestamp format
+                    if isinstance(start_time_str, str):
+                        # Handle different timestamp formats
+                        if 'T' in start_time_str:
+                            start_time = datetime.fromisoformat(start_time_str.replace('Z', '+00:00'))
+                        else:
+                            # SQLite format: YYYY-MM-DD HH:MM:SS
+                            start_time = datetime.strptime(start_time_str, '%Y-%m-%d %H:%M:%S')
+                        duration_seconds = (datetime.now() - start_time).total_seconds()
+                        duration = int(duration_seconds)
+                except Exception as e:
+                    logging.warning(f"Error parsing start_time: {e}")
+                    pass
+            
+            return {
+                "is_running": True,
+                "status": status,
+                "sync_type": sync_type,
+                "session_id": sync_status.get('session_id'),
+                "start_time": start_time_str,
+                "duration_seconds": duration,
+                "list_type": sync_status.get('list_type'),
+                "list_id": sync_status.get('list_id'),
+                "pid": sync_status.get('pid'),
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            # Sync is idle (no sync in progress)
             return {
                 "is_running": False,
-                "status": "unknown",
-                "log_file_found": False,
-                "error": "No log file found in any of the expected locations",
-                "last_activity": None,
+                "status": "idle",
+                "sync_type": None,
+                "session_id": None,
+                "start_time": None,
+                "duration_seconds": None,
+                "list_type": None,
+                "list_id": None,
+                "pid": None,
                 "timestamp": datetime.now().isoformat()
             }
         
-        print(f"Successfully reading sync status from: {log_file_used}")
-        
-        # Parse recent lines to detect sync activity
-        lines = log_content.strip().split('\n')
-        recent_lines = lines[-50:]  # Check last 50 lines
-        
-        # Track sync markers with timestamps
-        sync_start_markers = []
-        sync_end_markers = []
-        current_time = datetime.now()
-        
-        # Look for sync start and end patterns in recent lines
-        for line in recent_lines:
-            line_lower = line.lower()
-            
-            # Extract timestamp from line if possible
-            line_timestamp = None
-            timestamp_match = re.match(r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})', line)
-            if timestamp_match:
-                try:
-                    line_timestamp = datetime.strptime(timestamp_match.group(1), "%Y-%m-%d %H:%M:%S")
-                except:
-                    pass
-            
-            # Check for sync start patterns
-            if any(pattern in line_lower for pattern in [
-                '🔍  fetching items from trakt_special',
-                'fetching items from trakt_special',
-                '🔍  fetching items from',
-                'processing media items',
-                'total unique media items ready for sync'
-            ]):
-                sync_start_markers.append({
-                    'line': line.strip(),
-                    'timestamp': line_timestamp or current_time,
-                    'pattern': 'start'
-                })
-            
-            # Check for sync end patterns
-            if any(pattern in line_lower for pattern in [
-                'soluify - list sync summary',
-                'sync summary',
-                'sync complete',
-                'processing complete',
-                'webhook sent',
-                'discord notification sent'
-            ]):
-                sync_end_markers.append({
-                    'line': line.strip(),
-                    'timestamp': line_timestamp or current_time,
-                    'pattern': 'end'
-                })
-        
-        # Determine if sync is currently running
-        is_running = False
-        status = "idle"
-        last_activity = None
-        
-        # Check if we have any markers
-        all_markers = sync_start_markers + sync_end_markers
-        if all_markers:
-            # Sort by timestamp to get chronological order
-            all_markers.sort(key=lambda x: x['timestamp'])
-            
-            # Get the most recent marker
-            latest_marker = all_markers[-1]
-            last_activity = latest_marker['line']
-            
-            # If latest marker is a start and it's within the last 10 minutes, sync is probably running
-            if latest_marker['pattern'] == 'start':
-                time_diff = current_time - latest_marker['timestamp']
-                if time_diff.total_seconds() < 600:  # 10 minutes
-                    is_running = True
-                    status = "running"
-                else:
-                    status = "idle"
-            else:
-                # Latest marker is an end, so sync is idle
-                status = "idle"
-        
-        return {
-            "is_running": is_running,
-            "status": status,
-            "log_file_found": True,
-            "log_file_used": log_file_used,
-            "last_activity": last_activity,
-            "sync_start_count": len(sync_start_markers),
-            "sync_end_count": len(sync_end_markers),
-            "timestamp": datetime.now().isoformat()
-        }
-        
     except Exception as e:
         print(f"Error getting live sync status: {e}")
+        import traceback
+        traceback.print_exc()
         return {
             "is_running": False,
             "status": "error",
-            "log_file_found": False,
             "error": str(e),
-            "last_activity": None,
             "timestamp": datetime.now().isoformat()
         }
 
@@ -4472,57 +5317,176 @@ async def get_overseerr_config():
 
 @app.get("/api/settings/config")
 async def get_settings():
-    """Get all application settings for the settings page"""
+    """Get all application settings for the settings page (reads from database or .env)"""
     try:
-        # Load environment configuration
-        config_tuple = load_env_config()
-        overseerr_url, overseerr_api_key, user_id, sync_interval, automated_mode, is_4k = config_tuple
+        from list_sync.config import ConfigManager
+        from list_sync import encryption
         
-        # Get Discord webhook from environment
-        discord_webhook = os.getenv('DISCORD_WEBHOOK_URL', '')
+        config = ConfigManager()
         
-        # Get timezone from environment
-        timezone = os.getenv('TZ', 'UTC')
+        # Helper to get and optionally mask sensitive values
+        def get_setting_safe(key, default='', mask=False):
+            value = config.get_setting(key, default)
+            if mask and value:
+                return encryption.mask_sensitive_value(str(value))
+            return value
+        
+        # Get all settings (database or env fallback)
+        overseerr_url = get_setting_safe('overseerr_url', '')
+        overseerr_api_key = get_setting_safe('overseerr_api_key', '', mask=True)
+        user_id = get_setting_safe('overseerr_user_id', '1')
+        is_4k = get_setting_safe('overseerr_4k', False)
+        
+        trakt_client_id = get_setting_safe('trakt_client_id', '', mask=True)
+        
+        sync_interval = get_setting_safe('sync_interval', 24)
+        try:
+            sync_interval = int(sync_interval)
+        except:
+            sync_interval = 24
+            
+        automated_mode = get_setting_safe('auto_sync', True)
+        if isinstance(automated_mode, str):
+            automated_mode = automated_mode.lower() in ('true', '1', 'yes')
+            
+        timezone = get_setting_safe('timezone', 'UTC')
+        
+        discord_webhook = get_setting_safe('discord_webhook', '', mask=True)
+        discord_enabled = get_setting_safe('discord_enabled', False)
+        if isinstance(discord_enabled, str):
+            discord_enabled = discord_enabled.lower() in ('true', '1', 'yes')
+        
+        frontend_domain = get_setting_safe('frontend_domain', 'http://localhost:3222')
+        backend_domain = get_setting_safe('backend_domain', 'http://localhost:4222')
+        nuxt_public_api_url = get_setting_safe('nuxt_public_api_url', 'http://localhost:4222')
+        
+        imdb_lists = get_setting_safe('imdb_lists', '')
+        trakt_lists = get_setting_safe('trakt_lists', '')
+        trakt_special_lists = get_setting_safe('trakt_special_lists', '')
+        
+        trakt_special_items_limit = get_setting_safe('trakt_special_items_limit', 20)
+        try:
+            trakt_special_items_limit = int(trakt_special_items_limit)
+        except:
+            trakt_special_items_limit = 20
+            
+        letterboxd_lists = get_setting_safe('letterboxd_lists', '')
+        anilist_lists = get_setting_safe('anilist_lists', '')
+        mdblist_lists = get_setting_safe('mdblist_lists', '')
+        stevenlu_lists = get_setting_safe('stevenlu_lists', '')
+        tmdb_key = get_setting_safe('tmdb_key', '', mask=True)
+        tmdb_lists = get_setting_safe('tmdb_lists', '')
+        tvdb_lists = get_setting_safe('tvdb_lists', '')
+        simkl_lists = get_setting_safe('simkl_lists', '')
         
         return {
+            # Overseerr Configuration
             "overseerr_url": overseerr_url or '',
             "overseerr_api_key": overseerr_api_key or '',
             "overseerr_user_id": user_id or '1',
             "overseerr_4k": is_4k,
+            
+            # Sync Settings
             "sync_interval": sync_interval,
             "auto_sync": automated_mode,
             "timezone": timezone,
+            
+            # Notifications
             "discord_webhook": discord_webhook,
-            "discord_enabled": bool(discord_webhook)
+            "discord_enabled": bool(discord_webhook),
+            
+            # Trakt API
+            "trakt_client_id": trakt_client_id,
+            
+            # Service Endpoints
+            "frontend_domain": frontend_domain,
+            "backend_domain": backend_domain,
+            "nuxt_public_api_url": nuxt_public_api_url,
+            
+            # Content Sources
+            "imdb_lists": imdb_lists,
+            "trakt_lists": trakt_lists,
+            "trakt_special_lists": trakt_special_lists,
+            "trakt_special_items_limit": trakt_special_items_limit,
+            "letterboxd_lists": letterboxd_lists,
+            "anilist_lists": anilist_lists,
+            "mdblist_lists": mdblist_lists,
+            "stevenlu_lists": stevenlu_lists,
+            "tmdb_key": tmdb_key,
+            "tmdb_lists": tmdb_lists,
+            "tvdb_lists": tvdb_lists,
+            "simkl_lists": simkl_lists,
         }
     except Exception as e:
         logging.error(f"Error loading settings: {e}")
         return {
+            # Overseerr Configuration
             "overseerr_url": '',
             "overseerr_api_key": '',
             "overseerr_user_id": '1',
             "overseerr_4k": False,
+            
+            # Sync Settings
             "sync_interval": 24,
             "auto_sync": True,
             "timezone": 'UTC',
+            
+            # Notifications
             "discord_webhook": '',
-            "discord_enabled": False
+            "discord_enabled": False,
+            
+            # Trakt API
+            "trakt_client_id": '',
+            
+            # Service Endpoints
+            "frontend_domain": 'http://localhost:3222',
+            "backend_domain": 'http://localhost:4222',
+            "nuxt_public_api_url": 'http://localhost:4222',
+            
+            # Content Sources
+            "imdb_lists": '',
+            "trakt_lists": '',
+            "trakt_special_lists": '',
+            "trakt_special_items_limit": 20,
+            "letterboxd_lists": '',
+            "anilist_lists": '',
+            "mdblist_lists": '',
+            "stevenlu_lists": '',
+            "tmdb_key": '',
+            "tmdb_lists": '',
+            "tvdb_lists": '',
+            "simkl_lists": '',
         }
 
 @app.post("/api/settings/config")
 async def update_settings(settings: dict):
     """
-    Update application settings.
-    Note: These are stored in environment variables, so changes require container restart.
-    In production, consider database-backed config.
+    Update application settings - saves to database with encryption for sensitive fields.
+    Changes take effect immediately (no restart required).
     """
     try:
-        # For now, return a message that settings need to be updated in .env
-        # In a real production app, you'd store these in a database
+        from list_sync.config import ConfigManager
+        
+        config = ConfigManager()
+        
+        # Save all settings to database
+        for key, value in settings.items():
+            config.save_setting(key, value)
+        
+        # Also update sync_interval table for compatibility
+        if 'sync_interval' in settings:
+            try:
+                interval = int(settings['sync_interval'])
+                configure_sync_interval(interval)
+            except:
+                pass
+        
+        logging.info(f"Settings updated: {len(settings)} fields saved to database")
+        
         return {
             "success": True,
-            "message": "Settings received. Please update your .env file and restart the container for changes to take effect.",
-            "note": "Runtime configuration updates require database-backed settings (planned feature)"
+            "message": "Settings saved successfully to database. Changes are active immediately!",
+            "settings_updated": len(settings)
         }
     except Exception as e:
         logging.error(f"Error updating settings: {e}")
@@ -4551,8 +5515,8 @@ async def test_discord_notification(payload: dict = None):
             from discord_webhook import DiscordWebhook, DiscordEmbed
             from datetime import datetime
             
-            # Create webhook instance
-            webhook = DiscordWebhook(url=webhook_url, username="ListSync Test")
+            # Create webhook instance - explicitly set content to None to avoid duplicate messages
+            webhook = DiscordWebhook(url=webhook_url, username="ListSync Test", content=None)
             
             # Create embed with test message
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -4577,7 +5541,7 @@ async def test_discord_notification(payload: dict = None):
             embed.set_footer(text="ListSync Notification System")
             embed.set_timestamp()
             
-            # Add embed to webhook
+            # Add embed to webhook (only embed, no content)
             webhook.add_embed(embed)
             
             # Send webhook
@@ -4594,10 +5558,10 @@ async def test_discord_notification(payload: dict = None):
             from datetime import datetime
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             
+            # Only send embed, no content to avoid duplicate messages
             payload = {
-                "content": "🧪 **Test Notification from ListSync**",
                 "embeds": [{
-                    "title": "Discord Integration Test",
+                    "title": "🧪 Discord Integration Test",
                     "description": "If you see this message, Discord notifications are working correctly! ✅",
                     "color": 10181046,
                     "fields": [
@@ -5357,9 +6321,19 @@ async def get_sync_history_stats():
     
     most_synced = sorted(list_counts.items(), key=lambda x: x[1], reverse=True)[:10]
     
-    # Average duration
+    # Average duration - try to calculate for sessions that don't have it
+    for session in sessions:
+        if session.duration is None and session.start_timestamp and session.end_timestamp:
+            try:
+                start = datetime.fromisoformat(session.start_timestamp)
+                end = datetime.fromisoformat(session.end_timestamp)
+                session.duration = (end - start).total_seconds()
+            except:
+                pass
+    
+    # Filter valid durations
     durations = [s.duration for s in sessions if s.duration is not None and s.duration > 0]
-    avg_duration = sum(durations) / len(durations) if durations else 0
+    avg_duration = sum(durations) / len(durations) if durations else None
     
     return {
         "total_sessions": total_sessions,
@@ -5370,7 +6344,7 @@ async def get_sync_history_stats():
         "total_errors": total_errors,
         "success_rate": round(success_rate, 2),
         "avg_items_per_sync": round(avg_items, 2),
-        "avg_duration_seconds": round(avg_duration, 2),
+        "avg_duration_seconds": round(avg_duration, 2) if avg_duration is not None else None,
         "recent_stats": {
             "last_24h": len(last_24h),
             "last_7d": len(last_7d),

@@ -1,78 +1,73 @@
 <template>
   <Card 
     variant="hover" 
-    class="relative overflow-hidden group/card" 
+    class="relative overflow-hidden group/card border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300" 
     :class="{ 
       'ring-2 ring-purple-500 shadow-xl shadow-purple-500/30': isSelected,
-      'hover:shadow-xl hover:shadow-purple-500/20': !isSelected 
+      'hover:shadow-lg hover:shadow-purple-500/20': !isSelected 
     }"
   >
     <!-- Subtle gradient background -->
-    <div class="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-accent/5 opacity-0 group-hover/card:opacity-100 transition-opacity duration-300" />
+    <div class="absolute inset-0 bg-gradient-to-br from-purple-600/10 to-purple-500/5 opacity-60 group-hover/card:opacity-80 transition-opacity duration-300" />
     
     <!-- Selection Checkbox -->
-    <div v-if="selectable" class="absolute top-4 left-4 z-10">
+    <div v-if="selectable" class="absolute top-3 left-3 z-10">
       <input
         type="checkbox"
         :checked="isSelected"
-        class="w-6 h-6 rounded-lg border-2 border-purple-500/40 bg-black/40 text-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-black cursor-pointer transition-all hover:scale-110"
+        class="w-5 h-5 rounded-lg border-2 border-purple-500/40 bg-black/40 text-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-black cursor-pointer transition-all hover:scale-110"
         @change="$emit('toggle-select')"
       />
     </div>
 
     <!-- Source Badge -->
-    <div class="absolute top-4 right-4 z-10">
-      <div :class="[
-        'flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg transition-all duration-300',
-        getSourceColor(list.list_type).bgColor,
-        getSourceColor(list.list_type).borderColor,
-        'border'
-      ]">
-        <component :is="getSourceIcon(list.list_type)" :size="14" :class="getSourceColor(list.list_type).color" />
-        <span :class="getSourceColor(list.list_type).color">{{ formatListSource(list.list_type) }}</span>
+    <div class="absolute top-3 right-3 z-10">
+      <div class="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold bg-purple-600/20 border border-purple-500/30 shadow-sm transition-all duration-300 hover:border-purple-400/50">
+        <component :is="getSourceIcon(list.list_type)" :size="12" class="text-purple-400" />
+        <span class="text-purple-300 uppercase tracking-wide">{{ formatListSource(list.list_type) }}</span>
       </div>
     </div>
 
     <!-- Content -->
-    <div class="space-y-4 relative">
+    <div class="space-y-3 relative">
       <!-- Header -->
-      <div class="pr-20">
+      <div class="pr-16">
         <Tooltip :content="getFullListName()">
-          <h3 class="text-lg font-bold text-foreground line-clamp-2 titillium-web-bold group-hover/card:text-purple-300 transition-colors leading-tight">
+          <h3 class="text-base font-bold text-foreground line-clamp-2 titillium-web-bold group-hover/card:text-purple-300 transition-colors leading-tight">
             {{ getDisplayTitle() }}
           </h3>
         </Tooltip>
-        <p class="text-xs text-muted-foreground mt-2 opacity-70">
+        <p class="text-[10px] text-muted-foreground mt-1.5 opacity-70">
           {{ getListSubtitle() }}
         </p>
       </div>
 
       <!-- Stats -->
-      <div class="grid grid-cols-2 gap-4">
-        <div class="flex items-center gap-3 group/stat">
-          <div class="p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-purple-600/20 group-hover/stat:from-purple-500/30 group-hover/stat:to-purple-600/30 transition-all duration-300">
-            <component :is="LayersIcon" :size="18" class="text-purple-400 group-hover/stat:scale-110 transition-transform duration-300" />
+      <div class="grid grid-cols-2 gap-2">
+        <div class="flex items-center gap-2 group/stat">
+          <div class="p-2 rounded-lg bg-gradient-to-br from-purple-600/20 to-purple-500/10 border border-purple-500/30 group-hover/stat:border-purple-400/50 transition-all duration-300">
+            <component :is="LayersIcon" :size="14" class="text-purple-400 group-hover/stat:scale-110 transition-transform duration-300" />
           </div>
           <div>
-            <p class="text-xs text-muted-foreground mb-0.5">Items</p>
-            <p class="text-base font-bold text-foreground tabular-nums">
+            <p class="text-[10px] text-muted-foreground mb-0.5">Items</p>
+            <p class="text-2xl font-bold text-foreground tabular-nums leading-none">
               {{ formatNumber(list.item_count) }}
             </p>
           </div>
         </div>
 
-        <div class="flex items-center gap-3 group/stat">
-          <div class="p-3 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-600/20 group-hover/stat:from-blue-500/30 group-hover/stat:to-cyan-600/30 transition-all duration-300">
-            <component :is="ClockIcon" :size="18" class="text-blue-400 group-hover/stat:scale-110 transition-transform duration-300" />
+        <div class="flex items-center gap-2 group/stat">
+          <div class="p-2 rounded-lg bg-gradient-to-br from-purple-500/18 to-purple-400/9 border border-purple-400/28 group-hover/stat:border-purple-300/45 transition-all duration-300">
+            <component :is="ClockIcon" :size="14" class="text-purple-300 group-hover/stat:scale-110 transition-transform duration-300" />
           </div>
           <div class="flex-1 min-w-0">
-            <p class="text-xs text-muted-foreground mb-0.5">Last Synced</p>
+            <p class="text-[10px] text-muted-foreground mb-0.5">Last Synced</p>
             <Tooltip v-if="list.last_synced" :content="formatDate(list.last_synced, 'PPpp')">
-              <p class="text-base font-bold text-foreground truncate tabular-nums">
+              <p class="text-xs font-bold text-foreground truncate tabular-nums">
                 <TimeAgo :timestamp="list.last_synced" />
               </p>
             </Tooltip>
-            <p v-else class="text-base font-bold text-muted-foreground">
+            <p v-else class="text-xs font-bold text-muted-foreground">
               Never
             </p>
           </div>
@@ -84,35 +79,36 @@
         <button
           v-if="list.url || list.list_url"
           type="button"
-          class="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-black/30 hover:bg-purple-500/20 border border-purple-500/10 hover:border-purple-500/30 transition-all group/url"
+          class="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg bg-black/30 hover:bg-purple-500/20 border border-purple-500/10 hover:border-purple-500/30 transition-all group/url"
           @click="openUrl"
         >
-          <component :is="ExternalLinkIcon" :size="14" class="text-muted-foreground group-hover/url:text-purple-400 transition-colors" />
-          <span class="text-xs font-medium text-muted-foreground group-hover/url:text-purple-400 transition-colors">View Source</span>
+          <component :is="ExternalLinkIcon" :size="12" class="text-muted-foreground group-hover/url:text-purple-400 transition-colors" />
+          <span class="text-[10px] font-medium text-muted-foreground group-hover/url:text-purple-400 transition-colors">View Source</span>
         </button>
         
         <button
           v-if="list.url || list.list_url"
           type="button"
-          class="p-2 rounded-lg bg-black/30 hover:bg-purple-500/20 border border-purple-500/10 hover:border-purple-500/30 transition-all group/copy"
+          class="p-1.5 rounded-lg bg-black/30 hover:bg-purple-500/20 border border-purple-500/10 hover:border-purple-500/30 transition-all group/copy"
           :title="'Copy URL'"
           @click="copyUrl"
         >
-          <component :is="CopyIcon" :size="14" class="text-muted-foreground group-hover/copy:text-purple-400 transition-colors" />
+          <component :is="CopyIcon" :size="12" class="text-muted-foreground group-hover/copy:text-purple-400 transition-colors" />
         </button>
       </div>
 
       <!-- Actions -->
-      <div class="flex items-center gap-2 pt-3 border-t border-purple-500/10">
+      <div class="flex items-center gap-2 pt-2 border-t border-purple-500/10">
         <Button
           variant="primary"
           size="sm"
           :icon="RefreshCwIcon"
-          :loading="isSyncing"
+          :loading="isSyncing || syncStore.isSyncing"
+          :disabled="syncStore.isSyncing"
           class="flex-1"
           @click="handleSync"
         >
-          Sync Now
+          {{ syncStore.isSyncing ? 'Sync in Progress...' : 'Sync Now' }}
         </Button>
 
         <Button
@@ -171,6 +167,7 @@ const emit = defineEmits<{
 }>()
 
 const { showSuccess, showError } = useToast()
+const syncStore = useSyncStore()
 
 // State
 const isSyncing = ref(false)
@@ -275,13 +272,12 @@ const getSourceIcon = (source: string) => {
   return sourceData?.icon || DatabaseIcon
 }
 
-// Get source color info
+// Get source color info (all purple neutral now)
 const getSourceColor = (source: string) => {
-  const sourceData = sources.find(s => s.value === source)
   return {
-    color: sourceData?.color || 'text-gray-400',
-    bgColor: sourceData?.bgColor || 'bg-gray-500/20',
-    borderColor: sourceData?.borderColor || 'border-gray-500/40'
+    color: 'text-purple-400',
+    bgColor: 'bg-purple-600/20',
+    borderColor: 'border-purple-500/30'
   }
 }
 

@@ -1,9 +1,21 @@
 <template>
-  <div class="space-y-8 pb-24 lg:pb-8">
+  <div class="space-y-8 pb-24 lg:pb-8 relative">
+    <!-- Scroll to Top Button -->
+    <Transition name="fade">
+      <button
+        v-if="showScrollTop"
+        @click="scrollToTop"
+        class="fixed bottom-24 right-6 z-50 w-12 h-12 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white rounded-full shadow-2xl hover:shadow-purple-500/50 transition-all duration-300 flex items-center justify-center group"
+        aria-label="Scroll to top"
+      >
+        <ChevronUpIcon :size="24" class="group-hover:-translate-y-0.5 transition-transform" />
+      </button>
+    </Transition>
+
     <!-- Page Header -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div>
-        <h1 class="text-4xl font-bold text-foreground titillium-web-bold">
+        <h1 class="text-4xl font-bold text-foreground titillium-web-bold bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text text-transparent">
           All Synced Items
         </h1>
         <p class="text-muted-foreground mt-2 text-base">
@@ -13,20 +25,20 @@
 
       <div class="flex items-center gap-3">
         <div class="flex items-center gap-2">
-          <span class="text-sm text-muted-foreground">View:</span>
+          <span class="text-sm text-muted-foreground">Layout:</span>
           <Button
-            :variant="viewMode === 'pagination' ? 'primary' : 'secondary'"
+            :variant="displayMode === 'grid' ? 'primary' : 'secondary'"
             size="sm"
-            @click="viewMode = 'pagination'"
+            @click="displayMode = 'grid'"
           >
-            Pages
+            <LayoutGridIcon :size="16" />
           </Button>
           <Button
-            :variant="viewMode === 'infinite' ? 'primary' : 'secondary'"
+            :variant="displayMode === 'table' ? 'primary' : 'secondary'"
             size="sm"
-            @click="viewMode = 'infinite'"
+            @click="displayMode = 'table'"
           >
-            Infinite Scroll
+            <TableIcon :size="16" />
           </Button>
         </div>
         
@@ -50,60 +62,68 @@
     </div>
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-      <Card variant="default" class="glass-card">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <Card variant="default" class="glass-card group border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300 cursor-default">
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-sm text-muted-foreground mb-1">Total Items</p>
-            <p class="text-3xl font-bold text-foreground tabular-nums">
+            <p class="text-[10px] text-muted-foreground mb-1 font-medium">Total Items</p>
+            <p class="text-2xl font-bold text-foreground tabular-nums leading-none group-hover:scale-105 transition-transform">
               {{ formatNumber(totalItems) }}
             </p>
           </div>
-          <DatabaseIcon :size="24" class="text-purple-400" />
+          <div class="p-2 rounded-lg bg-gradient-to-br from-purple-600/20 to-purple-500/10 border border-purple-500/30 group-hover:border-purple-400/50 transition-colors">
+            <DatabaseIcon :size="14" class="text-purple-400 group-hover:scale-110 transition-transform" />
+          </div>
         </div>
       </Card>
 
-      <Card variant="default" class="glass-card">
+      <Card variant="default" class="glass-card group border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300 cursor-default">
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-sm text-muted-foreground mb-1">Movies</p>
-            <p class="text-3xl font-bold text-foreground tabular-nums">
+            <p class="text-[10px] text-muted-foreground mb-1 font-medium">Movies</p>
+            <p class="text-2xl font-bold text-foreground tabular-nums leading-none group-hover:scale-105 transition-transform">
               {{ formatNumber(stats.movies) }}
             </p>
           </div>
-          <FilmIcon :size="24" class="text-blue-400" />
+          <div class="p-2 rounded-lg bg-gradient-to-br from-purple-500/18 to-purple-400/9 border border-purple-400/28 group-hover:border-purple-300/45 transition-colors">
+            <FilmIcon :size="14" class="text-purple-300 group-hover:scale-110 transition-transform" />
+          </div>
         </div>
       </Card>
 
-      <Card variant="default" class="glass-card">
+      <Card variant="default" class="glass-card group border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300 cursor-default">
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-sm text-muted-foreground mb-1">TV Shows</p>
-            <p class="text-3xl font-bold text-foreground tabular-nums">
+            <p class="text-[10px] text-muted-foreground mb-1 font-medium">TV Shows</p>
+            <p class="text-2xl font-bold text-foreground tabular-nums leading-none group-hover:scale-105 transition-transform">
               {{ formatNumber(stats.shows) }}
             </p>
           </div>
-          <TvIcon :size="24" class="text-green-400" />
+          <div class="p-2 rounded-lg bg-gradient-to-br from-purple-400/20 to-purple-300/10 border border-purple-300/30 group-hover:border-purple-200/45 transition-colors">
+            <TvIcon :size="14" class="text-purple-200 group-hover:scale-110 transition-transform" />
+          </div>
         </div>
       </Card>
 
-      <Card variant="default" class="glass-card">
+      <Card variant="default" class="glass-card group border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300 cursor-default">
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-sm text-muted-foreground mb-1">Requested</p>
-            <p class="text-3xl font-bold text-foreground tabular-nums">
+            <p class="text-[10px] text-muted-foreground mb-1 font-medium">Requested</p>
+            <p class="text-2xl font-bold text-foreground tabular-nums leading-none group-hover:scale-105 transition-transform">
               {{ formatNumber(stats.requested) }}
             </p>
           </div>
-          <SendIcon :size="24" class="text-amber-400" />
+          <div class="p-2 rounded-lg bg-gradient-to-br from-purple-300/20 to-purple-200/10 border border-purple-200/30 group-hover:border-purple-100/45 transition-colors">
+            <SendIcon :size="14" class="text-purple-100 group-hover:scale-110 transition-transform" />
+          </div>
         </div>
       </Card>
     </div>
 
     <!-- Search and Filters -->
-    <Card variant="default" class="glass-card">
-      <div class="space-y-4">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <Card variant="default" class="glass-card border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
+      <div class="space-y-3">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
           <!-- Search -->
           <div class="md:col-span-2">
             <Input
@@ -131,39 +151,42 @@
         </div>
 
         <!-- Active Filters -->
-        <div v-if="hasActiveFilters" class="flex items-center gap-2 flex-wrap">
-          <span class="text-sm text-muted-foreground">Active filters:</span>
-          <Badge
-            v-if="filters.mediaType !== 'all'"
-            variant="primary"
-            class="cursor-pointer"
-            @click="filters.mediaType = 'all'"
-          >
-            {{ mediaTypeOptions.find(o => o.value === filters.mediaType)?.label }}
-            <XIcon :size="12" class="ml-1" />
-          </Badge>
-          <Badge
-            v-if="filters.status !== 'all'"
-            variant="accent"
-            class="cursor-pointer"
-            @click="filters.status = 'all'"
-          >
-            {{ statusOptions.find(o => o.value === filters.status)?.label }}
-            <XIcon :size="12" class="ml-1" />
-          </Badge>
-          <Button
-            variant="ghost"
-            size="sm"
-            @click="clearFilters"
-          >
-            Clear all
-          </Button>
-        </div>
+        <Transition name="slide-down">
+          <div v-if="hasActiveFilters" class="flex items-center gap-2 flex-wrap p-2 bg-purple-600/10 rounded-lg border border-purple-500/20">
+            <span class="text-[10px] font-bold text-purple-400 uppercase tracking-wide">Active filters:</span>
+            <Badge
+              v-if="filters.mediaType !== 'all'"
+              variant="primary"
+              class="cursor-pointer hover:scale-105 transition-transform text-[10px]"
+              @click="filters.mediaType = 'all'"
+            >
+              {{ mediaTypeOptions.find(o => o.value === filters.mediaType)?.label }}
+              <XIcon :size="10" class="ml-1" />
+            </Badge>
+            <Badge
+              v-if="filters.status !== 'all'"
+              variant="accent"
+              class="cursor-pointer hover:scale-105 transition-transform text-[10px]"
+              @click="filters.status = 'all'"
+            >
+              {{ statusOptions.find(o => o.value === filters.status)?.label }}
+              <XIcon :size="10" class="ml-1" />
+            </Badge>
+            <Button
+              variant="ghost"
+              size="sm"
+              @click="clearFilters"
+              class="ml-auto hover:bg-purple-500/10 hover:text-purple-400 transition-colors text-[10px]"
+            >
+              Clear all
+            </Button>
+          </div>
+        </Transition>
       </div>
     </Card>
 
-    <!-- Loading State -->
-    <div v-if="isLoading" class="flex items-center justify-center py-20">
+    <!-- Loading State for Table View -->
+    <div v-if="isLoading && displayMode === 'table'" class="flex items-center justify-center py-20">
       <div class="text-center">
         <LoadingSpinner size="lg" text="Loading items..." />
         <p class="text-sm text-muted-foreground mt-2">
@@ -172,8 +195,62 @@
       </div>
     </div>
 
-    <!-- Items Table -->
-    <Card v-else-if="items.length > 0" variant="default" class="glass-card overflow-hidden">
+    <!-- Loading State for Grid View (Skeletons) -->
+    <div v-if="isLoading && displayMode === 'grid'" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-4">
+      <PosterCardSkeleton v-for="i in perPage" :key="`skeleton-${i}`" />
+    </div>
+
+    <!-- Grid View (Posters) -->
+    <div v-if="!isLoading && filteredItems.length > 0 && displayMode === 'grid'">
+      <!-- Grid Container -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-4">
+        <PosterCard
+          v-for="item in filteredItems"
+          :key="item.id"
+          :item="item"
+        />
+      </div>
+
+      <!-- Loading more indicator -->
+      <div
+        v-if="isLoadingMore"
+        class="flex items-center justify-center py-12 mt-8"
+      >
+        <div class="text-center">
+          <LoadingSpinner size="md" />
+          <p class="text-sm text-muted-foreground mt-2">
+            Loading more items...
+          </p>
+        </div>
+      </div>
+
+      <!-- Infinite scroll trigger (invisible element) -->
+      <div
+        ref="infiniteScrollTrigger"
+        class="h-4 w-full mt-8"
+      />
+
+      <!-- End of results message -->
+      <div
+        v-if="!hasMorePages && filteredItems.length > 0"
+        class="text-center py-8 mt-8"
+      >
+        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/20">
+          <CheckCircle2Icon :size="16" class="text-purple-400" />
+          <p class="text-sm text-purple-400 font-medium">
+            <template v-if="hasActiveFilters || searchQuery">
+              That's all! {{ formatNumber(filteredItems.length) }} items match your filters
+            </template>
+            <template v-else>
+              That's all! {{ formatNumber(totalItems) }} items loaded
+            </template>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table View (Legacy) -->
+    <Card v-else-if="!isLoading && items.length > 0 && displayMode === 'table'" variant="default" class="glass-card overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full">
           <thead>
@@ -237,7 +314,7 @@
         </table>
       </div>
 
-      <!-- Pagination -->
+      <!-- Pagination (Table View Only) -->
       <div v-if="viewMode === 'pagination' && totalPages > 1" class="flex items-center justify-between p-4 border-t border-border/50">
         <p class="text-sm text-muted-foreground">
           Showing {{ filteredItems.length }} of {{ totalItems }} items
@@ -271,7 +348,7 @@
         </div>
       </div>
 
-      <!-- Infinite Scroll Load More -->
+      <!-- Infinite Scroll Load More (Table View Only) -->
       <div v-if="viewMode === 'infinite' && hasMorePages" class="flex items-center justify-center p-4 border-t border-border/50">
         <Button
           variant="ghost"
@@ -282,7 +359,7 @@
         </Button>
       </div>
 
-      <!-- Infinite Scroll Info -->
+      <!-- Infinite Scroll Info (Table View Only) -->
       <div v-if="viewMode === 'infinite'" class="flex items-center justify-center p-4 border-t border-border/50">
         <p class="text-sm text-muted-foreground">
           Showing {{ filteredItems.length }} of {{ totalItems }} items
@@ -291,20 +368,25 @@
       </div>
     </Card>
 
+
     <!-- Empty State -->
-    <Card v-else variant="default" class="glass-card">
-      <div class="text-center py-12">
-        <DatabaseIcon :size="48" class="mx-auto text-muted-foreground mb-4" />
-        <h3 class="text-lg font-semibold mb-2">
+    <Card v-if="!isLoading && filteredItems.length === 0" variant="default" class="glass-card border-2 border-dashed border-purple-500/20">
+      <div class="text-center py-16">
+        <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-purple-500/20 to-purple-600/20 flex items-center justify-center">
+          <DatabaseIcon :size="48" class="text-purple-400" />
+        </div>
+        <h3 class="text-2xl font-bold mb-3 bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text text-transparent">
           {{ searchQuery || hasActiveFilters ? 'No Matching Items' : 'No Items Found' }}
         </h3>
-        <p class="text-sm text-muted-foreground mb-6">
+        <p class="text-base text-muted-foreground mb-8 max-w-md mx-auto">
           <template v-if="searchQuery || hasActiveFilters">
             No items match your current filters.
-            <span v-if="totalItems > 0">There are {{ formatNumber(totalItems) }} total items available.</span>
+            <span v-if="totalItems > 0" class="block mt-2 text-purple-400">
+              {{ formatNumber(totalItems) }} total items available
+            </span>
           </template>
           <template v-else>
-            No items have been synced yet. Add lists and trigger a sync to populate your library.
+            Your library is waiting to be filled! Add your first list and trigger a sync to get started.
           </template>
         </p>
         <div class="flex items-center justify-center gap-3">
@@ -312,6 +394,7 @@
             v-if="searchQuery || hasActiveFilters"
             variant="primary"
             @click="clearFilters"
+            class="bg-gradient-to-r from-purple-600 to-purple-500"
           >
             Clear All Filters
           </Button>
@@ -319,7 +402,9 @@
             v-else
             variant="primary"
             @click="$router.push('/lists?action=add')"
+            class="bg-gradient-to-r from-purple-600 to-purple-500"
           >
+            <span class="mr-2">✨</span>
             Add Your First List
           </Button>
         </div>
@@ -339,7 +424,13 @@ import {
   Search as SearchIcon,
   X as XIcon,
   ExternalLink as ExternalLinkIcon,
+  LayoutGrid as LayoutGridIcon,
+  Table as TableIcon,
+  ChevronUp as ChevronUpIcon,
+  CheckCircle2 as CheckCircle2Icon,
 } from 'lucide-vue-next'
+import PosterCard from '~/components/items/PosterCard.vue'
+import PosterCardSkeleton from '~/components/items/PosterCardSkeleton.vue'
 
 // Set page title
 useHead({
@@ -348,14 +439,20 @@ useHead({
 
 const api = useApiService()
 const { showSuccess, showError } = useToast()
+const itemsCache = useItemsCache()
 
 // State
 const isLoading = ref(true)
 const isRefreshing = ref(false)
+const isLoadingMore = ref(false) // For infinite scroll loading indicator
 const searchQuery = ref('')
 const currentPage = ref(1)
 const perPage = 50
-const viewMode = ref<'pagination' | 'infinite'>('pagination')
+const viewMode = ref<'pagination' | 'infinite'>('infinite')
+const displayMode = ref<'grid' | 'table'>('grid') // Grid view by default
+const isUsingCache = ref(false) // Track if we're showing cached data
+const showScrollTop = ref(false) // Show scroll-to-top button
+const infiniteScrollTrigger = ref<HTMLElement | null>(null) // Infinite scroll observer target
 
 // Filters
 const filters = ref({
@@ -518,14 +615,30 @@ const fetchStats = async () => {
   }
 }
 
-// Fetch items with server-side pagination
-const fetchItems = async (page: number = 1, reset: boolean = true) => {
+// Fetch items with server-side pagination and smart caching
+const fetchItems = async (page: number = 1, reset: boolean = true, forceRefresh: boolean = false) => {
   try {
     if (reset) {
       isLoading.value = true
+      isUsingCache.value = false
     }
     
-    const response: any = await api.getProcessedItems(page, perPage)
+    let response: any
+    
+    // Use enriched API with smart caching for grid view, regular API for table view
+    if (displayMode.value === 'grid') {
+      // Use smart cache - returns immediately if cached, fetches fresh in background if stale
+      response = await itemsCache.fetchEnrichedItems(page, perPage, forceRefresh)
+      
+      // Check if we got cached data
+      const cacheStats = itemsCache.getCacheStats()
+      if (cacheStats.fresh > 0 || cacheStats.stale > 0) {
+        isUsingCache.value = true
+      }
+    } else {
+      // Table view - no caching (less critical, users don't switch as often)
+      response = await api.getProcessedItems(page, perPage)
+    }
     
     if (response && response.items) {
       if (reset) {
@@ -581,13 +694,15 @@ const fetchItems = async (page: number = 1, reset: boolean = true) => {
   }
 }
 
-// Refresh data
+// Refresh data (force refresh, bypass cache)
 const refreshData = async () => {
   isRefreshing.value = true
   try {
     currentPage.value = 1
+    // Clear cache and force fresh fetch
+    itemsCache.clearCache()
     await Promise.all([
-      fetchItems(1, true),
+      fetchItems(1, true, true), // Force refresh
       fetchStats() // Also refresh stats
     ])
     showSuccess('Items refreshed')
@@ -598,11 +713,17 @@ const refreshData = async () => {
   }
 }
 
-// Load next page
+// Load next page (for infinite scroll)
 const loadNextPage = async () => {
-  if (hasMorePages.value && !isLoading.value) {
+  if (hasMorePages.value && !isLoading.value && !isLoadingMore.value) {
+    isLoadingMore.value = true
     currentPage.value++
-    await fetchItems(currentPage.value, false)
+    
+    try {
+      await fetchItems(currentPage.value, false)
+    } finally {
+      isLoadingMore.value = false
+    }
   }
 }
 
@@ -656,6 +777,13 @@ const openOverseerr = (url: string) => {
   window.open(url, '_blank', 'noopener,noreferrer')
 }
 
+// Clear all filters
+const clearFilters = () => {
+  searchQuery.value = ''
+  filters.value.mediaType = 'all'
+  filters.value.status = 'all'
+}
+
 // Watch filters to reset pagination
 watch([searchQuery, filters], () => {
   currentPage.value = 1
@@ -672,12 +800,171 @@ watch(viewMode, (newMode) => {
   }
 })
 
-// Load data on mount
-onMounted(() => {
-  Promise.all([
-    fetchItems(1, true),
-    fetchStats() // Fetch stats on mount
+// Watch display mode changes (grid vs table)
+watch(displayMode, (newMode) => {
+  // Reload items when switching between grid and table view
+  currentPage.value = 1
+  fetchItems(1, true)
+  
+  // Setup or cleanup infinite scroll observer
+  if (process.client) {
+    if (newMode === 'grid') {
+      nextTick(() => {
+        if (infiniteScrollTrigger.value) {
+          setupInfiniteScroll()
+        }
+      })
+    } else if (infiniteScrollObserver) {
+      infiniteScrollObserver.disconnect()
+    }
+  }
+})
+
+// Scroll to top functionality
+const scrollToTop = () => {
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth'
+  })
+}
+
+// Handle scroll event to show/hide scroll-to-top button
+const handleScroll = () => {
+  showScrollTop.value = window.scrollY > 400
+}
+
+// Track last sync status to detect when syncs complete
+const syncStore = useSyncStore()
+const lastSyncStatus = ref<string | null>(null)
+let syncPollInterval: ReturnType<typeof setInterval> | null = null
+
+// Watch for sync completion and refresh data
+watch(() => syncStore.status, async (newStatus) => {
+  // If sync just completed (was running, now idle/complete)
+  if (lastSyncStatus.value === 'running' && newStatus !== 'running' && process.client) {
+    console.log('🔄 Sync completed, refreshing items...')
+    // Clear cache and refresh to get new items
+    itemsCache.clearCache()
+    await Promise.all([
+      fetchItems(1, true, true), // Force refresh
+      fetchStats()
+    ])
+  }
+  lastSyncStatus.value = newStatus
+}, { immediate: true })
+
+// Load data on mount and prefetch next pages in background
+onMounted(async () => {
+  // Always fetch fresh data on mount (bypass cache for initial load)
+  // This ensures users see latest items when navigating to the page
+  itemsCache.clearCache()
+  
+  await Promise.all([
+    fetchItems(1, true, true), // Force refresh on mount
+    fetchStats(),
+    syncStore.fetchLiveSyncStatus() // Get current sync status
   ])
+  
+  // Prefetch next 2 pages in background for smooth pagination
+  if (totalPages.value > 1 && displayMode.value === 'grid') {
+    setTimeout(() => {
+      const pagesToPrefetch = [2, 3].filter(p => p <= totalPages.value)
+      if (pagesToPrefetch.length > 0) {
+        console.log('🚀 Prefetching next pages for smoother navigation...')
+        itemsCache.prefetchPages(pagesToPrefetch, perPage)
+      }
+    }, 1000) // Wait 1 second after initial load
+  }
+  
+  // Setup scroll listener for scroll-to-top button
+  if (process.client) {
+    window.addEventListener('scroll', handleScroll)
+    
+    // Setup infinite scroll observer (grid view only) after DOM is fully rendered
+    if (displayMode.value === 'grid') {
+      nextTick(() => {
+        if (infiniteScrollTrigger.value) {
+          setupInfiniteScroll()
+        }
+      })
+    }
+    
+    // Poll for sync status changes every 10 seconds
+    // This helps detect when syncs complete even if we miss the status change
+    syncPollInterval = setInterval(async () => {
+      await syncStore.fetchLiveSyncStatus()
+    }, 10000)
+  }
+})
+
+// Setup infinite scroll observer
+let infiniteScrollObserver: IntersectionObserver | null = null
+
+const setupInfiniteScroll = () => {
+  if (!process.client || !infiniteScrollTrigger.value) return
+  
+  // Clean up existing observer
+  if (infiniteScrollObserver) {
+    infiniteScrollObserver.disconnect()
+  }
+  
+  // Create new observer
+  infiniteScrollObserver = new IntersectionObserver(
+    (entries) => {
+      const entry = entries[0]
+      // When the trigger element is visible and we have more pages, load next page
+      if (entry.isIntersecting && hasMorePages.value && !isLoadingMore.value && !isLoading.value) {
+        console.log('🔄 Infinite scroll triggered, loading next page...')
+        loadNextPage()
+      }
+    },
+    {
+      root: null, // viewport
+      rootMargin: '200px', // Start loading 200px before reaching the trigger
+      threshold: 0.1
+    }
+  )
+  
+  infiniteScrollObserver.observe(infiniteScrollTrigger.value)
+}
+
+// Cleanup scroll listener, infinite scroll observer, and polling
+onUnmounted(() => {
+  if (process.client) {
+    window.removeEventListener('scroll', handleScroll)
+    
+    if (infiniteScrollObserver) {
+      infiniteScrollObserver.disconnect()
+    }
+    
+    if (syncPollInterval) {
+      clearInterval(syncPollInterval)
+    }
+  }
 })
 </script>
+
+<style scoped>
+/* Transitions */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-down-enter-active,
+.slide-down-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-down-enter-from,
+.slide-down-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+</style>
 

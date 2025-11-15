@@ -1,23 +1,23 @@
 <template>
   <aside :class="sidebarClasses">
     <!-- Logo / Header -->
-    <div class="flex items-center justify-between px-6 py-6 border-b border-purple-500/20">
+    <div :class="['flex items-center border-b border-purple-500/20 py-6 transition-all duration-300', uiStore.sidebarCollapsed ? 'justify-center px-3' : 'justify-between px-6']">
       <NuxtLink to="/" class="flex items-center gap-3 text-foreground hover:text-purple-400 transition-colors">
-        <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-purple-500/20 overflow-hidden">
+        <div class="flex items-center justify-center w-12 h-12 rounded-lg bg-purple-500/20 overflow-hidden flex-shrink-0">
           <img 
-            src="https://s.2ya.me/api/shares/RN2Yziau/files/535b57e0-9c64-410b-a36f-414fba74854b" 
+            :src="logoImage" 
             alt="ListSync Logo" 
-            class="w-8 h-8 object-contain"
+            class="w-10 h-10 object-contain"
           />
         </div>
-        <span v-if="!uiStore.sidebarCollapsed" class="text-xl font-bold titillium-web-bold">
+        <span v-if="!uiStore.sidebarCollapsed" class="text-2xl font-bold titillium-web-bold">
           ListSync
         </span>
       </NuxtLink>
 
       <!-- Collapse Toggle (Desktop) -->
       <button
-        v-if="!isMobile"
+        v-if="!isMobile && !uiStore.sidebarCollapsed"
         type="button"
         class="p-2 rounded-lg hover:bg-white/5 transition-colors text-muted-foreground hover:text-foreground"
         @click="uiStore.toggleSidebar"
@@ -37,6 +37,18 @@
         <component :is="XIcon" :size="20" />
       </button>
     </div>
+    
+    <!-- Expand Button (When Collapsed) -->
+    <div v-if="!isMobile && uiStore.sidebarCollapsed" class="flex justify-center px-3 py-2">
+      <button
+        type="button"
+        class="p-2 rounded-lg hover:bg-white/5 transition-colors text-muted-foreground hover:text-foreground"
+        @click="uiStore.toggleSidebar"
+        aria-label="Expand sidebar"
+      >
+        <component :is="ChevronRightIcon" :size="20" />
+      </button>
+    </div>
 
     <!-- Navigation -->
     <nav class="flex-1 px-3 py-6 space-y-1 overflow-y-auto custom-scrollbar">
@@ -54,14 +66,29 @@
       </NuxtLink>
     </nav>
 
+    <!-- Sync Status -->
+    <div v-if="systemStore.health" class="px-3 py-3 border-t border-purple-500/20">
+      <div :class="footerClasses">
+        <div class="flex items-center gap-2.5">
+          <div :class="syncStatusDotClass" />
+          <div v-if="!uiStore.sidebarCollapsed" class="flex-1 min-w-0">
+            <p class="text-xs font-bold text-foreground uppercase tracking-wide">Sync Status</p>
+            <p class="text-[10px] text-muted-foreground truncate font-medium">
+              {{ syncStatusText }}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Footer (System Status) -->
     <div class="px-3 py-4 border-t border-purple-500/20">
       <div :class="footerClasses">
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2.5">
           <div :class="statusDotClass" />
           <div v-if="!uiStore.sidebarCollapsed" class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-foreground">System Status</p>
-            <p class="text-xs text-muted-foreground truncate">
+            <p class="text-xs font-bold text-foreground uppercase tracking-wide">System Status</p>
+            <p class="text-[10px] text-muted-foreground truncate font-medium">
               {{ systemStore.isHealthy ? 'All systems operational' : 'Issues detected' }}
             </p>
           </div>
@@ -84,10 +111,12 @@ import {
   ChevronRight as ChevronRightIcon,
   X as XIcon,
 } from 'lucide-vue-next'
+import logoImage from '~/assets/images/list-sync-logo.webp'
 
 const route = useRoute()
 const uiStore = useUIStore()
 const systemStore = useSystemStore()
+const syncStore = useSyncStore()
 
 const isMobile = ref(false)
 
@@ -143,13 +172,13 @@ const sidebarClasses = computed(() => {
     baseClasses.push('w-64')
   }
 
-  // Mobile classes
-  if (isMobile.value) {
-    baseClasses.push(
-      'fixed inset-y-0 left-0 z-40',
-      'transform lg:transform-none',
-      uiStore.mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-    )
+  // Mobile: hide when closed, show when open
+  if (!uiStore.mobileMenuOpen) {
+    // Hidden on mobile when closed, visible on desktop
+    baseClasses.push('hidden lg:flex lg:relative lg:z-20')
+  } else {
+    // Visible on mobile when open
+    baseClasses.push('fixed inset-y-0 left-0 z-40 lg:relative lg:z-20')
   }
 
   return baseClasses.join(' ')
@@ -199,6 +228,32 @@ const footerClasses = computed(() => {
   }
 
   return baseClasses.join(' ')
+})
+
+const syncStatusDotClass = computed(() => {
+  const baseClasses = ['w-2 h-2 rounded-full']
+  // Use syncStore for real-time sync status instead of systemStore
+  const isRunning = syncStore.isSyncing || syncStore.liveSyncStatus?.is_running || false
+  
+  if (isRunning) {
+    baseClasses.push('bg-purple-500 animate-pulse')
+  } else {
+    baseClasses.push('bg-green-500 pulse-glow')
+  }
+
+  return baseClasses.join(' ')
+})
+
+const syncStatusText = computed(() => {
+  // Use syncStore for real-time sync status instead of systemStore
+  const isRunning = syncStore.isSyncing || syncStore.liveSyncStatus?.is_running || false
+  
+  if (isRunning) {
+    const syncType = syncStore.liveSyncStatus?.sync_type
+    return syncType === 'single' ? 'Syncing list' : 'Syncing all'
+  } else {
+    return 'Idle'
+  }
 })
 
 const statusDotClass = computed(() => {

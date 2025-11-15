@@ -3,50 +3,96 @@
  * Uses relative URLs to work with Nitro proxy in Docker
  */
 
+import type { FailedItemsResponse, FailedItem } from '~/types'
+
 export function useApiService() {
   // Use relative URLs - Nitro proxy will handle routing
   // In Docker: /api/* → proxied to internal API server
   // This works for both SSR and client-side
   const baseURL = '/api'
 
+  // Error wrapper for consistent error handling
+  const handleApiError = (error: any, endpoint: string): never => {
+    console.error(`API Error [${endpoint}]:`, error)
+    
+    // Extract error message from various error formats
+    let errorMessage = 'An unexpected error occurred'
+    let errorCode: string | undefined
+    
+    if (error?.data?.detail) {
+      // FastAPI error format: { detail: "message" }
+      errorMessage = error.data.detail
+    } else if (error?.data?.error) {
+      // Custom error format: { error: "message" }
+      errorMessage = error.data.error
+      errorCode = error.data.error_code
+    } else if (error?.data?.message) {
+      // Generic error format: { message: "message" }
+      errorMessage = error.data.message
+    } else if (error?.message) {
+      // Standard Error object
+      errorMessage = error.message
+    } else if (typeof error === 'string') {
+      errorMessage = error
+    }
+    
+    // Create enhanced error with consistent format
+    const enhancedError: any = new Error(errorMessage)
+    enhancedError.statusCode = error?.statusCode || error?.status || 500
+    enhancedError.code = errorCode || error?.code
+    enhancedError.endpoint = endpoint
+    enhancedError.originalError = error
+    
+    throw enhancedError
+  }
+
+  // Wrapper function for API calls with error handling
+  const apiCall = async <T>(endpoint: string, options?: any): Promise<T> => {
+    try {
+      return await $fetch<T>(endpoint, options)
+    } catch (error: any) {
+      return handleApiError(error, endpoint)
+    }
+  }
+
   return {
     // Dashboard & Statistics
     async getStats() {
-      return $fetch(`${baseURL}/stats/sync`)
+      return apiCall(`${baseURL}/stats/sync`)
     },
 
     async getSystemHealth() {
-      return $fetch(`${baseURL}/system/health`)
+      return apiCall(`${baseURL}/system/health`)
     },
 
     async getDataQuality() {
-      return $fetch(`${baseURL}/stats/data-quality`)
+      return apiCall(`${baseURL}/stats/data-quality`)
     },
 
     async getStatusBreakdown() {
-      return $fetch(`${baseURL}/stats/status-breakdown`)
+      return apiCall(`${baseURL}/stats/status-breakdown`)
     },
 
     // Lists Management
     async getLists() {
-      return $fetch(`${baseURL}/lists`)
+      return apiCall(`${baseURL}/lists`)
     },
 
     async addList(list: any) {
-      return $fetch(`${baseURL}/lists`, {
+      return apiCall(`${baseURL}/lists`, {
         method: 'POST',
         body: list,
       })
     },
 
     async deleteList(listType: string, listId: string) {
-      return $fetch(`${baseURL}/lists/${listType}/${encodeURIComponent(listId)}`, {
+      return apiCall(`${baseURL}/lists/${listType}/${encodeURIComponent(listId)}`, {
         method: 'DELETE',
       })
     },
 
     async validateList(url: string) {
-      return $fetch(`${baseURL}/lists/validate`, {
+      return apiCall(`${baseURL}/lists/validate`, {
         method: 'POST',
         body: { url },
       })
@@ -54,13 +100,13 @@ export function useApiService() {
 
     // Sync Operations
     async triggerSync() {
-      return $fetch(`${baseURL}/sync/trigger`, {
+      return apiCall(`${baseURL}/sync/trigger`, {
         method: 'POST',
       })
     },
 
     async syncSingleList(listType: string, listId: string) {
-      return $fetch(`${baseURL}/sync/single`, {
+      return apiCall(`${baseURL}/sync/single`, {
         method: 'POST',
         body: {
           list_type: listType,
@@ -70,7 +116,7 @@ export function useApiService() {
     },
 
     async triggerSingleListSync(listType: string, listId: string) {
-      return $fetch(`${baseURL}/sync/single`, {
+      return apiCall(`${baseURL}/sync/single`, {
         method: 'POST',
         body: {
           list_type: listType,
@@ -80,33 +126,33 @@ export function useApiService() {
     },
 
     async getSyncStatus() {
-      return $fetch(`${baseURL}/sync/status`)
+      return apiCall(`${baseURL}/sync/status`)
     },
 
     async getLiveSyncStatus() {
-      return $fetch(`${baseURL}/sync/status/live`)
+      return apiCall(`${baseURL}/sync/status/live`)
     },
 
     async cancelSync(jobId: string) {
-      return $fetch(`${baseURL}/sync/${jobId}/cancel`, {
+      return apiCall(`${baseURL}/sync/${jobId}/cancel`, {
         method: 'POST',
       })
     },
 
     // Sync Interval Configuration
     async getSyncInterval() {
-      return $fetch(`${baseURL}/sync-interval`)
+      return apiCall(`${baseURL}/sync-interval`)
     },
 
     async updateSyncInterval(intervalHours: number) {
-      return $fetch(`${baseURL}/sync-interval`, {
+      return apiCall(`${baseURL}/sync-interval`, {
         method: 'PUT',
         body: { interval_hours: intervalHours },
       })
     },
 
     async syncIntervalFromEnv() {
-      return $fetch(`${baseURL}/sync-interval/sync-from-env`, {
+      return apiCall(`${baseURL}/sync-interval/sync-from-env`, {
         method: 'POST',
       })
     },
@@ -116,30 +162,34 @@ export function useApiService() {
       limit: number = 20,
       page: number = 1
     ) {
-      return $fetch(`${baseURL}/activity/recent?page=${page}&limit=${limit}&_t=${Date.now()}`)
+      return apiCall(`${baseURL}/activity/recent?page=${page}&limit=${limit}&_t=${Date.now()}`)
     },
 
     async getItems() {
-      return $fetch(`${baseURL}/items`)
+      return apiCall(`${baseURL}/items`)
+    },
+
+    async getEnrichedItems(page: number = 1, limit: number = 50) {
+      return apiCall(`${baseURL}/items/enriched?page=${page}&limit=${limit}`)
     },
 
     async getProcessedItems(page: number = 1, limit: number = 50) {
-      return $fetch(`${baseURL}/processed?page=${page}&limit=${limit}&_t=${Date.now()}`)
+      return apiCall(`${baseURL}/processed?page=${page}&limit=${limit}&_t=${Date.now()}`)
     },
 
-    async getFailedItems(page: number = 1, limit: number = 50) {
-      const response: any = await $fetch(`${baseURL}/failures?page=${page}&limit=${limit}`)
+    async getFailedItems(page: number = 1, limit: number = 50): Promise<FailedItemsResponse> {
+      const response: any = await apiCall(`${baseURL}/failures?page=${page}&limit=${limit}`)
       
       // Transform API response to expected format
-      const failures = [
+      const failures: FailedItem[] = [
         ...(response.not_found || []).map((item: any) => ({
           id: `not_found_${item.title}_${item.timestamp}`,
           title: item.title,
           description: item.reason || 'Not found in database',
-          media_type: item.media_type || 'movie',
+          media_type: (item.media_type || 'movie') as 'movie' | 'tv',
           year: item.year,
           failed_at: item.timestamp,
-          error_type: 'not_found',
+          error_type: 'not_found' as const,
           error_message: item.reason || 'Not found in database',
           retryable: false,
         })),
@@ -147,10 +197,10 @@ export function useApiService() {
           id: `error_${item.title}_${item.timestamp}`,
           title: item.title,
           description: item.reason || 'Processing error',
-          media_type: item.media_type || 'movie',
+          media_type: (item.media_type || 'movie') as 'movie' | 'tv',
           year: item.year,
           failed_at: item.timestamp,
-          error_type: 'error',
+          error_type: 'error' as const,
           error_message: item.reason || 'Processing error occurred',
           retryable: true,
         }))
@@ -159,67 +209,74 @@ export function useApiService() {
       return {
         items: failures,
         total: response.total_failures || 0,
-        pagination: response.pagination
+        pagination: response.pagination || {
+          page,
+          limit,
+          total_items: response.total_failures || 0,
+          total_pages: 0,
+          has_next: false,
+          has_prev: false,
+        }
       }
     },
 
     async getSuccessfulItems(page: number = 1, limit: number = 50) {
-      return $fetch(`${baseURL}/successful?page=${page}&limit=${limit}`)
+      return apiCall(`${baseURL}/successful?page=${page}&limit=${limit}`)
     },
 
     async getRequestedItems(page: number = 1, limit: number = 50) {
-      return $fetch(`${baseURL}/requested?page=${page}&limit=${limit}`)
+      return apiCall(`${baseURL}/requested?page=${page}&limit=${limit}`)
     },
 
     // Overseerr Integration
     async getOverseerrStatus() {
-      return $fetch(`${baseURL}/overseerr/status`)
+      return apiCall(`${baseURL}/overseerr/status`)
     },
 
     async getOverseerrConfig() {
-      return $fetch(`${baseURL}/overseerr/config`)
+      return apiCall(`${baseURL}/overseerr/config`)
     },
 
     async checkOverseerr() {
-      return $fetch(`${baseURL}/overseerr/status`)
+      return apiCall(`${baseURL}/overseerr/status`)
     },
 
     async testConnection() {
-      return $fetch(`${baseURL}/config/test`)
+      return apiCall(`${baseURL}/config/test`)
     },
 
     // System & Time
     async getCurrentTime() {
-      return $fetch(`${baseURL}/system/time`)
+      return apiCall(`${baseURL}/system/time`)
     },
 
     async getSystemStatus() {
-      return $fetch(`${baseURL}/system/status`)
+      return apiCall(`${baseURL}/system/status`)
     },
 
     async getProcesses() {
-      return $fetch(`${baseURL}/system/processes`)
+      return apiCall(`${baseURL}/system/processes`)
     },
 
     async getLogInfo() {
-      return $fetch(`${baseURL}/system/logs`)
+      return apiCall(`${baseURL}/system/logs`)
     },
 
     async testDatabase() {
-      return $fetch(`${baseURL}/system/database/test`)
+      return apiCall(`${baseURL}/system/database/test`)
     },
 
     // Timezone
     async getSupportedTimezones() {
-      return $fetch(`${baseURL}/timezone/supported`)
+      return apiCall(`${baseURL}/timezone/supported`)
     },
 
     async getCurrentTimezone() {
-      return $fetch(`${baseURL}/timezone/current`)
+      return apiCall(`${baseURL}/timezone/current`)
     },
 
     async validateTimezone(timezone: string) {
-      return $fetch(`${baseURL}/timezone/validate`, {
+      return apiCall(`${baseURL}/timezone/validate`, {
         method: 'POST',
         body: { timezone },
       })
@@ -236,74 +293,74 @@ export function useApiService() {
       if (level) params.append('level', level)
       if (category) params.append('category', category)
 
-      return $fetch(`${baseURL}/logs/entries?${params.toString()}`)
+      return apiCall(`${baseURL}/logs/entries?${params.toString()}`)
     },
 
     async getLogCategories() {
-      return $fetch(`${baseURL}/logs/categories`)
+      return apiCall(`${baseURL}/logs/categories`)
     },
 
     async getLogStats() {
-      return $fetch(`${baseURL}/logs/stats`)
+      return apiCall(`${baseURL}/logs/stats`)
     },
 
     // Analytics
     async getAnalytics(timeRange: string = '24h') {
-      return $fetch(`${baseURL}/analytics?time_range=${timeRange}`)
+      return apiCall(`${baseURL}/analytics?time_range=${timeRange}`)
     },
 
     async getAnalyticsOverview(timeRange: string = '24h') {
-      return $fetch(`${baseURL}/analytics/overview?time_range=${timeRange}`)
+      return apiCall(`${baseURL}/analytics/overview?time_range=${timeRange}`)
     },
 
     async getMediaAdditions(timeRange: string = '24h') {
-      return $fetch(`${baseURL}/analytics/media-additions?time_range=${timeRange}`)
+      return apiCall(`${baseURL}/analytics/media-additions?time_range=${timeRange}`)
     },
 
     async getListFetches(timeRange: string = '24h') {
-      return $fetch(`${baseURL}/analytics/list-fetches?time_range=${timeRange}`)
+      return apiCall(`${baseURL}/analytics/list-fetches?time_range=${timeRange}`)
     },
 
     async getMatchingAnalytics(timeRange: string = '24h') {
-      return $fetch(`${baseURL}/analytics/matching?time_range=${timeRange}`)
+      return apiCall(`${baseURL}/analytics/matching?time_range=${timeRange}`)
     },
 
     async getSearchFailures(timeRange: string = '24h') {
-      return $fetch(`${baseURL}/analytics/search-failures?time_range=${timeRange}`)
+      return apiCall(`${baseURL}/analytics/search-failures?time_range=${timeRange}`)
     },
 
     async getScrapingPerformance(timeRange: string = '24h') {
-      return $fetch(`${baseURL}/analytics/scraping-performance?time_range=${timeRange}`)
+      return apiCall(`${baseURL}/analytics/scraping-performance?time_range=${timeRange}`)
     },
 
     async getSourceDistribution(timeRange: string = '24h') {
-      return $fetch(`${baseURL}/analytics/source-distribution?time_range=${timeRange}`)
+      return apiCall(`${baseURL}/analytics/source-distribution?time_range=${timeRange}`)
     },
 
     async getSelectorPerformance(timeRange: string = '24h') {
-      return $fetch(`${baseURL}/analytics/selector-performance?time_range=${timeRange}`)
+      return apiCall(`${baseURL}/analytics/selector-performance?time_range=${timeRange}`)
     },
 
     async getGenreDistribution(timeRange: string = '24h') {
-      return $fetch(`${baseURL}/analytics/genre-distribution?time_range=${timeRange}`)
+      return apiCall(`${baseURL}/analytics/genre-distribution?time_range=${timeRange}`)
     },
 
     async getYearDistribution(timeRange: string = '24h') {
-      return $fetch(`${baseURL}/analytics/year-distribution?time_range=${timeRange}`)
+      return apiCall(`${baseURL}/analytics/year-distribution?time_range=${timeRange}`)
     },
 
     // Utility
     async ping() {
-      return $fetch(`${baseURL}/ping`)
+      return apiCall(`${baseURL}/ping`)
     },
 
     // Settings
     async getConfig() {
-      return $fetch(`${baseURL}/settings/config`)
+      return apiCall(`${baseURL}/settings/config`)
     },
 
     async updateConfig(config: any) {
-      return $fetch(`${baseURL}/settings/config`, {
+      return apiCall(`${baseURL}/settings/config`, {
         method: 'POST',
         body: config,
       })
@@ -311,7 +368,17 @@ export function useApiService() {
 
     // Notifications
     async testDiscordNotification(webhookUrl: string) {
-      return $fetch(`${baseURL}/notifications/test`, {
+      return apiCall(`${baseURL}/notifications/test`, {
+        method: 'POST',
+        body: {
+          webhook_url: webhookUrl
+        }
+      })
+    },
+
+    // Alias for consistency with setup wizard
+    async testDiscordWebhook(webhookUrl: string) {
+      return apiCall(`${baseURL}/notifications/test`, {
         method: 'POST',
         body: {
           webhook_url: webhookUrl
@@ -336,19 +403,72 @@ export function useApiService() {
       if (startDate) params.append('start_date', startDate)
       if (endDate) params.append('end_date', endDate)
       
-      return $fetch(`${baseURL}/sync-history?${params.toString()}`)
+      return apiCall(`${baseURL}/sync-history?${params.toString()}`)
     },
 
     async getSyncSession(sessionId: string) {
-      return $fetch(`${baseURL}/sync-history/${sessionId}`)
+      return apiCall(`${baseURL}/sync-history/${sessionId}`)
     },
 
     async getSyncHistoryStats() {
-      return $fetch(`${baseURL}/sync-history/stats`)
+      return apiCall(`${baseURL}/sync-history/stats`)
     },
 
     async getSyncSessionRawLogs(sessionId: string) {
-      return $fetch(`${baseURL}/sync-history/${sessionId}/raw-logs`)
+      return apiCall(`${baseURL}/sync-history/${sessionId}/raw-logs`)
+    },
+
+    // Setup Wizard
+    async checkSetupStatus() {
+      return apiCall(`${baseURL}/setup/status`)
+    },
+
+    async migrateFromEnv() {
+      return apiCall(`${baseURL}/setup/migrate-from-env`, {
+        method: 'POST',
+      })
+    },
+
+    async saveStepEssential(data: any) {
+      return apiCall(`${baseURL}/setup/step1/essential`, {
+        method: 'POST',
+        body: data,
+      })
+    },
+
+    async saveStepConfiguration(data: any) {
+      return apiCall(`${baseURL}/setup/step2/configuration`, {
+        method: 'POST',
+        body: data,
+      })
+    },
+
+    async saveStepContentSources(data: any) {
+      return apiCall(`${baseURL}/setup/step3/content-sources`, {
+        method: 'POST',
+        body: data,
+      })
+    },
+
+    async completeSetup() {
+      return apiCall(`${baseURL}/setup/complete`, {
+        method: 'POST',
+      })
+    },
+
+    // Setup Wizard - Individual Validation Tests
+    async testOverseerrConnection(data: { overseerr_url: string; overseerr_api_key: string }) {
+      return apiCall(`${baseURL}/setup/test/overseerr`, {
+        method: 'POST',
+        body: data,
+      })
+    },
+
+    async testTraktClientId(data: { trakt_client_id: string }) {
+      return apiCall(`${baseURL}/setup/test/trakt`, {
+        method: 'POST',
+        body: data,
+      })
     },
   }
 }

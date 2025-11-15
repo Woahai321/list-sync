@@ -19,29 +19,55 @@ from ..ui.display import SyncResults
 
 def get_discord_webhook_url():
     """
-    Get Discord webhook URL from environment variable.
+    Get Discord webhook URL from database config or environment variable.
     
     Returns:
         str or None: Discord webhook URL if configured, None otherwise
     """
+    # Try to load from ConfigManager/database first
+    try:
+        from ..config import ConfigManager
+        config = ConfigManager()
+        
+        # Check if Discord is enabled
+        discord_enabled = config.get_setting('discord_enabled')
+        if discord_enabled and str(discord_enabled).lower() in ('true', '1', 'yes'):
+            webhook = config.get_setting('discord_webhook')
+            if webhook:
+                return webhook
+    except Exception as e:
+        logging.debug(f"Could not load Discord webhook from database: {e}")
+    
+    # Fallback to environment variable
     return os.getenv('DISCORD_WEBHOOK_URL')
 
 
-def send_to_discord_webhook(summary_text, sync_results, webhook_url: Optional[str] = None, automated: bool = False):
+def send_to_discord_webhook(summary_text, sync_results, webhook_url: Optional[str] = None, automated: bool = False, is_single_list: bool = False):
     """Send enhanced multi-embed Discord notification with rich context."""
     if not DISCORD_AVAILABLE:
         return
     
-    # Get webhook URL from parameter or environment
+    # Get webhook URL from parameter, database config, or environment
     if not webhook_url:
-        webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
+        webhook_url = get_discord_webhook_url()
     
     if not webhook_url:
         return  # No webhook configured
     
+    # Double-check if Discord is enabled in config
+    try:
+        from ..config import ConfigManager
+        config = ConfigManager()
+        discord_enabled = config.get_setting('discord_enabled')
+        if discord_enabled and str(discord_enabled).lower() not in ('true', '1', 'yes'):
+            return  # Discord notifications disabled
+    except Exception:
+        # If we can't check config, proceed with webhook URL if provided
+        pass
+    
     try:
         # Collect enhanced data
-        enhanced_data = collect_enhanced_sync_data(sync_results, automated)
+        enhanced_data = collect_enhanced_sync_data(sync_results, automated, is_single_list)
         
         # Build single embed
         webhook = DiscordWebhook(url=webhook_url, username="ListSync")
@@ -55,11 +81,12 @@ def send_to_discord_webhook(summary_text, sync_results, webhook_url: Optional[st
         logging.error(f"Failed to send enhanced Discord notification: {str(e)}")
 
 
-def collect_enhanced_sync_data(sync_results: SyncResults, automated: bool = False) -> Dict[str, Any]:
+def collect_enhanced_sync_data(sync_results: SyncResults, automated: bool = False, is_single_list: bool = False) -> Dict[str, Any]:
     """Collect data for enhanced notifications."""
     return {
         'sync_results': sync_results,
         'automated': automated,
+        'is_single_list': is_single_list,
         'processing_time': time.time() - sync_results.start_time
     }
 
@@ -96,8 +123,15 @@ def build_summary_embed(data: Dict[str, Any]) -> DiscordEmbed:
         status_text = "Needs Attention"
     
     # Build title with emoji
-    sync_mode = "🎬 Media" if data['automated'] else "🎬 Media"
-    title = f"{status_emoji} {sync_mode} Sync Complete"
+    if data.get('is_single_list', False):
+        sync_mode = "📋 Single List"
+        if data['sync_results'].synced_lists:
+            list_info = data['sync_results'].synced_lists[0]
+            list_type = list_info.get('type', 'Unknown').upper()
+            sync_mode = f"📋 {list_type} List"
+    else:
+        sync_mode = "🎬 Full Sync"
+    title = f"{status_emoji} {sync_mode} Complete"
     
     # Create progress bar visualization
     progress_bar = create_progress_bar(success_rate)
@@ -121,7 +155,7 @@ def build_summary_embed(data: Dict[str, Any]) -> DiscordEmbed:
     # Set author for branding
     embed.set_author(
         name="ListSync",
-        icon_url="https://s.2ya.me/api/shares/RN2Yziau/files/535b57e0-9c64-410b-a36f-414fba74854b"
+        icon_url="https://s.2ya.me/api/shares/gUeH8AVT/files/98e135dc-ccbb-453e-84ee-267b1d52aed7"
     )
     
     # === QUICK STATS (Inline for compact view) ===
@@ -234,7 +268,7 @@ def build_summary_embed(data: Dict[str, Any]) -> DiscordEmbed:
     
     # === FOOTER ===
     embed.set_timestamp()
-    footer_text = "ListSync v0.6.3"
+    footer_text = "ListSync v0.6.4"
     if total_items > 100:
         footer_text += f" • {total_items:,} items"
     embed.set_footer(text=footer_text)

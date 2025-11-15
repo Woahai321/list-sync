@@ -1,8 +1,8 @@
 <template>
-  <Card>
-    <div class="space-y-4">
+  <Card class="border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
+    <div class="space-y-3">
       <!-- Search and Sort Row -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
         <!-- Search -->
         <div class="md:col-span-2">
           <Input
@@ -24,7 +24,7 @@
 
       <!-- Filter Chips Row -->
       <div class="flex flex-wrap items-center gap-2">
-        <span class="text-sm text-muted-foreground">Filter by source:</span>
+        <span class="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Filter by source:</span>
         
         <button
           v-for="source in sources"
@@ -32,9 +32,9 @@
           :class="getSourceChipClass(source.value)"
           @click="handleSourceFilter(source.value)"
         >
-          <component v-if="source.icon" :is="source.icon" :size="14" />
+          <component v-if="source.icon" :is="source.icon" :size="12" />
           {{ source.label }}
-          <span v-if="source.value !== 'all'" class="ml-1 text-xs opacity-70">
+          <span v-if="source.value !== 'all'" class="ml-1 text-[10px] opacity-70">
             ({{ getSourceCount(source.value) }})
           </span>
         </button>
@@ -42,17 +42,17 @@
         <!-- Clear Filters -->
         <button
           v-if="listsStore.hasActiveFilters"
-          class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30 transition-colors"
+          class="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-purple-600/20 text-purple-300 border border-purple-500/30 hover:bg-purple-600/30 hover:border-purple-400/50 transition-all uppercase tracking-wide"
           @click="handleClearFilters"
         >
-          <component :is="XIcon" :size="14" />
-          Clear Filters
+          <component :is="XIcon" :size="12" />
+          Clear
         </button>
       </div>
 
       <!-- Active Filters Summary -->
-      <div v-if="listsStore.hasActiveFilters" class="flex items-center gap-2 text-sm text-muted-foreground">
-        <component :is="InfoIcon" :size="16" />
+      <div v-if="listsStore.hasActiveFilters" class="flex items-center gap-2 text-xs text-muted-foreground">
+        <component :is="InfoIcon" :size="14" />
         <span>
           Showing {{ listsStore.filteredLists.length }} of {{ listsStore.totalLists }} lists
         </span>
@@ -131,22 +131,22 @@ const getSourceChipClass = (source: string) => {
   const isActive = listsStore.sourceFilter === source
   
   const baseClasses = [
-    'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium',
-    'border transition-all duration-200',
+    'flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide',
+    'border transition-all duration-300',
   ]
 
   if (isActive) {
     return [
       ...baseClasses,
-      'bg-purple-500/20 text-purple-300 border-purple-500/40',
-      'shadow-sm shadow-purple-500/20',
+      'bg-purple-600/20 text-purple-300 border-purple-500/30',
+      'shadow-sm',
     ].join(' ')
   }
 
   return [
     ...baseClasses,
-    'bg-black/20 text-muted-foreground border-border',
-    'hover:bg-white/5 hover:text-foreground hover:border-purple-500/30',
+    'bg-purple-500/5 text-purple-400/70 border-purple-500/10',
+    'hover:bg-purple-500/10 hover:text-purple-300 hover:border-purple-500/20',
   ].join(' ')
 }
 

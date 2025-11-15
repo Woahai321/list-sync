@@ -76,10 +76,13 @@ export function useSSE(endpoint: string) {
   }
 
   // Auto-connect on mount
+  // DISABLED: Endpoint doesn't support SSE yet, returns JSON instead
+  // TODO: Enable when backend implements SSE endpoint
   onMounted(() => {
-    if (process.client) {
-      connect()
-    }
+    // Disabled until backend supports SSE
+    // if (process.client) {
+    //   connect()
+    // }
   })
 
   // Auto-disconnect on unmount

@@ -1,6 +1,6 @@
-# 🍿 ListSync - Bridge Your Watchlist & Media Server 🎬
+# 🍿 ListSync - Bridge Your Watchlist & Media Server
 
-![ListSync Logo](https://share.woahlab.com/-Tdgu2viusH)
+![ListSync Logo](https://s.2ya.me/api/shares/Ou6EHcqD/files/6db8707a-037e-46ed-bbfe-bcf35ba2b31c)
 ![GitHub last commit](https://img.shields.io/github/last-commit/woahai321/list-sync?style=for-the-badge&logo=github)
 ![GitHub issues](https://img.shields.io/github/issues/woahai321/list-sync?style=for-the-badge&logo=github)
 ![GitHub stars](https://img.shields.io/github/stars/woahai321/list-sync?style=for-the-badge&logo=github)
@@ -12,26 +12,25 @@
 
 ---
 
-## 🚀 What is ListSync? 
+## 🍿 What is ListSync? 
 
 ListSync automatically syncs your watchlists from IMDb, Trakt and many more with Overseerr/Jellyseerr. No more manual adding - just add movies, shows, and anime to your favorite watchlist, and they'll appear in your media server automatically.
 
 <div align="center">
 
-[![Installation Guide](https://img.shields.io/badge/🚀_Installation_Guide-8b5cf6?style=for-the-badge&labelColor=6b21a8)](#-getting-started)
-[![List Setup Guide](https://img.shields.io/badge/📋_List_Setup_Guide-8b5cf6?style=for-the-badge&labelColor=6b21a8)](#-api-keys--list-configuration)
-[![Troubleshooting](https://img.shields.io/badge/🛠️_Troubleshooting-8b5cf6?style=for-the-badge&labelColor=6b21a8)](#-troubleshooting)
-[![Documentation](https://img.shields.io/badge/📖_Documentation-8b5cf6?style=for-the-badge&labelColor=6b21a8)](docs/)
+[![Installation Guide](https://img.shields.io/badge/🍿_Installation_Guide-8b5cf6?style=for-the-badge&labelColor=6b21a8)](#-getting-started)
+[![List Setup Guide](https://img.shields.io/badge/🍿_List_Setup_Guide-8b5cf6?style=for-the-badge&labelColor=6b21a8)](#-api-keys--list-configuration)
+[![Documentation](https://img.shields.io/badge/🍿_Documentation-8b5cf6?style=for-the-badge&labelColor=6b21a8)](docs/)
 
 </div>
 
 ---
 
-## 🖥️ Modern Web Dashboard
+## 🍿 Modern Web Dashboard
 
-ListSync now includes a **web dashboard** built with Nuxt 3 and Vue 3, providing a modern interface to manage all your sync operations.
+ListSync includes a **web dashboard** built with Nuxt 3 and Vue 3, providing an interface to manage all your sync operations.
 
-![ListSync Web Dashboard](https://s.2ya.me/api/shares/bOlt1gfU/files/318acfa6-d44a-47f6-9b6f-219171413e8f)
+![ListSync Web Dashboard](https://s.2ya.me/api/shares/Ou6EHcqD/files/71739c2e-b47d-447f-9a5a-e10d64fbebb9)
 
 **Access your dashboard at:** `http://localhost:3222`
 
@@ -43,68 +42,55 @@ For the most stable experience, use the source code from the latest release [her
 
 ---
 
-## ⚡ Quick Start (3 minutes)
+## 🍿 Quick Start
 
-**Get ListSync running in under 3 minutes:**
+**No configuration needed!** Just run the container and use the setup wizard:
 
-```bash
-# 1. Clone and enter directory
-git clone https://github.com/Woahai321/list-sync.git && cd list-sync
+The quickest way to get started is by cloning the repository and starting the container with a single command:
 
-# 2. Copy environment file
-cp .env.example .env
+| Method | Command |
+| :-------------------- | :---------------------------------- |
+| ![Docker](https://img.shields.io/badge/Docker-1line-blue?style=for-the-badge&logo=docker) | `git clone https://github.com/Woahai321/list-sync.git && cd list-sync && docker-compose up -d` |
 
-# 3. Edit .env - Add these key settings:
-#    OVERSEERR_URL=http://your-overseerr:5055
-#    OVERSEERR_API_KEY=your-api-key
-#    TRAKT_CLIENT_ID=your-client-id
-#    IMDB_LISTS=top
+Access the dashboard at `http://localhost:3222` and complete the setup wizard to connect your media server and watchlists.
 
-# 4. Start ListSync
-docker-compose up -d
-```
-
-**That's it!** Your first sync will start automatically. 🎉
+![Dashboard Setup Wizard](https://s.2ya.me/api/shares/hoRY5Two/files/4dfcd66b-59bc-4805-bad2-be4158e81e5e)
 
 ---
 
-## 🚀 Getting Started
+## 🍿 Getting Started
 
 ListSync offers **flexible deployment options** to suit different use cases, from quick testing to full production deployments with web dashboard.
 
-## 🐳 Docker Deployment Options
+
+## 🍿 Docker Deployment
 
 <details open>
-<summary>📦 <strong>Option 1: Full Stack Deployment</strong> (Recommended)</summary>
-
-### **Complete ListSync with Web Dashboard + API + Core Sync**
-
-**Complete solution with web dashboard, API, and sync engine.**
+<summary>🍿 <strong>Full Stack Deployment</strong> (Recommended)</summary>
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/Woahai321/list-sync.git
-cd list-sync
+# Clone and setup
+git clone https://github.com/Woahai321/list-sync.git && cd list-sync
 
-# 2. Copy and configure environment file
-cp .env.example .env
-nano .env  # Add your Overseerr URL, API key, and lists
-
-# 3. Start with the default docker-compose.yml
+# (Optional: Configure a .env file)
+# Use pre-built image
 docker-compose up -d
 
-# That's it! Access your dashboard at http://localhost:3222
+# Or build from source
+docker-compose -f docker-compose.local.yml up -d --build
 ```
 
-**Access Points:**
-- 🌐 Web Dashboard: `http://localhost:3222`
-- 📡 API Documentation: `http://localhost:4222/docs`
-- 🏥 Health Check: `http://localhost:4222/api/system/health`
+**Access:**
+- Dashboard: `http://localhost:3222`
+- API Docs: `http://localhost:4222/docs`
+- Health: `http://localhost:4222/api/system/health`
+
+All 3 services (Core Sync, FastAPI Backend, Nuxt Frontend) run in a single container managed by supervisor.
 
 </details>
 
 <details>
-<summary>⚙️ <strong>Option 2: Core-Only Deployment</strong> (Lightweight)</summary>
+<summary>🍿 <strong>Option 2: Core-Only Deployment</strong> (Lightweight)</summary>
 
 ### **Lightweight Core Sync Engine**
 
@@ -136,12 +122,12 @@ docker-compose -f docker-compose.core.yml logs -f
 
 ---
 
-## 📋 API Keys & List Configuration
+## 🍿 API Keys & List Configuration
 
-### 🔑 API Keys (Optional but Recommended)
+### 🔑 API Keys
 
 <details>
-<summary>🔑 Trakt API Configuration (Required for Trakt)</summary>
+<summary>🔑 Trakt API Configuration (Required)</summary>
 
 ### **Setting up Trakt API Access**
 
@@ -161,7 +147,7 @@ ListSync now uses the **official Trakt API v2** for improved reliability and per
 2. Copy the **Client ID** (the Client Secret is not needed for ListSync)
 
 #### **Step 3: Configure ListSync**
-Add your Client ID to your `.env` file:
+Add your Client ID to your `.env` file or via the web dashboard:
 ```bash
 # Trakt API Configuration
 TRAKT_CLIENT_ID=your_client_id_here
@@ -190,7 +176,7 @@ ListSync can use the official TMDB API for improved reliability and performance.
 2. Copy the API key
 
 #### **Step 3: Configure ListSync**
-Add your API key to your `.env` file:
+Add your API key to your `.env` file or via the web dashboard:
 ```bash
 # TMDB API Configuration
 TMDB_KEY=your_api_key_here
@@ -218,7 +204,7 @@ ListSync can use the official TVDB API for enhanced data quality. To use TVDB wi
 4. Click **"Create"**
 
 #### **Step 3: Configure ListSync**
-Add your API key to your `.env` file:
+Add your API key to your `.env` file or via the web dashboard:
 ```bash
 # TVDB API Configuration
 TVDB_KEY=your_api_key_here
@@ -227,9 +213,7 @@ TVDB_KEY=your_api_key_here
 
 ---
 
-### 📋 List Providers
-
-ListSync supports multiple list services. You can add them using either the raw URL or the list ID.
+### 🍿 List Providers
 
 <details>
 <summary>📋 IMDb</summary>
@@ -386,18 +370,19 @@ This will be recognized as the Steven Lu Popular Movies list.
 </details>
 
 
-## 🛠️ Configuration
+## 🍿 Configuration
 
 <details>
-<summary>⚙️ <strong>Basic Configuration</strong></summary>
+<summary>🍿 <strong>Basic Configuration</strong></summary>
 
 ### **Essential Settings**
 
-All you need is a `.env` file with three settings:
+All you need is a `.env` file with four settings:
 
 ```bash
 OVERSEERR_URL=http://your-overseerr:5055    # Your Overseerr/Jellyseerr URL
 OVERSEERR_API_KEY=your-api-key-here         # Get from Overseerr Settings → General
+TRAKT_CLIENT_ID=your-api-key-here           # Trakt API Client ID
 IMDB_LISTS=top                              # Start with IMDb Top 250
 ```
 
@@ -410,7 +395,6 @@ DISCORD_WEBHOOK_URL=...   # Discord notifications (optional)
 TZ=America/New_York       # Your timezone (default: GMT)
 
 # API Keys for Enhanced Functionality (Optional)
-TRAKT_CLIENT_ID=...       # Trakt API Client ID (for better performance)
 TMDB_KEY=...              # TMDB API Key (for better performance)
 TVDB_KEY=...              # TVDB API Key (for enhanced data)
 
@@ -430,7 +414,7 @@ STEVENLU_LISTS=stevenlu   # Steven Lu popular movies
 </details>
 
 <details>
-<summary>🎯 <strong>Pre-configured Lists Template</strong></summary>
+<summary>🍿 <strong>Pre-configured Lists Template</strong></summary>
 
 ### **Jump-Start with Curated Lists**
 
@@ -453,7 +437,7 @@ Includes these pre-configured lists:
 </details>
 
 <details>
-<summary>🌍 <strong>Timezone Configuration</strong></summary>
+<summary>🍿 <strong>Timezone Configuration</strong></summary>
 
 ### **Configure Your Local Timezone**
 
@@ -505,12 +489,12 @@ environment:
 
 #### **🔍 Finding Your Timezone**
 
-- **🌐 IANA Names**: [Wikipedia TZ Database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
-- **🌍 UTC Offsets**: [timeanddate.com/time/zones](https://www.timeanddate.com/time/zones/)
+- **🍿 IANA Names**: [Wikipedia TZ Database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
+- **🍿 UTC Offsets**: [timeanddate.com/time/zones](https://www.timeanddate.com/time/zones/)
 - **🖥️ Linux/macOS**: Run `timedatectl` or `cat /etc/timezone`
 - **🪟 Windows**: Check "Time zone" in Settings → Time & Language
 
-#### **💡 Which Format Should I Use?**
+#### **🍿 Which Format Should I Use?**
 
 | Format | Best For | Handles DST? | Example |
 |--------|----------|--------------|---------|
@@ -523,38 +507,63 @@ environment:
 </details>
 </details>
 
-## 🛠️ Manual Installation (Advanced Users)
+## 🍿 Local Development Setup
 
 <details>
-<summary>🔧 Local Development & Manual Setup</summary>
-
-For **developers** or **advanced users** who want to run ListSync without Docker or need a **development environment**.
+<summary>🍿 <strong>Running ListSync Locally (Without Docker)</strong></summary>
 
 ### **Prerequisites**
-- Python 3.9+
-- Node.js 18+ (for web dashboard)
-- Chrome/Chromium browser
-- Git
+- Python 3.9+, Node.js 18+, Chrome/Chromium, Git
 
-### **Quick Manual Setup**
+### **Setup**
 
-| Installation Method | Command |
-| :------------------ | :------------------------------------------------------------ |
-| ![Poetry](https://img.shields.io/badge/Poetry-ready-blue?style=for-the-badge&logo=poetry) | `git clone https://github.com/Woahai321/list-sync.git && cd list-sync && poetry install && poetry run python -m list_sync` |
-| ![Python](https://img.shields.io/badge/Python-3.7%2B-blue?style=for-the-badge&logo=python) | `git clone https://github.com/Woahai321/list-sync.git && cd list-sync && pip install -r requirements.txt && python -m list_sync` |
+```bash
+# Clone and install dependencies
+git clone https://github.com/Woahai321/list-sync.git && cd list-sync
+pip install -r requirements.txt -r api_requirements.txt
+cd listsync-nuxt && npm install && cd ..
+```
 
-**Additional Resources:**
-- 📖 [Detailed Installation Guide](docs/installation.md)
-- 👥 [Contributing Guide](docs/contributing.md)
-- 🏗️ [Architecture Overview](docs/architecture.md)
+### **Configuration**
+
+Create `.env` file with:
+```bash
+OVERSEERR_URL=http://your-overseerr:5055
+OVERSEERR_API_KEY=your-api-key-here
+IMDB_LISTS=top
+```
+
+### **Start All Services**
+
+Run these commands in **3 separate terminals**:
+
+**Terminal 1 - Core Sync Service:**
+```bash
+python -m list_sync
+```
+
+**Terminal 2 - FastAPI Backend:**
+```bash
+python start_api.py
+```
+
+**Terminal 3 - Nuxt Frontend:**
+```bash
+cd listsync-nuxt && npm run dev
+```
+
+**Access:**
+- Dashboard: `http://localhost:3222`
+- API Docs: `http://localhost:4222/docs`
+- Health: `http://localhost:4222/api/system/health`
 
 </details>
 
 ---
-## 📊 Compatibility
+## 🍿 Compatibility
 
 <details open>
-<summary>🌉 SeerrBridge Integration</summary>
+<summary>🍿 SeerrBridge Integration</summary>
 
 
 [![SeerrBridge](https://img.shields.io/badge/SeerrBridge-Compatible-blue?style=for-the-badge&logo=github)](https://github.com/Woahai321/SeerrBridge)
@@ -577,7 +586,7 @@ For detailed information about SeerrBridge, visit the [SeerrBridge Repository](h
 
 ---
 
-## 🏗️ System Architecture
+## 🍿 System Architecture
 
 <details>
 <summary><strong>View System Architecture Diagram</strong></summary>
@@ -585,48 +594,48 @@ For detailed information about SeerrBridge, visit the [SeerrBridge Repository](h
 ```mermaid
 graph TD
     %% User Journey
-    User[👤 User Opens Docker<br/>localhost:3222] --> AddLists[📝 Add Lists via Web UI<br/>IMDb • Trakt • AniList • Letterboxd • etc.]
-    AddLists --> Config[⚙️ Configure Settings<br/>Sync Interval • API Keys • Notifications]
+    User[🍿 User Opens Docker<br/>localhost:3222] --> AddLists[🍿 Add Lists via Web UI<br/>IMDb • Trakt • AniList • Letterboxd • etc.]
+    AddLists --> Config[🍿 Configure Settings<br/>Sync Interval • API Keys • Notifications]
     
     %% Application Stack
-    Config --> Frontend[🖥️ Nuxt 3 Dashboard<br/>Port 3222]
+    Config --> Frontend[🍿 Nuxt 3 Dashboard<br/>Port 3222]
     Frontend --> API[🔌 FastAPI Backend<br/>Port 4222]
     API --> Core[⚙️ Core Sync Engine<br/>Python Orchestration]
     Core --> DB[(💾 SQLite Database<br/>Lists • History • Tracking)]
     
     %% Provider System
-    Core --> Providers[📦 Provider System<br/>Multiple Data Sources]
+    Core --> Providers[🍿 Provider System<br/>Multiple Data Sources]
     
     %% Selenium Web Scraping
     Providers --> Selenium[🌐 Selenium Web Scraping<br/>Chrome Headless Browser]
-    Selenium --> IMDb[IMDb Lists<br/>Charts • User Lists • Watchlists]
-    Selenium --> Letterboxd[Letterboxd<br/>User Lists • Watchlists]
-    Selenium --> MDBList[MDBList<br/>Curated Collections]
+    Selenium --> IMDb[🍿 IMDb Lists<br/>Charts • User Lists • Watchlists]
+    Selenium --> Letterboxd[🍿 Letterboxd<br/>User Lists • Watchlists]
+    Selenium --> MDBList[🍿 MDBList<br/>Curated Collections]
     Selenium --> Simkl[Simkl API Watchlists<br/>(OAuth)]
-    Selenium --> TVDB[TVDB<br/>User Favorites • Public Lists]
+    Selenium --> TVDB[🍿 TVDB<br/>User Favorites • Public Lists]
     
     %% Direct API Calls
     Providers --> TraktAPI[🔗 Trakt API<br/>Direct REST API Calls]
-    TraktAPI --> Trakt[Trakt Lists<br/>User Lists • Trending • Popular]
+    TraktAPI --> Trakt[🍿 Trakt Lists<br/>User Lists • Trending • Popular]
     
     %% TMDB API
     Providers --> TMDBAPI[🎭 TMDB API<br/>The Movie Database API]
-    TMDBAPI --> TMDB[TMDB Lists<br/>Public Lists • Collections]
+    TMDBAPI --> TMDB[🍿 TMDB Lists<br/>Public Lists • Collections]
     
     %% AniList GraphQL API
-    Providers --> AniListAPI[✨ AniList GraphQL<br/>Anime Database API]
-    AniListAPI --> AniList[AniList Lists<br/>User Anime Lists • Watchlists]
+    Providers --> AniListAPI[🍿 AniList GraphQL<br/>Anime Database API]
+    AniListAPI --> AniList[🍿 AniList Lists<br/>User Anime Lists • Watchlists]
     
     %% Steven Lu S3 Bucket
-    Providers --> StevenLuAPI[📦 Steven Lu S3<br/>JSON File from S3 Bucket]
-    StevenLuAPI --> StevenLu[Steven Lu<br/>Popular Movies List]
+    Providers --> StevenLuAPI[🍿 Steven Lu S3<br/>JSON File from S3 Bucket]
+    StevenLuAPI --> StevenLu[🍿 Steven Lu<br/>Popular Movies List]
     
     %% Processing Pipeline
     Providers --> Extract[🔍 Extract Media Data<br/>Title • Year • IMDb ID • Type]
     Extract --> Dedupe[🔄 Deduplicate Items<br/>by IMDb ID]
     Dedupe --> Search[🔎 Search in Overseerr<br/>Fuzzy Matching • Levenshtein Distance]
     Search --> CheckStatus[✅ Check Media Status<br/>Available? Requested? Needs Request?]
-    CheckStatus --> CreateRequests[📤 Create Media Requests<br/>Movies • TV Seasons]
+    CheckStatus --> CreateRequests[🍿 Create Media Requests<br/>Movies • TV Seasons]
     
     %% Target System
     CreateRequests --> Overseerr[🎯 Overseerr/Jellyseerr<br/>Media Request Management]
@@ -656,7 +665,7 @@ For a detailed technical breakdown, see our [Architecture Documentation](/docs/a
 
 ---
 
-## 🛠️ Troubleshooting
+## 🍿 Troubleshooting
 
 If you encounter any issues while using ListSync, please check our [Troubleshooting Guide](/docs/troubleshooting.md) for solutions to common problems.
 
@@ -668,7 +677,7 @@ If you encounter any issues while using ListSync, please check our [Troubleshoot
 
 ---
 
-## 📖 Documentation
+## 🍿 Documentation
 
 For comprehensive documentation, visit our [Documentation Hub](/docs/README.md) or explore specific guides:
 
@@ -680,7 +689,7 @@ For comprehensive documentation, visit our [Documentation Hub](/docs/README.md) 
 
 ---
 
-## 💰 Support ListSync's Development
+## 🍿 Support ListSync's Development
 
 If you find ListSync useful and would like to support its development, consider becoming a sponsor:
 
@@ -690,13 +699,13 @@ Thank you for your support!
 
 ---
 
-## 🤝 Contributing
+## 🍿 Contributing
 
 We welcome contributions! For guidelines on how to contribute, please see our [Contributing Guide](/docs/contributing.md).
 
 ---
 
-## 📋 Notes
+## 🍿 Notes
 
 - **Security Best Practices:** Please read scripts you find online before running them.
 - **API Credentials:** Always keep your API credentials secure.
@@ -705,11 +714,11 @@ We welcome contributions! For guidelines on how to contribute, please see our [C
 
 ---
 
-## 📄 License
+## 🍿 License
 
 This project is licensed under the [MIT License](https://opensource.org/license/mit). Review the LICENSE file for more details.
 
-## 🛡️ Legal Information
+## 🍿 Legal Information
 
 For important legal information about using ListSync, please refer to our [Legal Disclaimer](/docs/legal-disclaimer.md).
 
@@ -722,3 +731,4 @@ For important legal information about using ListSync, please refer to our [Legal
    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Woahai321/list-sync&type=Date" />
  </picture>
 </a>
+

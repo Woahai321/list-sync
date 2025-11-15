@@ -1,27 +1,27 @@
 <template>
-  <Card class="glass-card">
-    <div class="space-y-6">
+  <Card class="glass-card border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
+    <div class="space-y-4">
       <!-- Header -->
-      <div class="flex items-center gap-3">
-        <div class="p-3 rounded-lg bg-success/10">
-          <PaletteIcon class="w-5 h-5 text-success" />
+      <div class="flex items-center gap-2.5">
+        <div class="p-2 rounded-lg bg-gradient-to-br from-purple-600/20 to-purple-500/10 border border-purple-500/30">
+          <PaletteIcon class="w-4 h-4 text-purple-400" />
         </div>
         <div>
-          <h3 class="text-lg font-semibold titillium-web-semibold">
+          <h3 class="text-base font-bold titillium-web-semibold">
             Theme Settings
           </h3>
-          <p class="text-sm text-muted-foreground">
+          <p class="text-[10px] text-muted-foreground font-medium">
             Customize the appearance of ListSync
           </p>
         </div>
       </div>
 
       <!-- Form Fields -->
-      <div class="space-y-6">
+      <div class="space-y-4">
         <!-- Accent Color -->
         <div>
-          <label class="block text-sm font-medium mb-3">
-            Accent Color <span class="text-xs text-muted-foreground ml-2">(Currently: {{ getCurrentColorLabel() }})</span>
+          <label class="block text-[10px] font-bold mb-2 uppercase tracking-wide">
+            Accent Color <span class="text-[10px] text-muted-foreground ml-2">(Currently: {{ getCurrentColorLabel() }})</span>
           </label>
           <div class="grid grid-cols-4 gap-3">
             <button

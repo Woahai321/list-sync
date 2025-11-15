@@ -1,9 +1,9 @@
 <template>
-  <div class="space-y-6">
+  <div class="space-y-4">
     <!-- Search & Filters -->
-    <Card>
-      <div class="p-4">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <Card class="border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
+      <div class="p-3">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           <!-- Search -->
           <div>
             <Input
@@ -36,44 +36,44 @@
     </Card>
 
     <!-- Stats Summary -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <Card>
-        <div class="p-4">
-          <div class="flex items-center gap-4">
-            <div class="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-              <XCircleIcon class="w-6 h-6 text-red-400" />
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <Card class="border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
+        <div class="p-3">
+          <div class="flex items-center gap-2.5">
+            <div class="p-2 rounded-lg bg-gradient-to-br from-purple-600/20 to-purple-500/10 border border-purple-500/30">
+              <XCircleIcon class="w-4 h-4 text-purple-400" />
             </div>
             <div>
-              <p class="text-sm text-muted-foreground">Total Failed</p>
-              <p class="text-3xl font-bold text-foreground">{{ totalItems }}</p>
+              <p class="text-[10px] text-muted-foreground font-medium">Total Failed</p>
+              <p class="text-2xl font-bold text-foreground leading-none">{{ totalItems }}</p>
             </div>
           </div>
         </div>
       </Card>
 
-      <Card>
-        <div class="p-4">
-          <div class="flex items-center gap-4">
-            <div class="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
-              <AlertTriangleIcon class="w-6 h-6 text-yellow-400" />
+      <Card class="border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
+        <div class="p-3">
+          <div class="flex items-center gap-2.5">
+            <div class="p-2 rounded-lg bg-gradient-to-br from-purple-500/18 to-purple-400/9 border border-purple-400/28">
+              <AlertTriangleIcon class="w-4 h-4 text-purple-300" />
             </div>
             <div>
-              <p class="text-sm text-muted-foreground">Not Found</p>
-              <p class="text-3xl font-bold text-foreground">{{ notFoundCount }}</p>
+              <p class="text-[10px] text-muted-foreground font-medium">Not Found</p>
+              <p class="text-2xl font-bold text-foreground leading-none">{{ notFoundCount }}</p>
             </div>
           </div>
         </div>
       </Card>
 
-      <Card>
-        <div class="p-4">
-          <div class="flex items-center gap-4">
-            <div class="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-              <RefreshIcon class="w-6 h-6 text-blue-400" />
+      <Card class="border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
+        <div class="p-3">
+          <div class="flex items-center gap-2.5">
+            <div class="p-2 rounded-lg bg-gradient-to-br from-purple-400/20 to-purple-300/10 border border-purple-300/30">
+              <RefreshIcon class="w-4 h-4 text-purple-200" />
             </div>
             <div>
-              <p class="text-sm text-muted-foreground">Retryable</p>
-              <p class="text-3xl font-bold text-foreground">{{ retryableCount }}</p>
+              <p class="text-[10px] text-muted-foreground font-medium">Retryable</p>
+              <p class="text-2xl font-bold text-foreground leading-none">{{ retryableCount }}</p>
             </div>
           </div>
         </div>

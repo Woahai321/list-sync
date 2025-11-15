@@ -175,11 +175,14 @@ export interface SyncProcessStatus {
 export interface LiveSyncStatus {
   is_running: boolean
   status: string
-  log_file_found: boolean
-  log_file_used?: string
-  last_activity?: string | null
-  sync_start_count: number
-  sync_end_count: number
+  sync_type?: 'full' | 'single' | null
+  session_id?: string | null
+  start_time?: string | null
+  duration_seconds?: number | null
+  list_type?: string | null
+  list_id?: string | null
+  pid?: number | null
+  timestamp: string
   error?: string
 }
 
@@ -198,7 +201,7 @@ export interface PaginatedResponse<T> {
   total: number
   page: number
   limit: number
-  pages: number
+  total_pages: number
 }
 
 // API Response types
@@ -296,7 +299,7 @@ export interface SyncHistoryStats {
   total_errors: number
   success_rate: number
   avg_items_per_sync: number
-  avg_duration_seconds: number
+  avg_duration_seconds: number | null
   recent_stats: {
     last_24h: number
     last_7d: number
@@ -306,5 +309,47 @@ export interface SyncHistoryStats {
     list: string
     count: number
   }>
+}
+
+export interface EnrichedMediaItem {
+  id: number
+  title: string
+  media_type: 'movie' | 'tv'
+  year?: number
+  poster_url?: string
+  rating?: number
+  overview?: string
+  genres?: string[]
+  status: string
+  overseerr_url?: string
+  imdb_id?: string
+  tmdb_id?: number
+  list_name?: string
+  last_synced?: string
+}
+
+export interface FailedItem {
+  id: string
+  title: string
+  description: string
+  media_type: 'movie' | 'tv'
+  year?: number
+  failed_at: string
+  error_type: 'not_found' | 'error'
+  error_message: string
+  retryable: boolean
+}
+
+export interface FailedItemsResponse {
+  items: FailedItem[]
+  total: number
+  pagination: {
+    page: number
+    limit: number
+    total_items: number
+    total_pages: number
+    has_next: boolean
+    has_prev: boolean
+  }
 }
 

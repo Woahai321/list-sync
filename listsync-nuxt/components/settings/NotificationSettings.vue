@@ -1,17 +1,17 @@
 <template>
-  <Card class="glass-card">
-    <div class="space-y-6">
+  <Card class="glass-card border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
+    <div class="space-y-4">
       <!-- Header -->
       <div class="flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div class="p-3 rounded-lg bg-warning/10">
-            <BellIcon class="w-5 h-5 text-warning" />
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 rounded-lg bg-gradient-to-br from-purple-600/20 to-purple-500/10 border border-purple-500/30">
+            <BellIcon class="w-4 h-4 text-purple-400" />
           </div>
           <div>
-            <h3 class="text-lg font-semibold titillium-web-semibold">
+            <h3 class="text-base font-bold titillium-web-semibold">
               Notification Settings
             </h3>
-            <p class="text-sm text-muted-foreground">
+            <p class="text-[10px] text-muted-foreground font-medium">
               Configure notification preferences
             </p>
           </div>
@@ -29,10 +29,10 @@
       </div>
 
       <!-- Form Fields -->
-      <div class="space-y-6">
+      <div class="space-y-4">
         <!-- Discord Webhook -->
         <div>
-          <label class="block text-sm font-medium mb-2">
+          <label class="block text-[10px] font-bold mb-1.5 uppercase tracking-wide">
             Discord Webhook URL
           </label>
           <Input

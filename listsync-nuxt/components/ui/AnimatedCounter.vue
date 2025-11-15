@@ -6,12 +6,13 @@
 
 <script setup lang="ts">
 interface Props {
-  value: number
+  value?: number | null
   duration?: number
   format?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  value: 0,
   duration: 1000,
   format: true,
 })
@@ -57,12 +58,14 @@ const animateCounter = (start: number, end: number) => {
 
 // Watch for value changes
 watch(() => props.value, (newValue, oldValue) => {
-  const start = oldValue ?? currentValue.value
-  animateCounter(start, newValue)
+  const safeNewValue = newValue ?? 0
+  const safeOldValue = oldValue ?? currentValue.value
+  animateCounter(safeOldValue, safeNewValue)
 }, { immediate: true })
 
 onMounted(() => {
-  animateCounter(0, props.value)
+  const safeValue = props.value ?? 0
+  animateCounter(0, safeValue)
 })
 </script>
 

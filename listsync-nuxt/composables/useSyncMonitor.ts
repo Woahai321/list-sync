@@ -145,11 +145,14 @@ export const useSyncMonitor = () => {
   }
 
   // Auto-connect on mount (client-side only)
+  // DISABLED: Endpoint doesn't support SSE yet, returns JSON instead
+  // TODO: Enable when backend implements SSE endpoint
   onMounted(() => {
-    if (process.client) {
-      // Try to connect, but don't fail if SSE endpoint doesn't exist
-      connect()
-    }
+    // Disabled until backend supports SSE
+    // if (process.client) {
+    //   // Try to connect, but don't fail if SSE endpoint doesn't exist
+    //   connect()
+    // }
   })
 
   // Cleanup on unmount

@@ -1,98 +1,80 @@
 <template>
-  <Card variant="default">
-    <template #header>
-      <div class="flex items-center justify-between">
-        <h3 class="text-lg font-semibold">System Status</h3>
-        <Badge
-          :variant="systemStore.isHealthy ? 'success' : 'error'"
-          size="sm"
-        >
-          {{ systemStore.isHealthy ? 'Healthy' : 'Issues Detected' }}
-        </Badge>
-      </div>
-    </template>
-
-    <div class="space-y-4">
-      <!-- Service Status Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <!-- Database -->
-        <div :class="serviceCardClasses(health?.database)">
-          <div class="flex items-center gap-3">
-            <component :is="DatabaseIcon" :size="20" :class="health?.database ? 'text-green-400' : 'text-red-400'" />
-            <div class="flex-1">
-              <p class="text-sm font-medium text-foreground">Database</p>
-              <p class="text-xs text-muted-foreground">
-                {{ health?.database ? 'Connected' : 'Disconnected' }}
-              </p>
-            </div>
-            <div :class="statusDotClass(health?.database)" />
+  <Card variant="default" class="overflow-hidden relative group/card">
+    <!-- Animated gradient background -->
+    <div class="absolute inset-0 bg-gradient-to-br from-purple-600/10 via-purple-500/5 to-transparent opacity-60 group-hover/card:opacity-80 transition-opacity duration-500" />
+    
+    <div class="relative space-y-3">
+      <!-- Top Row: Overall Health -->
+      <div :class="`p-3 rounded-lg bg-gradient-to-br from-purple-600/20 to-purple-500/10 border ${systemStore.isHealthy ? 'border-green-500/40' : 'border-red-500/40'}`">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-1.5">
+            <component :is="ActivityIcon" :size="14" class="text-purple-400" />
+            <span class="text-[9px] font-bold text-purple-300 uppercase tracking-wide">System</span>
           </div>
+          <div :class="systemStore.isHealthy ? 'px-2 py-0.5 rounded-full bg-purple-400/20 border border-purple-400/30' : 'px-2 py-0.5 rounded-full bg-red-400/20 border border-red-400/30'">
+            <span :class="systemStore.isHealthy ? 'text-[10px] font-bold text-purple-200' : 'text-[10px] font-bold text-red-300'">
+              {{ systemStore.isHealthy ? 'Healthy' : 'Issues' }}
+            </span>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="text-2xl font-bold text-foreground tabular-nums leading-none">
+            {{ systemStore.healthyServicesCount }}<span class="text-base text-muted-foreground">/{{ systemStore.totalServicesCount }}</span>
+          </div>
+          <div class="flex-1">
+            <p class="text-[10px] text-purple-300/70">Services Operational</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Service Status Grid -->
+      <div class="grid grid-cols-3 gap-2">
+        <!-- Database -->
+        <div :class="`p-2.5 rounded-lg bg-gradient-to-br from-purple-500/20 to-purple-400/10 border ${health?.database ? 'border-green-500/40' : 'border-red-500/40'}`">
+          <div class="flex items-center gap-1.5 mb-1.5">
+            <component :is="DatabaseIcon" :size="14" :class="health?.database ? 'text-purple-300' : 'text-red-400'" />
+            <div :class="health?.database ? 'w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse' : 'w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse'" />
+          </div>
+          <p class="text-xs font-semibold text-foreground mb-0.5">Database</p>
+          <p class="text-[10px] text-muted-foreground">
+            {{ health?.database ? 'Connected' : 'Disconnected' }}
+          </p>
         </div>
 
         <!-- Process -->
-        <div :class="serviceCardClasses(health?.process)">
-          <div class="flex items-center gap-3">
-            <component :is="CpuIcon" :size="20" :class="health?.process ? 'text-green-400' : 'text-red-400'" />
-            <div class="flex-1">
-              <p class="text-sm font-medium text-foreground">Process</p>
-              <p class="text-xs text-muted-foreground">
-                {{ health?.process ? 'Running' : 'Stopped' }}
-              </p>
-            </div>
-            <div :class="statusDotClass(health?.process)" />
+        <div :class="`p-2.5 rounded-lg bg-gradient-to-br from-purple-400/20 to-purple-300/10 border ${health?.process ? 'border-green-500/40' : 'border-red-500/40'}`">
+          <div class="flex items-center gap-1.5 mb-1.5">
+            <component :is="CpuIcon" :size="14" :class="health?.process ? 'text-purple-200' : 'text-red-400'" />
+            <div :class="health?.process ? 'w-1.5 h-1.5 rounded-full bg-purple-300 animate-pulse' : 'w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse'" />
           </div>
+          <p class="text-xs font-semibold text-foreground mb-0.5">Process</p>
+          <p class="text-[10px] text-muted-foreground">
+            {{ health?.process ? 'Running' : 'Stopped' }}
+          </p>
         </div>
 
         <!-- Overseerr -->
-        <div :class="serviceCardClasses(systemStore.isOverseerrConnected)">
-          <div class="flex items-center gap-3">
-            <component :is="ServerIcon" :size="20" :class="systemStore.isOverseerrConnected ? 'text-green-400' : 'text-red-400'" />
-            <div class="flex-1">
-              <p class="text-sm font-medium text-foreground">Overseerr</p>
-              <p class="text-xs text-muted-foreground">
-                {{ systemStore.isOverseerrConnected ? 'Connected' : 'Disconnected' }}
-              </p>
-            </div>
-            <div :class="statusDotClass(systemStore.isOverseerrConnected)" />
+        <div :class="`p-2.5 rounded-lg bg-gradient-to-br from-purple-300/20 to-purple-200/10 border ${systemStore.isOverseerrConnected ? 'border-green-500/40' : 'border-red-500/40'}`">
+          <div class="flex items-center gap-1.5 mb-1.5">
+            <component :is="ServerIcon" :size="14" :class="systemStore.isOverseerrConnected ? 'text-purple-100' : 'text-red-400'" />
+            <div :class="systemStore.isOverseerrConnected ? 'w-1.5 h-1.5 rounded-full bg-purple-200 animate-pulse' : 'w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse'" />
           </div>
-        </div>
-      </div>
-
-      <!-- Health Percentage -->
-      <div class="flex items-center gap-4 p-4 rounded-lg bg-black/20">
-        <div class="flex-shrink-0">
-          <ProgressRing
-            :progress="systemStore.healthPercentage"
-            :size="80"
-            :stroke-width="6"
-            :color="systemStore.healthPercentage >= 100 ? 'success' : systemStore.healthPercentage >= 66 ? 'warning' : 'error'"
-          >
-            <span class="text-sm font-bold">{{ systemStore.healthyServicesCount }}/{{ systemStore.totalServicesCount }}</span>
-          </ProgressRing>
-        </div>
-        
-        <div class="flex-1">
-          <p class="text-sm font-medium text-foreground mb-1">Overall Health</p>
-          <p class="text-xs text-muted-foreground">
-            {{ systemStore.healthyServicesCount }} of {{ systemStore.totalServicesCount }} services operational
+          <p class="text-xs font-semibold text-foreground mb-0.5">Overseerr</p>
+          <p class="text-[10px] text-muted-foreground">
+            {{ systemStore.isOverseerrConnected ? 'Connected' : 'Disconnected' }}
           </p>
         </div>
       </div>
 
-      <!-- Sync Information -->
-      <div v-if="health" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <!-- Sync Status -->
-        <div class="p-3 rounded-lg bg-black/20">
-          <p class="text-xs text-muted-foreground mb-1">Sync Status</p>
-          <Badge :variant="getSyncStatusVariant(health.sync_status)" size="sm">
-            {{ health.sync_status || 'Unknown' }}
-          </Badge>
-        </div>
-
+      <!-- Sync Timing Info -->
+      <div v-if="health" class="grid grid-cols-2 gap-2 items-stretch">
         <!-- Last Sync -->
-        <div class="p-3 rounded-lg bg-black/20">
-          <p class="text-xs text-muted-foreground mb-1">Last Sync</p>
-          <p class="text-sm font-medium text-foreground">
+        <div class="p-2 rounded-lg bg-purple-500/5 border border-purple-500/10 flex flex-col">
+          <div class="flex items-center gap-1.5 mb-1">
+            <div class="w-1.5 h-1.5 rounded-full bg-purple-400"></div>
+            <span class="text-[9px] text-muted-foreground uppercase font-medium">Last Sync</span>
+          </div>
+          <p class="text-xs font-semibold text-foreground flex-1">
             <ClientOnly>
               {{ health.last_sync ? formatRelativeTime(health.last_sync) : 'Never' }}
               <template #fallback>
@@ -103,9 +85,12 @@
         </div>
 
         <!-- Next Sync -->
-        <div class="p-3 rounded-lg bg-black/20">
-          <p class="text-xs text-muted-foreground mb-1">Next Sync</p>
-          <p class="text-sm font-medium text-foreground">
+        <div class="p-2 rounded-lg bg-purple-500/5 border border-purple-500/10 flex flex-col">
+          <div class="flex items-center gap-1.5 mb-1">
+            <div class="w-1.5 h-1.5 rounded-full bg-purple-300"></div>
+            <span class="text-[9px] text-muted-foreground uppercase font-medium">Next Sync</span>
+          </div>
+          <p class="text-xs font-semibold text-foreground flex-1">
             <ClientOnly>
               {{ health.next_sync ? formatFutureTime(health.next_sync) : 'Not scheduled' }}
               <template #fallback>
@@ -124,8 +109,10 @@ import {
   Database as DatabaseIcon,
   Cpu as CpuIcon,
   Server as ServerIcon,
+  Activity as ActivityIcon,
 } from 'lucide-vue-next'
 import type { SystemHealth } from '~/types'
+import { formatRelativeTime, formatFutureTime } from '~/utils/formatters'
 
 interface Props {
   health?: SystemHealth | null
@@ -134,33 +121,5 @@ interface Props {
 defineProps<Props>()
 
 const systemStore = useSystemStore()
-
-const serviceCardClasses = (isHealthy?: boolean) => {
-  const baseClasses = 'p-4 rounded-lg border transition-all'
-  
-  if (isHealthy) {
-    return `${baseClasses} bg-green-500/5 border-green-500/20 hover:border-green-500/30`
-  }
-  return `${baseClasses} bg-red-500/5 border-red-500/20 hover:border-red-500/30`
-}
-
-const statusDotClass = (isHealthy?: boolean) => {
-  const baseClasses = 'w-2 h-2 rounded-full'
-  
-  if (isHealthy) {
-    return `${baseClasses} bg-green-500 pulse-glow`
-  }
-  return `${baseClasses} bg-red-500 animate-pulse`
-}
-
-const getSyncStatusVariant = (status: string) => {
-  const statusMap: Record<string, 'success' | 'error' | 'warning' | 'info'> = {
-    'idle': 'info',
-    'running': 'warning',
-    'completed': 'success',
-    'failed': 'error',
-  }
-  return statusMap[status?.toLowerCase()] || 'default'
-}
 </script>
 

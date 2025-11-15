@@ -95,19 +95,27 @@ export const useSyncStore = defineStore('sync', {
         const status = await api.getLiveSyncStatus()
         
         this.liveSyncStatus = status
-        this.isRunning = status.is_running
-        this.status = status.status
+        this.isRunning = status.is_running || false
+        this.status = status.status || 'idle'
         
-        // Parse progress if available in last_activity
-        if (status.last_activity) {
-          const progressMatch = status.last_activity.match(/\((\d+)\/(\d+)\)/)
-          if (progressMatch) {
-            this.itemsProcessed = parseInt(progressMatch[1])
-            this.totalItems = parseInt(progressMatch[2])
-          }
+        // Note: The status already includes sync_type (e.g., "running_full", "running_single", "idle")
+        // So we don't need to modify it here
+        
+        // Clear progress tracking since we no longer parse from last_activity
+        // Progress can be tracked separately if needed in the future
+        if (!this.isRunning) {
+          this.itemsProcessed = 0
+          this.totalItems = 0
         }
+        
+        this.lastFetched = new Date()
       } catch (err: any) {
         console.error('Error fetching live sync status:', err)
+        // On error, assume sync is not running
+        this.isRunning = false
+        this.status = 'error'
+        this.error = err.message || 'Failed to fetch sync status'
+        this.lastFetched = new Date()
       }
     },
 

@@ -3,10 +3,10 @@
     <!-- Header -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div>
-        <h1 class="text-3xl font-bold text-foreground titillium-web-bold">
+        <h1 class="text-4xl font-bold text-foreground titillium-web-bold bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text text-transparent">
           Sync History
         </h1>
-        <p class="text-muted-foreground mt-1">
+        <p class="text-muted-foreground mt-2 text-base">
           View detailed history of all sync operations and their results
         </p>
       </div>
@@ -24,76 +24,76 @@
     </div>
 
     <!-- Quick Stats -->
-    <div v-if="stats" class="grid grid-cols-1 md:grid-cols-4 gap-6">
-      <Card variant="hover" class="group/stat cursor-default">
+    <div v-if="stats" class="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <Card variant="hover" class="group/stat cursor-default border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
         <div class="flex items-center justify-between">
           <div class="flex-1">
-            <p class="text-sm text-muted-foreground mb-1">Total Syncs (7d)</p>
-            <p class="text-3xl font-bold text-foreground tabular-nums">
+            <p class="text-[10px] text-muted-foreground mb-1 font-medium">Total Syncs (7d)</p>
+            <p class="text-2xl font-bold text-foreground tabular-nums leading-none">
               <AnimatedCounter :value="stats.recent_stats.last_7d" />
             </p>
           </div>
-          <div class="p-4 rounded-xl bg-gradient-to-br from-purple-500/20 to-purple-600/20 group-hover/stat:from-purple-500/30 group-hover/stat:to-purple-600/30 transition-all duration-300">
-            <component :is="HistoryIcon" :size="28" class="text-purple-400 group-hover/stat:scale-110 transition-transform duration-300" />
+          <div class="p-2 rounded-lg bg-gradient-to-br from-purple-600/20 to-purple-500/10 border border-purple-500/30 group-hover/stat:border-purple-400/50 transition-all duration-300">
+            <component :is="HistoryIcon" :size="14" class="text-purple-400 group-hover/stat:scale-110 transition-transform duration-300" />
           </div>
         </div>
       </Card>
 
-      <Card variant="hover" class="group/stat cursor-default">
+      <Card variant="hover" class="group/stat cursor-default border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
         <div class="flex items-center justify-between">
           <div class="flex-1">
-            <p class="text-sm text-muted-foreground mb-1">Items Processed</p>
-            <p class="text-3xl font-bold text-foreground tabular-nums">
+            <p class="text-[10px] text-muted-foreground mb-1 font-medium">Items Processed</p>
+            <p class="text-2xl font-bold text-foreground tabular-nums leading-none">
               <AnimatedCounter :value="stats.total_items_processed" />
             </p>
           </div>
-          <div class="p-4 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-600/20 group-hover/stat:from-blue-500/30 group-hover/stat:to-cyan-600/30 transition-all duration-300">
-            <component :is="LayersIcon" :size="28" class="text-blue-400 group-hover/stat:scale-110 transition-transform duration-300" />
+          <div class="p-2 rounded-lg bg-gradient-to-br from-purple-500/18 to-purple-400/9 border border-purple-400/28 group-hover/stat:border-purple-300/45 transition-all duration-300">
+            <component :is="LayersIcon" :size="14" class="text-purple-300 group-hover/stat:scale-110 transition-transform duration-300" />
           </div>
         </div>
       </Card>
 
-      <Card variant="hover" class="group/stat cursor-default">
+      <Card variant="hover" class="group/stat cursor-default border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
         <div class="flex items-center justify-between">
           <div class="flex-1">
-            <p class="text-sm text-muted-foreground mb-1">Success Rate</p>
-            <p class="text-3xl font-bold text-foreground tabular-nums">
-              {{ stats.success_rate.toFixed(1) }}<span class="text-xl">%</span>
+            <p class="text-[10px] text-muted-foreground mb-1 font-medium">Success Rate</p>
+            <p class="text-2xl font-bold text-foreground tabular-nums leading-none">
+              {{ stats.success_rate.toFixed(1) }}<span class="text-lg">%</span>
             </p>
           </div>
-          <div class="p-4 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-600/20 group-hover/stat:from-green-500/30 group-hover/stat:to-emerald-600/30 transition-all duration-300">
-            <component :is="CheckCircleIcon" :size="28" class="text-green-400 group-hover/stat:scale-110 transition-transform duration-300" />
+          <div class="p-2 rounded-lg bg-gradient-to-br from-purple-400/20 to-purple-300/10 border border-purple-300/30 group-hover/stat:border-purple-200/45 transition-all duration-300">
+            <component :is="CheckCircleIcon" :size="14" class="text-purple-200 group-hover/stat:scale-110 transition-transform duration-300" />
           </div>
         </div>
       </Card>
 
-      <Card variant="hover" class="group/stat cursor-default">
+      <Card variant="hover" class="group/stat cursor-default border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
         <div class="flex items-center justify-between">
           <div class="flex-1">
-            <p class="text-sm text-muted-foreground mb-1">Avg Per Item</p>
-            <p class="text-3xl font-bold text-foreground tabular-nums">
+            <p class="text-[10px] text-muted-foreground mb-1 font-medium">Avg Duration</p>
+            <p class="text-2xl font-bold text-foreground tabular-nums leading-none">
               {{ formatDuration(stats.avg_duration_seconds) }}
             </p>
           </div>
-          <div class="p-4 rounded-xl bg-gradient-to-br from-orange-500/20 to-amber-600/20 group-hover/stat:from-orange-500/30 group-hover/stat:to-amber-600/30 transition-all duration-300">
-            <component :is="ClockIcon" :size="28" class="text-orange-400 group-hover/stat:scale-110 transition-transform duration-300" />
+          <div class="p-2 rounded-lg bg-gradient-to-br from-purple-300/20 to-purple-200/10 border border-purple-200/30 group-hover/stat:border-purple-100/45 transition-all duration-300">
+            <component :is="ClockIcon" :size="14" class="text-purple-100 group-hover/stat:scale-110 transition-transform duration-300" />
           </div>
         </div>
       </Card>
     </div>
 
     <!-- Filters -->
-    <Card>
-      <div class="space-y-4">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <Card class="border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
+      <div class="space-y-3">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           <!-- Type Filter -->
           <div>
-            <label class="block text-sm font-medium text-muted-foreground mb-2">
+            <label class="block text-[10px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wide">
               Sync Type
             </label>
             <select
               v-model="filters.type"
-              class="w-full px-4 py-2 rounded-lg bg-black/30 border border-purple-500/20 text-foreground focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 transition-all"
+              class="w-full px-3 py-1.5 rounded-lg bg-black/30 border border-purple-500/30 text-foreground text-sm focus:border-purple-400/50 focus:ring-2 focus:ring-purple-500/20 transition-all"
               @change="applyFilters"
             >
               <option value="">All Types</option>
@@ -104,12 +104,12 @@
 
           <!-- Date Range -->
           <div>
-            <label class="block text-sm font-medium text-muted-foreground mb-2">
+            <label class="block text-[10px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wide">
               Time Period
             </label>
             <select
               v-model="filters.period"
-              class="w-full px-4 py-2 rounded-lg bg-black/30 border border-purple-500/20 text-foreground focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 transition-all"
+              class="w-full px-3 py-1.5 rounded-lg bg-black/30 border border-purple-500/30 text-foreground text-sm focus:border-purple-400/50 focus:ring-2 focus:ring-purple-500/20 transition-all"
               @change="applyFilters"
             >
               <option value="all">All Time</option>

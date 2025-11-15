@@ -1,12 +1,12 @@
 <template>
-  <div class="space-y-8">
+  <div class="space-y-6 sm:space-y-8 px-2 sm:px-0">
     <!-- Welcome Header -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
       <div>
-        <h1 class="text-3xl font-bold text-foreground titillium-web-bold">
+        <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground titillium-web-bold bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text text-transparent">
           Dashboard
         </h1>
-        <p class="text-muted-foreground mt-1">
+        <p class="text-muted-foreground mt-1.5 sm:mt-2 text-sm sm:text-base">
           Welcome back! Here's what's happening with your sync.
         </p>
       </div>
@@ -16,27 +16,28 @@
         :icon="RefreshIcon"
         :loading="isRefreshing"
         @click="refreshData"
+        class="w-full sm:w-auto touch-manipulation"
       >
         Refresh
       </Button>
     </div>
 
     <!-- Loading State -->
-    <div v-if="isInitialLoading" class="flex items-center justify-center py-20">
-      <div class="text-center space-y-4">
+    <div v-if="isInitialLoading" class="flex items-center justify-center py-12 sm:py-20 px-4">
+      <div class="text-center space-y-3 sm:space-y-4">
         <LoadingSpinner size="lg" :text="loadError ? 'Retrying...' : 'Loading dashboard...'" />
-        <div v-if="loadError" class="space-y-2">
-          <p class="text-sm text-yellow-400">
+        <div v-if="loadError" class="space-y-1.5 sm:space-y-2">
+          <p class="text-xs sm:text-sm text-yellow-400 px-2">
             {{ loadError }}
           </p>
-          <p class="text-xs text-muted-foreground">
+          <p class="text-xs text-muted-foreground px-2">
             Waiting for first sync to complete... (Attempt {{ retryCount }}/{{ maxRetries }})
           </p>
-          <p class="text-xs text-muted-foreground">
+          <p class="text-xs text-muted-foreground px-2">
             Retrying in 5 seconds...
           </p>
         </div>
-        <p v-else class="text-sm text-muted-foreground">
+        <p v-else class="text-xs sm:text-sm text-muted-foreground px-2">
           Initializing dashboard components...
         </p>
       </div>
@@ -44,26 +45,28 @@
 
     <!-- Error State (after max retries) -->
     <Card v-else-if="loadError && retryCount >= maxRetries" variant="default" class="glass-card">
-      <div class="text-center py-12">
-        <component :is="LayersIcon" :size="48" class="mx-auto text-red-400 mb-4" />
-        <h3 class="text-lg font-semibold mb-2 text-foreground">Unable to Load Dashboard</h3>
-        <p class="text-sm text-muted-foreground mb-4">
+      <div class="text-center py-8 sm:py-12 px-4">
+        <component :is="LayersIcon" :size="40" class="sm:w-12 sm:h-12 mx-auto text-red-400 mb-3 sm:mb-4" />
+        <h3 class="text-base sm:text-lg font-semibold mb-2 text-foreground">Unable to Load Dashboard</h3>
+        <p class="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4 px-2">
           {{ loadError }}
         </p>
-        <p class="text-sm text-muted-foreground mb-6">
+        <p class="text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6 px-2">
           This usually happens when the first sync hasn't completed yet. Please wait a few moments and try again.
         </p>
-        <div class="flex items-center justify-center gap-3">
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2 sm:gap-3 px-2">
           <Button
             variant="primary"
             :icon="RefreshIcon"
             @click="() => { retryCount = 0; isInitialLoading = true; fetchDashboardData() }"
+            class="w-full sm:w-auto touch-manipulation"
           >
             Retry Now
           </Button>
           <Button
             variant="secondary"
             @click="$router.push('/logs')"
+            class="w-full sm:w-auto touch-manipulation"
           >
             View Logs
           </Button>
@@ -73,77 +76,105 @@
 
     <!-- Dashboard Content -->
     <template v-else>
-      <!-- Quick Actions -->
-      <QuickActions />
-
+      <!-- Sync Progress Indicator (Top) -->
+      <SyncProgressIndicator />
+      
       <!-- Stats Overview with View All Link -->
-      <div v-if="statsStore.syncStats" class="space-y-4">
-        <div class="flex items-center justify-between">
-          <h2 class="text-xl font-bold text-foreground titillium-web-bold">
+      <div v-if="statsStore.syncStats" class="space-y-3 sm:space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+          <h2 class="text-lg sm:text-xl font-bold text-foreground titillium-web-bold">
             Statistics Overview
           </h2>
           <NuxtLink
             to="/items"
-            class="text-sm text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1 group"
+            class="text-xs sm:text-sm text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1 group touch-manipulation min-h-[44px] sm:min-h-0"
           >
             View All Items
-            <component :is="ArrowRightIcon" :size="16" class="group-hover:translate-x-1 transition-transform" />
+            <component :is="ArrowRightIcon" :size="14" class="sm:w-4 sm:h-4 group-hover:translate-x-1 transition-transform" />
           </NuxtLink>
         </div>
         <StatsOverview :stats="statsStore.syncStats" />
       </div>
 
-      <!-- Sync History Overview -->
-      <div v-if="syncHistoryStats" class="space-y-4">
-        <div class="flex items-center justify-between">
-          <h2 class="text-xl font-bold text-foreground titillium-web-bold">
-            Sync History
+      <!-- Recent Items -->
+      <div class="space-y-3 sm:space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+          <h2 class="text-lg sm:text-xl font-bold text-foreground titillium-web-bold">
+            Recently Synced
           </h2>
           <NuxtLink
-            to="/sync-history"
-            class="text-sm text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1 group"
+            to="/items"
+            class="text-xs sm:text-sm text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1 group touch-manipulation min-h-[44px] sm:min-h-0"
           >
-            View All History
-            <component :is="ArrowRightIcon" :size="16" class="group-hover:translate-x-1 transition-transform" />
+            View All Items
+            <component :is="ArrowRightIcon" :size="14" class="sm:w-4 sm:h-4 group-hover:translate-x-1 transition-transform" />
           </NuxtLink>
         </div>
-        <SyncHistoryOverview :stats="syncHistoryStats" />
+        <Card variant="default" class="glass-card">
+          <div v-if="recentItemsLoading" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4 p-2 sm:p-0">
+            <PosterCardSkeleton v-for="i in 5" :key="`skeleton-${i}`" />
+          </div>
+          <div v-else-if="recentItems.length > 0" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4 p-2 sm:p-0">
+            <PosterCard
+              v-for="item in recentItems"
+              :key="item.id"
+              :item="item"
+            />
+          </div>
+          <div v-else class="text-center py-8 sm:py-12 px-4">
+            <p class="text-xs sm:text-sm text-muted-foreground">No items synced yet</p>
+          </div>
+        </Card>
       </div>
 
-      <!-- System Health & Recent Activity with Headers -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- System Status & Sync History -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <!-- System Status -->
-        <div class="space-y-4">
-          <div class="flex items-center justify-between">
-            <h2 class="text-xl font-bold text-foreground titillium-web-bold">
+        <div class="space-y-3 sm:space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+            <h2 class="text-lg sm:text-xl font-bold text-foreground titillium-web-bold">
               System Status
             </h2>
             <NuxtLink
               to="/settings"
-              class="text-sm text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1 group"
+              class="text-xs sm:text-sm text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1 group touch-manipulation min-h-[44px] sm:min-h-0"
             >
               Settings
-              <component :is="ArrowRightIcon" :size="16" class="group-hover:translate-x-1 transition-transform" />
+              <component :is="ArrowRightIcon" :size="14" class="sm:w-4 sm:h-4 group-hover:translate-x-1 transition-transform" />
             </NuxtLink>
           </div>
           <SystemStatus :health="systemStore.health" />
         </div>
 
-        <!-- Recent Activity -->
-        <div class="space-y-4">
-          <div class="flex items-center justify-between">
-            <h2 class="text-xl font-bold text-foreground titillium-web-bold">
-              Recent Activity
+        <!-- Sync History -->
+        <div class="space-y-3 sm:space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+            <h2 class="text-lg sm:text-xl font-bold text-foreground titillium-web-bold">
+              Sync History
             </h2>
             <NuxtLink
-              to="/recent-activity"
-              class="text-sm text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1 group"
+              v-if="syncHistoryStats && syncHistoryStats.total_sessions > 0"
+              to="/sync-history"
+              class="text-xs sm:text-sm text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1 group touch-manipulation min-h-[44px] sm:min-h-0"
             >
-              View All
-              <component :is="ArrowRightIcon" :size="16" class="group-hover:translate-x-1 transition-transform" />
+              View All History
+              <component :is="ArrowRightIcon" :size="14" class="sm:w-4 sm:h-4 group-hover:translate-x-1 transition-transform" />
             </NuxtLink>
           </div>
-          <RecentActivity :activities="recentActivities" :loading="activitiesLoading" />
+          
+          <!-- First Sync in Progress Message -->
+          <Card v-if="!syncHistoryStats || syncHistoryStats.total_sessions === 0" variant="default" class="glass-card">
+            <div class="text-center py-6 sm:py-8 px-4">
+              <component :is="LayersIcon" :size="32" class="sm:w-10 sm:h-10 mx-auto text-purple-400 mb-2 sm:mb-3 animate-pulse" />
+              <h3 class="text-sm sm:text-base font-semibold mb-1 sm:mb-1.5 text-foreground">First Sync in Progress</h3>
+              <p class="text-xs sm:text-sm text-muted-foreground px-2">
+                Your sync is running. History will appear here once the first sync completes.
+              </p>
+            </div>
+          </Card>
+          
+          <!-- Sync History Stats (when available) -->
+          <SyncHistoryOverview v-else :stats="syncHistoryStats" />
         </div>
       </div>
 
@@ -159,6 +190,44 @@
     </template>
 
     <!-- Connection Status - Hidden (polling works fine) -->
+
+    <!-- Floating Quick Actions Menu -->
+    <QuickActions />
+
+    <!-- Sync In Progress Modal/Indicator -->
+    <Transition name="fade">
+      <div
+        v-if="syncStore.isSyncing"
+        class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 left-4 sm:left-auto z-50 max-w-sm sm:max-w-sm mx-auto sm:mx-0"
+      >
+        <Card
+          variant="default"
+          class="glass-card border-2 border-purple-500/50 bg-gradient-to-r from-purple-600/20 to-purple-500/10 shadow-2xl"
+        >
+          <div class="flex items-center gap-2 sm:gap-3 p-3 sm:p-4">
+            <div class="flex-shrink-0">
+              <RefreshIcon class="w-4 h-4 sm:w-5 sm:h-5 text-purple-400 animate-spin" />
+            </div>
+            <div class="flex-1 min-w-0">
+              <h4 class="text-xs sm:text-sm font-bold text-foreground truncate">
+                Sync in Progress
+              </h4>
+              <p class="text-[10px] sm:text-xs text-muted-foreground truncate">
+                {{ syncStore.liveSyncStatus?.sync_type === 'full' ? 'Full sync' : 'Single list sync' }} is running...
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              @click="navigateTo('/logs')"
+              class="flex-shrink-0 touch-manipulation text-xs sm:text-sm min-h-[36px] sm:min-h-[44px]"
+            >
+              View Logs
+            </Button>
+          </div>
+        </Card>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -168,7 +237,10 @@ import {
   Layers as LayersIcon,
   ArrowRight as ArrowRightIcon,
 } from 'lucide-vue-next'
+import { Transition, watch } from 'vue'
 import type { RecentActivity, SyncHistoryStats } from '~/types'
+import PosterCard from '~/components/items/PosterCard.vue'
+import PosterCardSkeleton from '~/components/items/PosterCardSkeleton.vue'
 
 const statsStore = useStatsStore()
 const systemStore = useSystemStore()
@@ -188,6 +260,8 @@ const isInitialLoading = ref(true)
 const isRefreshing = ref(false)
 const recentActivities = ref<RecentActivity[]>([])
 const activitiesLoading = ref(false)
+const recentItems = ref<any[]>([])
+const recentItemsLoading = ref(false)
 const syncHistoryStats = ref<SyncHistoryStats | null>(null)
 const loadError = ref<string | null>(null)
 const retryCount = ref(0)
@@ -232,6 +306,26 @@ const fetchSyncHistoryStats = async () => {
   }
 }
 
+// Fetch recent items (5 most recently synced)
+const fetchRecentItems = async () => {
+  recentItemsLoading.value = true
+  try {
+    const api = useApiService()
+    const response: any = await api.getEnrichedItems(1, 5)
+    
+    if (response && response.items && Array.isArray(response.items)) {
+      recentItems.value = response.items
+    } else {
+      recentItems.value = []
+    }
+  } catch (error) {
+    console.error('Error fetching recent items:', error)
+    recentItems.value = []
+  } finally {
+    recentItemsLoading.value = false
+  }
+}
+
 // Fetch all dashboard data
 const fetchDashboardData = async () => {
   try {
@@ -254,9 +348,9 @@ const fetchDashboardData = async () => {
         console.warn('Sync interval fetch failed (will retry):', err)
         // Don't throw - sync interval might not be set yet
       }),
-      fetchRecentActivities().catch(err => {
-        console.warn('Recent activities fetch failed (will retry):', err)
-        // Don't throw - activities might not exist yet
+      fetchRecentItems().catch(err => {
+        console.warn('Recent items fetch failed (will retry):', err)
+        // Don't throw - items might not exist yet
       }),
       fetchSyncHistoryStats().catch(err => {
         console.warn('Sync history fetch failed (will retry):', err)
@@ -299,7 +393,7 @@ const refreshData = async () => {
     await Promise.all([
       statsStore.refresh(),
       systemStore.refresh(),
-      fetchRecentActivities(),
+      fetchRecentItems(),
       fetchSyncHistoryStats(),
     ])
     showSuccess('Dashboard refreshed')
@@ -314,17 +408,79 @@ const refreshData = async () => {
 onMounted(() => {
   fetchDashboardData()
   
-  // Auto-refresh every 30 seconds via polling
+  // Fetch sync status on mount
+  syncStore.fetchLiveSyncStatus()
+  
+  // Auto-refresh every 30 seconds via polling (or 5 seconds when syncing)
+  // Note: fetchRecentItems() excluded from polling to avoid distracting animations
+  // Recent items only update after manual refresh or when a sync completes
   if (process.client) {
-    const { startPolling } = useSmartPolling(async () => {
-      await statsStore.fetchStats()
-      await systemStore.checkHealth()
-      await fetchRecentActivities()
-      await fetchSyncHistoryStats()
-    }, 30000)
+    let pollingInterval: NodeJS.Timeout | null = null
+    
+    const startPolling = () => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval)
+      }
+      
+      const poll = async () => {
+        await Promise.all([
+          statsStore.fetchStats(),
+          systemStore.checkHealth(),
+          fetchSyncHistoryStats(),
+          syncStore.fetchLiveSyncStatus(), // Include sync status
+        ])
+      }
+      
+      // Poll immediately
+      poll()
+      
+      // Then poll at dynamic interval
+      const updateInterval = () => {
+        const interval = syncStore.isSyncing ? 5000 : 30000
+        if (pollingInterval) {
+          clearInterval(pollingInterval)
+        }
+        pollingInterval = setInterval(poll, interval)
+      }
+      
+      updateInterval()
+      
+      // Watch for sync status changes and update interval
+      watch(() => syncStore.isSyncing, () => {
+        updateInterval()
+      }, { immediate: false })
+    }
     
     startPolling()
+    
+    // Cleanup on unmount
+    onUnmounted(() => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval)
+      }
+    })
+    
+    // Prefetch items page data in background for instant navigation
+    // Wait 2 seconds after dashboard loads, then prefetch
+    setTimeout(() => {
+      const itemsCache = useItemsCache()
+      console.log('🚀 Dashboard: Prefetching items page for instant navigation...')
+      itemsCache.prefetchPages([1, 2], 50)
+    }, 2000)
   }
 })
 </script>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
+}
+</style>
 

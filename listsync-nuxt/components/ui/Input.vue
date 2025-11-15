@@ -103,14 +103,16 @@ const handleClear = () => {
 const inputClasses = computed(() => {
   const baseClasses = [
     'w-full rounded-xl',  // More rounded (12px)
-    'h-10',  // Consistent height (40px)
+    'h-11 sm:h-10',  // Larger on mobile (44px), standard on desktop (40px)
     'bg-black/40 backdrop-blur-sm',
     'border-2 transition-all duration-200',  // Thicker border, smooth transition
+    'text-base sm:text-sm',  // Larger text on mobile for better readability
     'text-foreground placeholder:text-muted-foreground/60',
     'focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:ring-offset-0',
     'hover:border-purple-500/40',  // Hover state
     'disabled:opacity-50 disabled:cursor-not-allowed',
-    'px-4 py-2',  // Slightly more padding
+    'px-4 py-2.5 sm:py-2',  // More padding on mobile
+    'touch-manipulation',  // Better touch handling
   ]
 
   // Add padding for icon

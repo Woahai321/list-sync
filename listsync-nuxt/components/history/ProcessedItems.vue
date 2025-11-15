@@ -1,8 +1,8 @@
 <template>
-  <div class="space-y-6">
+  <div class="space-y-4">
     <!-- Search & Filters -->
-    <Card class="glass-card">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <Card class="glass-card border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
         <!-- Search -->
         <div>
           <Input
@@ -31,11 +31,11 @@
 
     <!-- Items Grid -->
     <template v-else-if="items.length > 0">
-      <div class="grid grid-cols-1 gap-4">
+      <div class="grid grid-cols-1 gap-3">
         <Card
           v-for="item in items"
           :key="item.id"
-          class="glass-card hover:border-primary/30 transition-colors"
+          class="glass-card border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300"
         >
           <div class="flex items-start gap-4">
             <!-- Poster/Icon -->

@@ -3,10 +3,10 @@
     <!-- Page Header -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div>
-        <h1 class="text-4xl font-bold text-foreground titillium-web-bold">
+        <h1 class="text-4xl font-bold text-foreground titillium-web-bold bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text text-transparent">
           Requested Items
         </h1>
-        <p class="text-base text-muted-foreground mt-2">
+        <p class="text-muted-foreground mt-2 text-base">
           Items that have been requested in Overseerr
         </p>
       </div>

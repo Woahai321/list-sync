@@ -1,26 +1,26 @@
 <template>
-  <Card class="glass-card">
-    <div class="space-y-6">
+  <Card class="glass-card border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
+    <div class="space-y-4">
       <!-- Header -->
-      <div class="flex items-center gap-3">
-        <div class="p-3 rounded-lg bg-accent/10">
-          <RefreshIcon class="w-5 h-5 text-accent" />
+      <div class="flex items-center gap-2.5">
+        <div class="p-2 rounded-lg bg-gradient-to-br from-purple-600/20 to-purple-500/10 border border-purple-500/30">
+          <RefreshIcon class="w-4 h-4 text-purple-400" />
         </div>
         <div>
-          <h3 class="text-lg font-semibold titillium-web-semibold">
+          <h3 class="text-base font-bold titillium-web-semibold">
             Sync Settings
           </h3>
-          <p class="text-sm text-muted-foreground">
+          <p class="text-[10px] text-muted-foreground font-medium">
             Configure synchronization behavior
           </p>
         </div>
       </div>
 
       <!-- Form Fields -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <!-- Sync Interval -->
         <div>
-          <label class="block text-sm font-medium mb-2">
+          <label class="block text-[10px] font-bold mb-1.5 uppercase tracking-wide">
             Sync Interval (hours)
             <span class="text-danger">*</span>
           </label>
@@ -43,7 +43,7 @@
 
         <!-- Timezone -->
         <div>
-          <label class="block text-sm font-medium mb-2">
+          <label class="block text-[10px] font-bold mb-1.5 uppercase tracking-wide">
             Timezone
           </label>
           <div class="relative">

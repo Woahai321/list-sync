@@ -1,37 +1,37 @@
 <template>
-  <Card class="glass-card">
-    <div class="space-y-6">
+  <Card class="glass-card border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
+    <div class="space-y-4">
       <!-- Header -->
       <div class="flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <TimerIcon class="w-5 h-5 text-primary" />
-          <h3 class="text-lg font-semibold titillium-web-semibold">
+        <div class="flex items-center gap-2.5">
+          <TimerIcon class="w-4 h-4 text-purple-400" />
+          <h3 class="text-base font-bold titillium-web-semibold">
             Sync Interval
           </h3>
         </div>
 
-        <Badge :variant="intervalSource === 'env' ? 'warning' : 'default'">
+        <Badge :variant="intervalSource === 'env' ? 'warning' : 'default'" class="text-[10px]">
           {{ intervalSource === 'env' ? 'Environment' : 'Database' }}
         </Badge>
       </div>
 
       <!-- Current Interval Display -->
-      <div class="bg-muted/10 border border-border/50 rounded-lg p-4">
-        <div class="text-sm text-muted-foreground mb-1">
+      <div class="bg-purple-600/10 border border-purple-500/20 rounded-lg p-3">
+        <div class="text-[10px] text-muted-foreground mb-1 font-medium uppercase tracking-wide">
           Current Interval
         </div>
-        <div class="text-3xl font-bold titillium-web-bold">
-          {{ currentInterval }} <span class="text-xl text-muted-foreground">hours</span>
+        <div class="text-2xl font-bold titillium-web-bold leading-none">
+          {{ currentInterval }} <span class="text-base text-muted-foreground">hours</span>
         </div>
-        <div class="text-sm text-muted-foreground mt-1">
+        <div class="text-[10px] text-muted-foreground mt-1.5 font-medium">
           Sync runs every {{ formatInterval(currentInterval) }}
         </div>
       </div>
 
       <!-- Update Form -->
-      <div class="space-y-4">
+      <div class="space-y-3">
         <div>
-          <label class="block text-sm font-medium mb-2">
+          <label class="block text-[10px] font-bold mb-1.5 uppercase tracking-wide">
             New Interval (hours)
           </label>
           <Input
@@ -52,7 +52,7 @@
 
         <!-- Quick Presets -->
         <div>
-          <div class="text-sm font-medium mb-2">
+          <div class="text-[10px] font-bold mb-1.5 uppercase tracking-wide">
             Quick Presets
           </div>
           <div class="grid grid-cols-3 gap-2">

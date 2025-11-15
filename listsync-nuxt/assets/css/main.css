@@ -11,6 +11,28 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Mobile optimizations */
+@media (max-width: 640px) {
+  /* Prevent zoom on input focus (iOS Safari) */
+  input[type="text"],
+  input[type="url"],
+  input[type="password"],
+  input[type="number"],
+  input[type="email"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+  
+  /* Better touch targets */
+  button,
+  a,
+  input[type="button"],
+  input[type="submit"] {
+    min-height: 44px;
+  }
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
@@ -46,6 +68,213 @@ html {
 /* Smooth transitions for all interactive elements */
 button, a, input, textarea, select {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ============================================
+   SETUP WIZARD ANIMATED BACKGROUND
+   ============================================ */
+
+/* Setup page background with animated purple lines */
+.setup-background {
+  background-color: #111;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  min-height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.setup-lines {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  min-height: 100vh;
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.setup-line {
+  position: relative;
+  width: 1px;
+  height: 100%;
+  overflow: hidden;
+}
+
+.setup-line::after {
+  content: '';
+  display: block;
+  position: absolute;
+  height: 15vh;
+  width: 100%;
+  top: -50%;
+  left: 0;
+  background: linear-gradient(to bottom, rgba(168, 85, 247, 0) 0%, rgba(168, 85, 247, 0.8) 75%, rgba(168, 85, 247, 1) 100%);
+  animation: setup-drop 7s infinite;
+  animation-fill-mode: forwards;
+  animation-timing-function: cubic-bezier(0.4, 0.26, 0, 0.97);
+}
+
+/* Different purple shades for each line */
+.setup-line:nth-child(1)::after {
+  background: linear-gradient(to bottom, rgba(139, 92, 246, 0) 0%, rgba(139, 92, 246, 0.8) 75%, rgba(139, 92, 246, 1) 100%);
+  animation-delay: 0.5s;
+}
+
+.setup-line:nth-child(2)::after {
+  background: linear-gradient(to bottom, rgba(168, 85, 247, 0) 0%, rgba(168, 85, 247, 0.8) 75%, rgba(168, 85, 247, 1) 100%);
+  animation-delay: 1s;
+}
+
+.setup-line:nth-child(3)::after {
+  background: linear-gradient(to bottom, rgba(147, 51, 234, 0) 0%, rgba(147, 51, 234, 0.8) 75%, rgba(147, 51, 234, 1) 100%);
+  animation-delay: 1.5s;
+}
+
+.setup-line:nth-child(4)::after {
+  background: linear-gradient(to bottom, rgba(192, 132, 252, 0) 0%, rgba(192, 132, 252, 0.8) 75%, rgba(192, 132, 252, 1) 100%);
+  animation-delay: 2s;
+}
+
+.setup-line:nth-child(5)::after {
+  background: linear-gradient(to bottom, rgba(216, 180, 254, 0) 0%, rgba(216, 180, 254, 0.8) 75%, rgba(216, 180, 254, 1) 100%);
+  animation-delay: 2.5s;
+}
+
+.setup-line:nth-child(6)::after {
+  background: linear-gradient(to bottom, rgba(139, 92, 246, 0) 0%, rgba(139, 92, 246, 0.8) 75%, rgba(139, 92, 246, 1) 100%);
+  animation-delay: 3s;
+}
+
+.setup-line:nth-child(7)::after {
+  background: linear-gradient(to bottom, rgba(168, 85, 247, 0) 0%, rgba(168, 85, 247, 0.8) 75%, rgba(168, 85, 247, 1) 100%);
+  animation-delay: 3.5s;
+}
+
+.setup-line:nth-child(8)::after {
+  background: linear-gradient(to bottom, rgba(147, 51, 234, 0) 0%, rgba(147, 51, 234, 0.8) 75%, rgba(147, 51, 234, 1) 100%);
+  animation-delay: 4s;
+}
+
+.setup-line:nth-child(9)::after {
+  background: linear-gradient(to bottom, rgba(192, 132, 252, 0) 0%, rgba(192, 132, 252, 0.8) 75%, rgba(192, 132, 252, 1) 100%);
+  animation-delay: 4.5s;
+}
+
+.setup-line:nth-child(10)::after {
+  background: linear-gradient(to bottom, rgba(216, 180, 254, 0) 0%, rgba(216, 180, 254, 0.8) 75%, rgba(216, 180, 254, 1) 100%);
+  animation-delay: 5s;
+}
+
+@keyframes setup-drop {
+  0% {
+    top: -50%;
+  }
+  100% {
+    top: 110%;
+  }
+}
+
+/* ============================================
+   APP-WIDE ANIMATED BACKGROUND (30% OPACITY)
+   ============================================ */
+
+.app-background-lines {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.3; /* 30% opacity for subtle effect */
+}
+
+.app-background-line {
+  position: relative;
+  width: 1px;
+  height: 100%;
+  overflow: hidden;
+}
+
+.app-background-line::after {
+  content: '';
+  display: block;
+  position: absolute;
+  height: 15vh;
+  width: 100%;
+  top: -50%;
+  left: 0;
+  background: linear-gradient(to bottom, rgba(168, 85, 247, 0) 0%, rgba(168, 85, 247, 0.8) 75%, rgba(168, 85, 247, 1) 100%);
+  animation: setup-drop 7s infinite;
+  animation-fill-mode: forwards;
+  animation-timing-function: cubic-bezier(0.4, 0.26, 0, 0.97);
+}
+
+/* Different purple shades for each line */
+.app-background-line:nth-child(1)::after {
+  background: linear-gradient(to bottom, rgba(139, 92, 246, 0) 0%, rgba(139, 92, 246, 0.8) 75%, rgba(139, 92, 246, 1) 100%);
+  animation-delay: 0.5s;
+}
+
+.app-background-line:nth-child(2)::after {
+  background: linear-gradient(to bottom, rgba(168, 85, 247, 0) 0%, rgba(168, 85, 247, 0.8) 75%, rgba(168, 85, 247, 1) 100%);
+  animation-delay: 1s;
+}
+
+.app-background-line:nth-child(3)::after {
+  background: linear-gradient(to bottom, rgba(147, 51, 234, 0) 0%, rgba(147, 51, 234, 0.8) 75%, rgba(147, 51, 234, 1) 100%);
+  animation-delay: 1.5s;
+}
+
+.app-background-line:nth-child(4)::after {
+  background: linear-gradient(to bottom, rgba(192, 132, 252, 0) 0%, rgba(192, 132, 252, 0.8) 75%, rgba(192, 132, 252, 1) 100%);
+  animation-delay: 2s;
+}
+
+.app-background-line:nth-child(5)::after {
+  background: linear-gradient(to bottom, rgba(216, 180, 254, 0) 0%, rgba(216, 180, 254, 0.8) 75%, rgba(216, 180, 254, 1) 100%);
+  animation-delay: 2.5s;
+}
+
+.app-background-line:nth-child(6)::after {
+  background: linear-gradient(to bottom, rgba(139, 92, 246, 0) 0%, rgba(139, 92, 246, 0.8) 75%, rgba(139, 92, 246, 1) 100%);
+  animation-delay: 3s;
+}
+
+.app-background-line:nth-child(7)::after {
+  background: linear-gradient(to bottom, rgba(168, 85, 247, 0) 0%, rgba(168, 85, 247, 0.8) 75%, rgba(168, 85, 247, 1) 100%);
+  animation-delay: 3.5s;
+}
+
+.app-background-line:nth-child(8)::after {
+  background: linear-gradient(to bottom, rgba(147, 51, 234, 0) 0%, rgba(147, 51, 234, 0.8) 75%, rgba(147, 51, 234, 1) 100%);
+  animation-delay: 4s;
+}
+
+.app-background-line:nth-child(9)::after {
+  background: linear-gradient(to bottom, rgba(192, 132, 252, 0) 0%, rgba(192, 132, 252, 0.8) 75%, rgba(192, 132, 252, 1) 100%);
+  animation-delay: 4.5s;
+}
+
+.app-background-line:nth-child(10)::after {
+  background: linear-gradient(to bottom, rgba(216, 180, 254, 0) 0%, rgba(216, 180, 254, 0.8) 75%, rgba(216, 180, 254, 1) 100%);
+  animation-delay: 5s;
 }
 
 /* Improved selection */

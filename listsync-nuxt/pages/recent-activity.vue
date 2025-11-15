@@ -1,10 +1,12 @@
 <template>
   <div class="space-y-6">
     <!-- Header -->
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div>
-        <h1 class="text-2xl font-bold text-foreground">Recent Activity</h1>
-        <p class="text-sm text-muted-foreground mt-1">
+        <h1 class="text-4xl font-bold text-foreground titillium-web-bold bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text text-transparent">
+          Recent Activity
+        </h1>
+        <p class="text-muted-foreground mt-2 text-base">
           Latest sync activities and media processing
         </p>
       </div>
@@ -18,58 +20,58 @@
     </div>
 
     <!-- Stats Summary -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-      <Card>
-        <div class="p-4">
-          <div class="flex items-center gap-3">
-            <div class="p-2 rounded-lg bg-green-500/10">
-              <CheckCircle2Icon class="w-5 h-5 text-green-400" />
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <Card class="border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
+        <div class="p-3">
+          <div class="flex items-center gap-2.5">
+            <div class="p-2 rounded-lg bg-gradient-to-br from-purple-600/20 to-purple-500/10 border border-purple-500/30">
+              <CheckCircle2Icon class="w-4 h-4 text-purple-400" />
             </div>
             <div>
-              <p class="text-2xl font-bold text-foreground">{{ successCount }}</p>
-              <p class="text-xs text-muted-foreground">Successful</p>
+              <p class="text-2xl font-bold text-foreground leading-none">{{ successCount }}</p>
+              <p class="text-[10px] text-muted-foreground font-medium">Successful</p>
             </div>
           </div>
         </div>
       </Card>
 
-      <Card>
-        <div class="p-4">
-          <div class="flex items-center gap-3">
-            <div class="p-2 rounded-lg bg-red-500/10">
-              <XCircleIcon class="w-5 h-5 text-red-400" />
+      <Card class="border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
+        <div class="p-3">
+          <div class="flex items-center gap-2.5">
+            <div class="p-2 rounded-lg bg-gradient-to-br from-purple-500/18 to-purple-400/9 border border-purple-400/28">
+              <XCircleIcon class="w-4 h-4 text-purple-300" />
             </div>
             <div>
-              <p class="text-2xl font-bold text-foreground">{{ failedCount }}</p>
-              <p class="text-xs text-muted-foreground">Failed</p>
+              <p class="text-2xl font-bold text-foreground leading-none">{{ failedCount }}</p>
+              <p class="text-[10px] text-muted-foreground font-medium">Failed</p>
             </div>
           </div>
         </div>
       </Card>
 
-      <Card>
-        <div class="p-4">
-          <div class="flex items-center gap-3">
-            <div class="p-2 rounded-lg bg-yellow-500/10">
-              <AlertCircleIcon class="w-5 h-5 text-yellow-400" />
+      <Card class="border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
+        <div class="p-3">
+          <div class="flex items-center gap-2.5">
+            <div class="p-2 rounded-lg bg-gradient-to-br from-purple-400/20 to-purple-300/10 border border-purple-300/30">
+              <AlertCircleIcon class="w-4 h-4 text-purple-200" />
             </div>
             <div>
-              <p class="text-2xl font-bold text-foreground">{{ notFoundCount }}</p>
-              <p class="text-xs text-muted-foreground">Not Found</p>
+              <p class="text-2xl font-bold text-foreground leading-none">{{ notFoundCount }}</p>
+              <p class="text-[10px] text-muted-foreground font-medium">Not Found</p>
             </div>
           </div>
         </div>
       </Card>
 
-      <Card>
-        <div class="p-4">
-          <div class="flex items-center gap-3">
-            <div class="p-2 rounded-lg bg-purple-500/10">
-              <ActivityIcon class="w-5 h-5 text-purple-400" />
+      <Card class="border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
+        <div class="p-3">
+          <div class="flex items-center gap-2.5">
+            <div class="p-2 rounded-lg bg-gradient-to-br from-purple-300/20 to-purple-200/10 border border-purple-200/30">
+              <ActivityIcon class="w-4 h-4 text-purple-100" />
             </div>
             <div>
-              <p class="text-2xl font-bold text-foreground">{{ activities.length }}</p>
-              <p class="text-xs text-muted-foreground">Total Items</p>
+              <p class="text-2xl font-bold text-foreground leading-none">{{ activities.length }}</p>
+              <p class="text-[10px] text-muted-foreground font-medium">Total Items</p>
             </div>
           </div>
         </div>
@@ -77,17 +79,17 @@
     </div>
 
     <!-- Filters -->
-    <Card>
-      <div class="p-4">
-        <div class="flex flex-wrap items-center gap-3">
+    <Card class="border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
+      <div class="p-3">
+        <div class="flex flex-wrap items-center gap-2">
           <button
             v-for="filter in filters"
             :key="filter.value"
             :class="[
-              'px-4 py-2 rounded-lg text-sm font-medium transition-all',
+              'px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wide transition-all',
               selectedFilter === filter.value
-                ? 'bg-purple-500 text-white'
-                : 'bg-black/20 text-muted-foreground hover:bg-white/5'
+                ? 'bg-purple-600/20 text-purple-300 border border-purple-500/30'
+                : 'bg-purple-500/5 text-purple-400/70 border border-purple-500/10 hover:bg-purple-500/10 hover:text-purple-300 hover:border-purple-500/20'
             ]"
             @click="selectedFilter = filter.value"
           >
@@ -98,8 +100,8 @@
     </Card>
 
     <!-- Activity List -->
-    <Card>
-      <div class="divide-y divide-border">
+    <Card class="border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
+      <div class="divide-y divide-purple-500/10">
         <!-- Loading State -->
         <div v-if="loading" class="p-8 text-center">
           <div class="inline-flex items-center gap-2 text-muted-foreground">
@@ -280,23 +282,17 @@ const getStatusIcon = (status: string) => {
 }
 
 const getStatusColor = (status: string) => {
-  const colors: Record<string, string> = {
-    success: 'text-green-400',
-    failed: 'text-red-400',
-    not_found: 'text-yellow-400',
-    error: 'text-red-400',
-  }
-  return colors[status] || 'text-muted-foreground'
+  return 'text-purple-400'
 }
 
 const getStatusBg = (status: string) => {
   const backgrounds: Record<string, string> = {
-    success: 'bg-green-500/10',
-    failed: 'bg-red-500/10',
-    not_found: 'bg-yellow-500/10',
-    error: 'bg-red-500/10',
+    success: 'bg-gradient-to-br from-purple-600/20 to-purple-500/10 border border-purple-500/30',
+    failed: 'bg-gradient-to-br from-purple-500/18 to-purple-400/9 border border-purple-400/28',
+    not_found: 'bg-gradient-to-br from-purple-400/20 to-purple-300/10 border border-purple-300/30',
+    error: 'bg-gradient-to-br from-purple-300/20 to-purple-200/10 border border-purple-200/30',
   }
-  return backgrounds[status] || 'bg-purple-500/10'
+  return backgrounds[status] || 'bg-purple-600/10 border border-purple-500/20'
 }
 
 const getActionText = (status: string) => {

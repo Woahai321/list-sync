@@ -1,5 +1,10 @@
 <template>
-  <div class="flex h-screen overflow-hidden bg-black">
+  <div class="flex h-screen overflow-hidden bg-black relative">
+    <!-- Animated Background Lines (20% opacity) -->
+    <div class="app-background-lines">
+      <div v-for="i in 10" :key="i" class="app-background-line" :style="{ animationDelay: `${i * 0.5}s` }"></div>
+    </div>
+
     <!-- Sidebar -->
     <Sidebar />
 
@@ -13,7 +18,7 @@
     </Transition>
 
     <!-- Main Content -->
-    <div class="flex flex-col flex-1 overflow-hidden">
+    <div class="flex flex-col flex-1 overflow-hidden relative z-10">
       <!-- Mobile Header -->
       <header class="flex items-center justify-between px-6 py-4 border-b border-purple-500/20 lg:hidden">
         <button

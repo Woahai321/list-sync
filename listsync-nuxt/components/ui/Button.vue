@@ -94,6 +94,7 @@ const buttonClasses = computed(() => {
     'transition-all duration-200',
     'focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black',
     'disabled:opacity-50 disabled:cursor-not-allowed',
+    'touch-manipulation',  // Better touch handling on mobile
   ]
 
   // Size classes (optimized for touch targets - minimum 44px height for mobile)
