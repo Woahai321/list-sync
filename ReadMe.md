@@ -32,8 +32,6 @@ ListSync includes a **web dashboard** built with Nuxt 3 and Vue 3, providing an 
 
 ![ListSync Web Dashboard](https://s.2ya.me/api/shares/Ou6EHcqD/files/71739c2e-b47d-447f-9a5a-e10d64fbebb9)
 
-**Access your dashboard at:** `http://localhost:3222`
-
 ---
 
 ### Currently in Development for v0.7.0
@@ -44,13 +42,11 @@ For the most stable experience, use the source code from the latest release [her
 
 ## 🍿 Quick Start
 
-**No configuration needed!** Just run the container and use the setup wizard:
+**No configuration needed!** Just run this command to start the container and use the setup wizard:
 
-The quickest way to get started is by cloning the repository and starting the container with a single command:
-
-| Method | Command |
-| :-------------------- | :---------------------------------- |
-| ![Docker](https://img.shields.io/badge/Docker-1line-blue?style=for-the-badge&logo=docker) | `git clone https://github.com/Woahai321/list-sync.git && cd list-sync && docker-compose up -d` |
+```bash
+docker run -d --name listsync-full -p 3222:3222 -p 4222:4222 -v listsync-data:/usr/src/app/data ghcr.io/woahai321/list-sync:main
+```
 
 Access the dashboard at `http://localhost:3222` and complete the setup wizard to connect your media server and watchlists.
 
@@ -592,71 +588,80 @@ For detailed information about SeerrBridge, visit the [SeerrBridge Repository](h
 <summary><strong>View System Architecture Diagram</strong></summary>
 
 ```mermaid
-graph TD
-    %% User Journey
-    User[🍿 User Opens Docker<br/>localhost:3222] --> AddLists[🍿 Add Lists via Web UI<br/>IMDb • Trakt • AniList • Letterboxd • etc.]
-    AddLists --> Config[🍿 Configure Settings<br/>Sync Interval • API Keys • Notifications]
-    
-    %% Application Stack
-    Config --> Frontend[🍿 Nuxt 3 Dashboard<br/>Port 3222]
-    Frontend --> API[🔌 FastAPI Backend<br/>Port 4222]
-    API --> Core[⚙️ Core Sync Engine<br/>Python Orchestration]
-    Core --> DB[(💾 SQLite Database<br/>Lists • History • Tracking)]
-    
-    %% Provider System
-    Core --> Providers[🍿 Provider System<br/>Multiple Data Sources]
-    
-    %% Selenium Web Scraping
-    Providers --> Selenium[🌐 Selenium Web Scraping<br/>Chrome Headless Browser]
-    Selenium --> IMDb[🍿 IMDb Lists<br/>Charts • User Lists • Watchlists]
-    Selenium --> Letterboxd[🍿 Letterboxd<br/>User Lists • Watchlists]
-    Selenium --> MDBList[🍿 MDBList<br/>Curated Collections]
-    Selenium --> Simkl[Simkl API Watchlists<br/>(OAuth)]
-    Selenium --> TVDB[🍿 TVDB<br/>User Favorites • Public Lists]
-    
-    %% Direct API Calls
-    Providers --> TraktAPI[🔗 Trakt API<br/>Direct REST API Calls]
-    TraktAPI --> Trakt[🍿 Trakt Lists<br/>User Lists • Trending • Popular]
-    
-    %% TMDB API
-    Providers --> TMDBAPI[🎭 TMDB API<br/>The Movie Database API]
-    TMDBAPI --> TMDB[🍿 TMDB Lists<br/>Public Lists • Collections]
-    
-    %% AniList GraphQL API
-    Providers --> AniListAPI[🍿 AniList GraphQL<br/>Anime Database API]
-    AniListAPI --> AniList[🍿 AniList Lists<br/>User Anime Lists • Watchlists]
-    
-    %% Steven Lu S3 Bucket
-    Providers --> StevenLuAPI[🍿 Steven Lu S3<br/>JSON File from S3 Bucket]
-    StevenLuAPI --> StevenLu[🍿 Steven Lu<br/>Popular Movies List]
-    
-    %% Processing Pipeline
-    Providers --> Extract[🔍 Extract Media Data<br/>Title • Year • IMDb ID • Type]
-    Extract --> Dedupe[🔄 Deduplicate Items<br/>by IMDb ID]
-    Dedupe --> Search[🔎 Search in Overseerr<br/>Fuzzy Matching • Levenshtein Distance]
-    Search --> CheckStatus[✅ Check Media Status<br/>Available? Requested? Needs Request?]
-    CheckStatus --> CreateRequests[🍿 Create Media Requests<br/>Movies • TV Seasons]
-    
-    %% Target System
-    CreateRequests --> Overseerr[🎯 Overseerr/Jellyseerr<br/>Media Request Management]
-    CreateRequests --> DB
-    
-    %% Styling
-    style User fill:#c4b5fd,stroke:#6b21a8,stroke-width:2px
-    style AddLists fill:#a78bfa,stroke:#7c3aed,stroke-width:2px
-    style Config fill:#8b5cf6,stroke:#8b5cf6,stroke-width:2px
-    style Frontend fill:#9333ea,stroke:#a855f7,stroke-width:3px
-    style API fill:#7c3aed,stroke:#9333ea,stroke-width:3px
-    style Core fill:#6b21a8,stroke:#7c3aed,stroke-width:3px
+%%{init: {'flowchart': {'diagramPadding': 20, 'nodeSpacing': 25, 'rankSpacing': 35, 'curve': 'linear'}}}%%
+graph LR
+    %% Condensed Flow with Reduced Text and More Padding
+
+    %% UI
+    subgraph ui["User Interaction"]
+        U["🍿 User Opens Dashboard\n(localhost:3222)"] --> D["🍿 Nuxt Dashboard\n(Port 3222)"] --> B["🔌 FastAPI Backend\n(Port 4222)"]
+    end
+
+    %% Core
+    subgraph core["Core System"]
+        B --> C["⚙️ Core Sync Engine\n(Python)"] --> DB[("💾 SQLite DB\n(Lists, History)")]
+    end
+
+    %% Providers
+    subgraph prov["Data Providers"]
+        C --> P["🍿 Provider System\n(Multiple Sources)"]
+        
+        subgraph scrap["Web Scraping (Selenium)"]
+            P --> S["🌐 Selenium\n(Chrome Browser)"]
+            S --> I["🍿 IMDb\n(Charts, Lists)"]
+            S --> L["🍿 Letterboxd\n(Lists)"]
+            S --> M["🍿 MDBList\n(Collections)"]
+            S --> Si["🍿 Simkl\n(Watchlists (OAuth))"]
+            S --> T["🍿 TVDB\n(Favorites, Lists)"]
+        end
+        subgraph api["Direct APIs"]
+            P --> Tr["🔗 Trakt API --> 🍿 Trakt\n(Lists, Trending)"]
+            P --> Tm["🎭 TMDB API --> 🍿 TMDB\n(Lists, Collections)"]
+            P --> A["🍿 AniList GraphQL --> 🍿 AniList\n(Anime Lists)"]
+            P --> St["🍿 Steven Lu S3 --> 🍿 Steven Lu\n(Movies List)"]
+        end
+    end
+
+    %% Pipeline
+    subgraph pipe["Processing Pipeline"]
+        P --> E["🔍 Extract Data\n(Title, Year, ID)"]
+        E --> De["🔄 Deduplicate\n(IMDb ID)"]
+        De --> Se["🔎 Search Overseerr\n(Fuzzy Match)"]
+        Se --> Ch["✅ Check Status\n(Available?)"]
+        Ch --> R["🍿 Create Requests\n(Movies, Seasons)"]
+    end
+
+    %% Output
+    subgraph out["Output & Storage"]
+        R --> O["🎯 Overseerr\n(Media Requests)"]
+        R --> DB
+    end
+
+    %% Feedback
+    DB -.->|"Feedback Loop"| C
+
+    %% Darker Colors
+    style U fill:#a78bfa,stroke:#6b21a8,stroke-width:2px
+    style D fill:#8b5cf6,stroke:#7c3aed,stroke-width:2px
+    style B fill:#7c3aed,stroke:#8b5cf6,stroke-width:2px
+    style C fill:#9333ea,stroke:#a855f7,stroke-width:3px
     style DB fill:#581c87,stroke:#6b21a8,stroke-width:3px
-    style Providers fill:#a855f7,stroke:#9333ea,stroke-width:2px
-    style Selenium fill:#8b5cf6,stroke:#7c3aed,stroke-width:2px
-    style TraktAPI fill:#7c3aed,stroke:#6b21a8,stroke-width:2px
-    style TMDBAPI fill:#6b21a8,stroke:#581c87,stroke-width:2px
-    style StevenLuAPI fill:#9333ea,stroke:#7c2d12,stroke-width:2px
-    style Extract fill:#9333ea,stroke:#6b21a8,stroke-width:2px
-    style Search fill:#7c3aed,stroke:#581c87,stroke-width:2px
-    style Overseerr fill:#581c87,stroke:#4c1d95,stroke-width:3px
+    style P fill:#a855f7,stroke:#9333ea,stroke-width:2px
+    style S fill:#8b5cf6,stroke:#7c3aed,stroke-width:2px
+    style Tr fill:#7c3aed,stroke:#6b21a8,stroke-width:2px
+    style Tm fill:#6b21a8,stroke:#581c87,stroke-width:2px
+    style A fill:#9333ea,stroke:#7c2d12,stroke-width:2px
+    style St fill:#9333ea,stroke:#7c2d12,stroke-width:2px
+    style E fill:#9333ea,stroke:#6b21a8,stroke-width:2px
+    style De fill:#7c3aed,stroke:#581c87,stroke-width:2px
+    style Se fill:#7c3aed,stroke:#581c87,stroke-width:2px
+    style Ch fill:#7c3aed,stroke:#581c87,stroke-width:2px
+    style R fill:#7c3aed,stroke:#581c87,stroke-width:2px
+    style O fill:#581c87,stroke:#4c1d95,stroke-width:3px
+
+    %% Subgraph Style
+    classDef sub fill:none,stroke:#a855f7,stroke-width:1px,stroke-dasharray: 3 3
+    class ui,core,prov,scrap,api,pipe,out sub
 ```
 
 For a detailed technical breakdown, see our [Architecture Documentation](/docs/architecture.md).
