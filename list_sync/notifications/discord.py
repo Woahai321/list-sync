@@ -268,7 +268,7 @@ def build_summary_embed(data: Dict[str, Any]) -> DiscordEmbed:
     
     # === FOOTER ===
     embed.set_timestamp()
-    footer_text = "ListSync v0.6.4"
+    footer_text = "ListSync v0.6.5"
     if total_items > 100:
         footer_text += f" • {total_items:,} items"
     embed.set_footer(text=footer_text)
