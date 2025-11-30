@@ -40,6 +40,29 @@
         </div>
 
         <div class="grid grid-cols-2 gap-3">
+          <!-- Collections Button (First, 2 columns wide) -->
+          <button
+            :class="[
+              'col-span-2 p-4 rounded-xl border-2 transition-all duration-300',
+              'bg-gradient-to-br from-purple-500/20 to-purple-600/20',
+              'border-purple-500/40 hover:border-purple-400/60',
+              'hover:from-purple-500/30 hover:to-purple-600/30',
+              'active:scale-[0.98]'
+            ]"
+            @click="handleCollectionsRedirect"
+          >
+            <div class="flex items-center gap-4">
+              <div class="p-3 rounded-xl bg-purple-500/30 border border-purple-400/40">
+                <component :is="LayersIcon" :size="32" class="text-purple-300" />
+              </div>
+              <div class="flex-1 text-left">
+                <span class="font-semibold text-foreground block text-lg">Collections</span>
+                <span class="text-xs text-muted-foreground mt-1">Browse popular movie collections and sync them to Overseerr</span>
+              </div>
+              <component :is="ChevronRightIcon" :size="20" class="text-purple-400" />
+            </div>
+          </button>
+          
           <button
             v-for="source in paginatedSources"
             :key="source.value"
@@ -62,43 +85,45 @@
           </button>
         </div>
 
-        <!-- Pagination Controls -->
-        <div v-if="totalPages > 1" class="flex items-center justify-between">
-          <Button
-            variant="ghost"
-            size="sm"
-            :icon="ChevronLeftIcon"
-            :disabled="currentPage === 1"
-            @click="currentPage = Math.max(1, currentPage - 1)"
-          >
-            Previous
-          </Button>
-
-          <div class="flex items-center gap-2">
-            <button
-              v-for="page in totalPages"
-              :key="page"
-              :class="[
-                'w-8 h-8 rounded-full text-sm font-medium transition-all',
-                page === currentPage
-                  ? 'bg-purple-500 text-white'
-                  : 'bg-white/10 text-muted-foreground hover:bg-white/20'
-              ]"
-              @click="currentPage = page"
+        <!-- Pagination Controls - Sticky at bottom of sources -->
+        <div v-if="totalPages > 1" class="sticky bottom-0 bg-gradient-to-t from-background via-background to-transparent pt-4 pb-2">
+          <div class="flex items-center justify-between p-3 rounded-lg bg-black/60 backdrop-blur-lg border border-purple-500/30">
+            <Button
+              variant="ghost"
+              size="sm"
+              :icon="ChevronLeftIcon"
+              :disabled="currentPage === 1"
+              @click="currentPage = Math.max(1, currentPage - 1)"
             >
-              {{ page }}
-            </button>
-          </div>
+              Previous
+            </Button>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            :icon="ChevronRightIcon"
-            :disabled="currentPage === totalPages"
-            @click="currentPage = Math.min(totalPages, currentPage + 1)"
-          >
-            Next
-          </Button>
+            <div class="flex items-center gap-2">
+              <button
+                v-for="page in totalPages"
+                :key="page"
+                :class="[
+                  'w-8 h-8 rounded-full text-sm font-medium transition-all',
+                  page === currentPage
+                    ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/50'
+                    : 'bg-white/10 text-muted-foreground hover:bg-white/20'
+                ]"
+                @click="currentPage = page"
+              >
+                {{ page }}
+              </button>
+            </div>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              :icon="ChevronRightIcon"
+              :disabled="currentPage === totalPages"
+              @click="currentPage = Math.min(totalPages, currentPage + 1)"
+            >
+              Next
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -635,6 +660,7 @@ import {
   Trash2 as TrashIcon,
   Sparkles as SparklesIcon,
   CheckCircle as CheckCircleIcon,
+  Layers as LayersIcon,
 } from 'lucide-vue-next'
 import { useSyncStore } from '~/stores/sync'
 
@@ -666,7 +692,7 @@ const error = ref('')
 const loading = ref(false)
 const selectedSyncOption = ref<'all' | 'single' | 'schedule'>('single')
 const currentPage = ref(1)
-const itemsPerPage = 6
+const itemsPerPage = 4 // Reduced to 4 to fit with Collections button without scrolling
 
 // Multi-list state
 const listsToAdd = ref<Array<{
@@ -910,6 +936,14 @@ const getSourceButtonClass = (source: string) => {
 }
 
 // Handlers
+const handleCollectionsRedirect = () => {
+  handleClose()
+  // Small delay to ensure modal closes first
+  setTimeout(() => {
+    router.push('/collections')
+  }, 150)
+}
+
 const selectSource = (source: string) => {
   // Select single provider and immediately proceed to step 2
   selectedSource.value = source

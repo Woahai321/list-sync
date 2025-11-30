@@ -250,7 +250,7 @@ IMDB_LISTS=https://www.imdb.com/list/ls123456789
 **Configuration Options:**
 - Auto-sync: Include in automated sync cycles
 - Priority: High, Normal, Low sync priority
-- 4K Requests: Request 4K versions when available
+- 4K Requests: Send requests as 4K to Overseerr
 - Item Limit: Maximum items to sync (optional)
 
 #### Trakt Lists

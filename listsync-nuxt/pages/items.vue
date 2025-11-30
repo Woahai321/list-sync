@@ -67,7 +67,10 @@
         <div class="flex items-center justify-between">
           <div>
             <p class="text-[10px] text-muted-foreground mb-1 font-medium">Total Items</p>
-            <p class="text-2xl font-bold text-foreground tabular-nums leading-none group-hover:scale-105 transition-transform">
+            <div v-if="isLoadingStats" class="flex items-center h-8">
+              <LoadingSpinner size="sm" color="primary" />
+            </div>
+            <p v-else class="text-2xl font-bold text-foreground tabular-nums leading-none group-hover:scale-105 transition-transform">
               {{ formatNumber(totalItems) }}
             </p>
           </div>
@@ -81,7 +84,10 @@
         <div class="flex items-center justify-between">
           <div>
             <p class="text-[10px] text-muted-foreground mb-1 font-medium">Movies</p>
-            <p class="text-2xl font-bold text-foreground tabular-nums leading-none group-hover:scale-105 transition-transform">
+            <div v-if="isLoadingStats" class="flex items-center h-8">
+              <LoadingSpinner size="sm" color="primary" />
+            </div>
+            <p v-else class="text-2xl font-bold text-foreground tabular-nums leading-none group-hover:scale-105 transition-transform">
               {{ formatNumber(stats.movies) }}
             </p>
           </div>
@@ -95,7 +101,10 @@
         <div class="flex items-center justify-between">
           <div>
             <p class="text-[10px] text-muted-foreground mb-1 font-medium">TV Shows</p>
-            <p class="text-2xl font-bold text-foreground tabular-nums leading-none group-hover:scale-105 transition-transform">
+            <div v-if="isLoadingStats" class="flex items-center h-8">
+              <LoadingSpinner size="sm" color="primary" />
+            </div>
+            <p v-else class="text-2xl font-bold text-foreground tabular-nums leading-none group-hover:scale-105 transition-transform">
               {{ formatNumber(stats.shows) }}
             </p>
           </div>
@@ -109,7 +118,10 @@
         <div class="flex items-center justify-between">
           <div>
             <p class="text-[10px] text-muted-foreground mb-1 font-medium">Requested</p>
-            <p class="text-2xl font-bold text-foreground tabular-nums leading-none group-hover:scale-105 transition-transform">
+            <div v-if="isLoadingStats" class="flex items-center h-8">
+              <LoadingSpinner size="sm" color="primary" />
+            </div>
+            <p v-else class="text-2xl font-bold text-foreground tabular-nums leading-none group-hover:scale-105 transition-transform">
               {{ formatNumber(stats.requested) }}
             </p>
           </div>
@@ -445,6 +457,7 @@ const itemsCache = useItemsCache()
 const isLoading = ref(true)
 const isRefreshing = ref(false)
 const isLoadingMore = ref(false) // For infinite scroll loading indicator
+const isLoadingStats = ref(true) // Track stats loading state
 const searchQuery = ref('')
 const currentPage = ref(1)
 const perPage = 50
@@ -566,6 +579,7 @@ const getStatusVariant = (status: string): 'success' | 'warning' | 'danger' | 'd
 
 // Fetch stats separately from paginated items
 const fetchStats = async () => {
+  isLoadingStats.value = true
   try {
     // Use the /api/successful endpoint which provides efficient stats with movie/tv breakdown
     const successfulResponse: any = await api.getSuccessfulItems(1, 1)
@@ -612,6 +626,8 @@ const fetchStats = async () => {
     } catch (fallbackError) {
       console.error('Fallback stats fetch also failed:', fallbackError)
     }
+  } finally {
+    isLoadingStats.value = false
   }
 }
 

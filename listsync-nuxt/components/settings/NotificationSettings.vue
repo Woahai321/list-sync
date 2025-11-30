@@ -32,7 +32,7 @@
       <div class="space-y-4">
         <!-- Discord Webhook -->
         <div>
-          <label class="block text-[10px] font-bold mb-1.5 uppercase tracking-wide">
+          <label class="block text-xs font-semibold mb-2 text-foreground">
             Discord Webhook URL
           </label>
           <Input
@@ -42,19 +42,16 @@
             :icon="MessageSquareIcon"
             @update:model-value="emitUpdate"
           />
-          <p class="text-xs text-muted-foreground mt-1">
+          <p class="text-xs text-muted-foreground mt-1.5">
             Get notified in Discord when sync completes
           </p>
         </div>
 
         <!-- Discord Notifications Toggle -->
-        <div class="flex items-center justify-between p-4 rounded-lg bg-muted/20 hover:bg-muted/30 transition-colors">
-          <div class="flex-1">
-            <p class="font-medium">Discord Notifications</p>
-            <p class="text-xs text-muted-foreground mt-1">
-              Send sync completion summary to Discord
-            </p>
-          </div>
+        <div>
+          <label class="block text-xs font-semibold mb-2 text-foreground">
+            Discord Notifications
+          </label>
           <div class="flex items-center gap-3">
             <!-- Status Label -->
             <span 
@@ -88,7 +85,14 @@
                 <XIcon v-else :size="14" class="text-gray-600" />
               </span>
             </button>
+            
+            <span class="text-sm text-muted-foreground">
+              {{ localValue.enabled ? 'Enabled' : 'Disabled' }}
+            </span>
           </div>
+          <p class="text-xs text-muted-foreground mt-1.5">
+            Send sync completion summary to Discord
+          </p>
         </div>
       </div>
 

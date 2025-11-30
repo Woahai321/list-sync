@@ -96,11 +96,13 @@ def main():
     # Start the API server
     try:
         import uvicorn
+        # Disable reload in Docker/production (causes issues with file watching)
+        is_docker = os.environ.get("RUNNING_IN_DOCKER", "false").lower() == "true"
         uvicorn.run(
             "api_server:app",
             host="0.0.0.0",
             port=4222,
-            reload=True,
+            reload=not is_docker,  # Only reload in development, not in Docker
             log_level="info"
         )
     except KeyboardInterrupt:

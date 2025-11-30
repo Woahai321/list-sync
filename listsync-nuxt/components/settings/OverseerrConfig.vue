@@ -32,9 +32,9 @@
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <!-- URL -->
         <div class="md:col-span-2">
-          <label class="block text-[10px] font-bold mb-1.5 uppercase tracking-wide">
+          <label class="block text-xs font-semibold mb-2 text-foreground">
             Overseerr URL
-            <span class="text-danger">*</span>
+            <span class="text-danger ml-1">*</span>
           </label>
           <Input
             v-model="localValue.url"
@@ -43,16 +43,16 @@
             :icon="GlobeIcon"
             @update:model-value="emitUpdate"
           />
-          <p class="text-xs text-muted-foreground mt-1">
+          <p class="text-xs text-muted-foreground mt-1.5">
             The full URL to your Overseerr instance
           </p>
         </div>
 
         <!-- API Key -->
         <div class="md:col-span-2">
-          <label class="block text-[10px] font-bold mb-1.5 uppercase tracking-wide">
+          <label class="block text-xs font-semibold mb-2 text-foreground">
             API Key
-            <span class="text-danger">*</span>
+            <span class="text-danger ml-1">*</span>
           </label>
           <Input
             v-model="localValue.apiKey"
@@ -61,14 +61,14 @@
             :icon="KeyIcon"
             @update:model-value="emitUpdate"
           />
-          <p class="text-xs text-muted-foreground mt-1">
+          <p class="text-xs text-muted-foreground mt-1.5">
             Found in Overseerr Settings → General → API Key
           </p>
         </div>
 
         <!-- User ID -->
         <div>
-          <label class="block text-[10px] font-bold mb-1.5 uppercase tracking-wide">
+          <label class="block text-xs font-semibold mb-2 text-foreground">
             User ID
           </label>
           <Input
@@ -78,14 +78,14 @@
             :icon="UserIcon"
             @update:model-value="emitUpdate"
           />
-          <p class="text-xs text-muted-foreground mt-1">
+          <p class="text-xs text-muted-foreground mt-1.5">
             Default user for requests (usually 1)
           </p>
         </div>
 
         <!-- 4K Toggle -->
         <div>
-          <label class="block text-sm font-medium mb-2">
+          <label class="block text-xs font-semibold mb-2 text-foreground">
             4K Requests
           </label>
           <div class="flex items-center gap-3">
@@ -126,8 +126,8 @@
               {{ localValue.enable4k ? 'Enabled' : 'Disabled' }}
             </span>
           </div>
-          <p class="text-xs text-muted-foreground mt-1">
-            Request 4K versions when available
+          <p class="text-xs text-muted-foreground mt-1.5">
+            Send requests as 4K to Overseerr
           </p>
         </div>
       </div>

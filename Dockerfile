@@ -107,6 +107,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     logrotate \
     # Timezone support
     tzdata \
+    # JSON parsing for Chrome version detection
+    jq \
     && rm -rf /var/lib/apt/lists/*
 
 # Set timezone - use environment variable if provided, otherwise try to detect from host
@@ -141,19 +143,51 @@ RUN if [ "$TZ" = "UTC" ]; then \
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get install -y nodejs
 
-# Download and install Chrome and ChromeDriver
-RUN wget -O /tmp/chrome-linux64.zip https://storage.googleapis.com/chrome-for-testing-public/131.0.6778.204/linux64/chrome-linux64.zip && \
-    unzip /tmp/chrome-linux64.zip -d /opt/ && \
-    mv /opt/chrome-linux64 /opt/chrome && \
-    ln -sf /opt/chrome/chrome /usr/bin/google-chrome && \
-    chmod +x /usr/bin/google-chrome && \
-    rm /tmp/chrome-linux64.zip && \
-    \
-    wget -O /tmp/chromedriver-linux64.zip https://storage.googleapis.com/chrome-for-testing-public/131.0.6778.204/linux64/chromedriver-linux64.zip && \
-    unzip /tmp/chromedriver-linux64.zip -d /opt/ && \
-    mv /opt/chromedriver-linux64/chromedriver /usr/local/bin/ && \
-    chmod +x /usr/local/bin/chromedriver && \
-    rm /tmp/chromedriver-linux64.zip
+# Install browser and driver based on architecture
+ARG TARGETARCH
+
+RUN echo "Building for architecture: $TARGETARCH" && \
+    if [ "$TARGETARCH" = "amd64" ]; then \
+        # AMD64: Use Chrome for Testing (latest stable)
+        PLATFORM="linux64" && \
+        echo "Fetching latest Chrome for Testing version..." && \
+        CHROME_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json" | \
+            jq -r '.channels.Stable.version') && \
+        CHROME_URL=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json" | \
+            jq -r ".channels.Stable.downloads.chrome[] | select(.platform == \"$PLATFORM\") | .url") && \
+        DRIVER_URL=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json" | \
+            jq -r ".channels.Stable.downloads.chromedriver[] | select(.platform == \"$PLATFORM\") | .url") && \
+        echo "Downloading Chrome ${CHROME_VERSION} for ${PLATFORM}" && \
+        echo "Chrome URL: $CHROME_URL" && \
+        echo "ChromeDriver URL: $DRIVER_URL" && \
+        wget -O /tmp/chrome.zip "$CHROME_URL" && \
+        unzip /tmp/chrome.zip -d /opt/ && \
+        mv /opt/chrome-$PLATFORM /opt/chrome && \
+        ln -sf /opt/chrome/chrome /usr/bin/google-chrome && \
+        chmod +x /usr/bin/google-chrome && \
+        rm /tmp/chrome.zip && \
+        wget -O /tmp/chromedriver.zip "$DRIVER_URL" && \
+        unzip /tmp/chromedriver.zip -d /opt/ && \
+        mv /opt/chromedriver-$PLATFORM/chromedriver /usr/local/bin/ && \
+        chmod +x /usr/local/bin/chromedriver && \
+        rm /tmp/chromedriver.zip && \
+        echo "Chrome and ChromeDriver installation completed for AMD64"; \
+    elif [ "$TARGETARCH" = "arm64" ]; then \
+        # ARM64: Use Chromium from Debian repos (more reliable for ARM)
+        echo "Installing Chromium for ARM64 from Debian repositories..." && \
+        apt-get update && \
+        apt-get install -y --no-install-recommends chromium chromium-driver && \
+        ln -sf /usr/bin/chromium /usr/bin/google-chrome && \
+        ln -sf /usr/bin/chromedriver /usr/local/bin/chromedriver && \
+        rm -rf /var/lib/apt/lists/* && \
+        echo "Chromium installation completed for ARM64"; \
+    else \
+        echo "ERROR: Unsupported architecture: $TARGETARCH" && \
+        exit 1; \
+    fi && \
+    # Verify installation
+    google-chrome --version && \
+    chromedriver --version
 
 # Set environment variables for the final image
 ENV TZ=GMT \

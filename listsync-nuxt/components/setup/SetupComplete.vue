@@ -1,24 +1,39 @@
 <template>
-  <div class="text-center py-8 sm:py-12 space-y-6 sm:space-y-8 relative overflow-visible min-h-[300px] sm:min-h-[400px] flex flex-col items-center justify-center px-4" ref="containerRef">
+  <div class="text-center py-12 space-y-8 relative overflow-visible min-h-[450px] flex flex-col items-center justify-center px-4 animate-fade-in" ref="containerRef">
     <!-- Content (above confetti) -->
-    <div class="relative z-10 flex flex-col items-center justify-center space-y-4 sm:space-y-6">
-      <!-- Success Animation -->
+    <div class="relative z-10 flex flex-col items-center justify-center space-y-8">
+      <!-- Logo with success badge -->
       <div class="flex justify-center">
         <div class="relative">
-          <div class="absolute inset-0 bg-purple-500/20 rounded-full animate-ping" />
-          <div class="relative w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center">
-            <component :is="CheckCircleIcon" :size="40" class="sm:w-12 sm:h-12 text-white" />
+          <!-- Subtle glow -->
+          <div class="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-full blur-xl" />
+          
+          <!-- Logo Image -->
+          <div class="relative">
+            <img 
+              :src="logoImage" 
+              alt="ListSync Logo" 
+              class="w-32 h-32 sm:w-40 sm:h-40 object-contain relative z-10"
+            />
+            
+            <!-- Success checkmark badge -->
+            <div class="absolute -top-2 -right-2 bg-gradient-to-br from-green-400 to-green-600 rounded-full p-2 shadow-lg animate-scale-in">
+              <component :is="CheckCircleIcon" class="w-6 h-6 text-white" />
+            </div>
           </div>
         </div>
       </div>
 
       <!-- Success Message -->
-      <div class="space-y-2 sm:space-y-3">
-        <h2 class="text-2xl sm:text-3xl font-bold titillium-web-bold bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text text-transparent">
-          Well Done!
+      <div class="space-y-4">
+        <h2 class="text-4xl sm:text-5xl font-bold titillium-web-bold bg-gradient-to-r from-purple-400 via-pink-400 to-purple-600 bg-clip-text text-transparent">
+          Congratulations!
         </h2>
-        <p class="text-base sm:text-lg text-muted-foreground">
-          Time to sync your first list!
+        <p class="text-lg sm:text-xl text-foreground">
+          Core setup complete.
+        </p>
+        <p class="text-base text-muted-foreground mt-6">
+          Redirecting you to add your first list...
         </p>
       </div>
     </div>
@@ -29,6 +44,7 @@
 import {
   CheckCircle as CheckCircleIcon,
 } from 'lucide-vue-next'
+import logoImage from '~/assets/images/list-sync-logo.webp'
 
 const confettiCanvas = ref<HTMLCanvasElement | null>(null)
 const containerRef = ref<HTMLElement | null>(null)
@@ -95,7 +111,7 @@ const launchConfetti = () => {
   ]
   
   // Create particles from multiple launch points - spread across screen
-  const particleCount = 300 // More particles for better coverage
+  const particleCount = 150 // Reduced particle count for cleaner effect
   particles.value = []
   
   // Launch from left side of box

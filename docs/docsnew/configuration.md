@@ -58,7 +58,7 @@ IMDB_LISTS=top
 | `OVERSEERR_URL` | Your Overseerr server URL | ✅ | - | `https://overseerr.example.com` |
 | `OVERSEERR_API_KEY` | API key from Overseerr settings | ✅ | - | `abc123...` |
 | `OVERSEERR_USER_ID` | User ID for making requests | ❌ | `1` | `1` |
-| `OVERSEERR_4K` | Request 4K versions when available | ❌ | `false` | `true` |
+| `OVERSEERR_4K` | Send requests as 4K to Overseerr | ❌ | `false` | `true` |
 
 **URL Format Examples:**
 ```bash

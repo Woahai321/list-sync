@@ -70,33 +70,29 @@
       <div class="p-6">
         <!-- Core Settings Tab -->
         <div v-if="activeTab === 'core'" class="space-y-6">
-          <div class="space-y-6">
-            <!-- Overseerr Configuration -->
-            <OverseerrConfig
-              v-model="settings.overseerr"
-              @test-connection="testOverseerrConnection"
-            />
+          <!-- Overseerr Configuration -->
+          <OverseerrConfig
+            v-model="settings.overseerr"
+            @test-connection="testOverseerrConnection"
+          />
 
-            <!-- Sync Settings -->
-            <SyncSettings
-              v-model="settings.sync"
-            />
-          </div>
+          <!-- Sync Settings -->
+          <SyncSettings
+            v-model="settings.sync"
+          />
         </div>
 
         <!-- API Keys Tab -->
         <div v-if="activeTab === 'api-keys'" class="space-y-6">
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- Trakt API Settings -->
-            <TraktApiSettings
-              v-model="settings.traktApi"
-            />
+          <!-- Trakt API Settings -->
+          <TraktApiSettings
+            v-model="settings.traktApi"
+          />
 
-            <!-- TMDB API Settings -->
-            <TmdbApiSettings
-              v-model="settings.tmdbApi"
-            />
-          </div>
+          <!-- TMDB API Settings -->
+          <TmdbApiSettings
+            v-model="settings.tmdbApi"
+          />
         </div>
 
         <!-- Integrations Tab -->
@@ -217,6 +213,7 @@ const settings = ref({
   },
   traktApi: {
     clientId: '',
+    specialItemsLimit: 20,
   },
   tmdbApi: {
     apiKey: '',
@@ -264,6 +261,7 @@ const loadSettings = async () => {
       
       settings.value.traktApi = {
         clientId: config.trakt_client_id || '',
+        specialItemsLimit: config.trakt_special_items_limit || 20,
       }
       
       settings.value.tmdbApi = {
@@ -316,6 +314,7 @@ const handleSave = async () => {
       
       // Trakt API
       trakt_client_id: settings.value.traktApi.clientId,
+      trakt_special_items_limit: settings.value.traktApi.specialItemsLimit,
       
       // TMDB API
       tmdb_key: settings.value.tmdbApi.apiKey,

@@ -5,7 +5,9 @@ Database operations for ListSync.
 import sqlite3
 import os
 import logging
+import hashlib
 from typing import Dict, List, Optional, Any
+from pathlib import Path
 
 from .utils.logger import DATA_DIR
 
@@ -153,6 +155,8 @@ def init_database():
                 list_url TEXT,
                 item_count INTEGER DEFAULT 0,
                 last_synced TIMESTAMP,
+                poster_url TEXT,
+                poster_cached_at TIMESTAMP,
                 UNIQUE(list_type, list_id)
             )
         ''')
@@ -187,7 +191,9 @@ def init_database():
                 imdb_id TEXT,
                 overseerr_id INTEGER,
                 status TEXT,
-                last_synced TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                last_synced TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                poster_url TEXT,
+                poster_cached_at TIMESTAMP
             )
         ''')
         
@@ -205,6 +211,32 @@ def init_database():
             logging.info("Added tmdb_id column to synced_items table")
         except sqlite3.OperationalError:
             # Column already exists or other error
+            pass
+
+        # Add poster columns to synced_items if they don't exist
+        try:
+            cursor.execute('ALTER TABLE synced_items ADD COLUMN poster_url TEXT')
+            logging.info("Added poster_url column to synced_items table")
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            cursor.execute('ALTER TABLE synced_items ADD COLUMN poster_cached_at TIMESTAMP')
+            logging.info("Added poster_cached_at column to synced_items table")
+        except sqlite3.OperationalError:
+            pass
+
+        # Add poster columns to lists if they don't exist
+        try:
+            cursor.execute('ALTER TABLE lists ADD COLUMN poster_url TEXT')
+            logging.info("Added poster_url column to lists table")
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            cursor.execute('ALTER TABLE lists ADD COLUMN poster_cached_at TIMESTAMP')
+            logging.info("Added poster_cached_at column to lists table")
+        except sqlite3.OperationalError:
             pass
         
         # SIMKL is disabled, so we don't add simkl_id column anymore
@@ -290,6 +322,32 @@ def init_database():
         except sqlite3.OperationalError:
             # Indexes might already exist
             pass
+
+        # Image cache table - stores downloaded images locally
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS cached_images (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                image_url TEXT NOT NULL UNIQUE,
+                local_path TEXT,
+                image_data BLOB,
+                mime_type TEXT,
+                file_size INTEGER,
+                cached_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_accessed TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                source TEXT,  -- 'trakt', 'tmdb', etc.
+                width INTEGER,
+                height INTEGER
+            )
+        ''')
+
+        # Create indexes for image cache
+        try:
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_cached_images_url ON cached_images(image_url)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_cached_images_accessed ON cached_images(last_accessed)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_cached_images_source ON cached_images(source)')
+        except sqlite3.OperationalError:
+            # Indexes might already exist
+            pass
         
         conn.commit()
     
@@ -301,6 +359,25 @@ def init_database():
     
     # Initialize configuration tables
     create_settings_tables()
+    
+    # Migrate BLOB images to filesystem (one-time migration)
+    # Only run if there are BLOB images that need migration
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT COUNT(*) FROM cached_images
+                WHERE image_data IS NOT NULL AND (local_path IS NULL OR local_path = '')
+            ''')
+            blob_count = cursor.fetchone()[0]
+            
+            if blob_count > 0:
+                logging.info(f"Found {blob_count} BLOB images to migrate to filesystem")
+                migration_result = migrate_blob_images_to_files()
+                if migration_result.get('migrated', 0) > 0:
+                    logging.info(f"Migrated {migration_result['migrated']} BLOB images to filesystem")
+    except Exception as e:
+        logging.warning(f"Image migration check failed: {e}")
 
 
 def save_list_id(list_id: str, list_type: str, list_url: Optional[str] = None, item_count: Optional[int] = None):
@@ -996,3 +1073,488 @@ def count_settings() -> int:
         cursor.execute('SELECT COUNT(*) FROM app_settings')
         result = cursor.fetchone()
         return result[0] if result else 0
+
+
+def save_collection_sync_result(franchise_name: str, item_count: Optional[int] = None):
+    """
+    Save or update collection sync tracking in the database.
+    Uses the lists table with list_type='collections'.
+    
+    Args:
+        franchise_name (str): The franchise name (e.g., "Harry Potter Collection")
+        item_count (Optional[int]): Number of items in the collection
+    """
+    from datetime import datetime
+    
+    with sqlite3.connect(DB_FILE) as conn:
+        cursor = conn.cursor()
+        
+        # Use existing save_list_id function with list_type='collections'
+        # Collections don't have URLs, so we'll use None
+        list_url = None
+        
+        cursor.execute(
+            """INSERT OR REPLACE INTO lists (list_type, list_id, list_url, item_count, last_synced) 
+               VALUES (?, ?, ?, ?, ?)""",
+            ("collections", franchise_name, list_url, item_count or 0, datetime.now())
+        )
+        conn.commit()
+        logging.info(f"Saved collection sync result for: {franchise_name}")
+
+
+def get_synced_collections() -> List[str]:
+    """
+    Get list of all synced collection franchise names.
+
+    Returns:
+        List[str]: List of franchise names that have been synced
+    """
+    with sqlite3.connect(DB_FILE) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT list_id FROM lists WHERE list_type = 'collections' ORDER BY last_synced DESC"
+        )
+        results = cursor.fetchall()
+        return [row[0] for row in results]
+
+
+# ============================================================================
+# Image Caching Functions - Store and serve cached images
+# ============================================================================
+
+def _ensure_images_directory() -> Path:
+    """
+    Ensure the images directory exists.
+    
+    Returns:
+        Path: Path to the images directory
+    """
+    images_dir = Path(DATA_DIR) / "images"
+    images_dir.mkdir(parents=True, exist_ok=True)
+    return images_dir
+
+
+def _generate_image_filename(image_url: str, mime_type: str = None) -> str:
+    """
+    Generate a unique filename for an image based on URL hash.
+    Uses SHA256 hash to ensure uniqueness and avoid collisions.
+    
+    Args:
+        image_url: Original image URL
+        mime_type: MIME type (e.g., 'image/webp')
+        
+    Returns:
+        str: Filename with extension (e.g., 'a1b2c3d4e5f6g7h8.webp')
+    """
+    # Generate hash from URL (use full 64 chars for better collision resistance)
+    url_hash = hashlib.sha256(image_url.encode('utf-8')).hexdigest()[:32]
+    
+    # Determine extension from MIME type or URL
+    extension = 'webp'  # Default for Trakt images
+    if mime_type:
+        # Map common MIME types to extensions
+        mime_to_ext = {
+            'image/webp': 'webp',
+            'image/jpeg': 'jpg',
+            'image/jpg': 'jpg',
+            'image/png': 'png',
+            'image/gif': 'gif',
+            'image/bmp': 'bmp',
+            'image/svg+xml': 'svg'
+        }
+        extension = mime_to_ext.get(mime_type.lower(), 'webp')
+    else:
+        # Try to extract from URL as fallback
+        url_lower = image_url.lower()
+        if '.jpg' in url_lower or '.jpeg' in url_lower:
+            extension = 'jpg'
+        elif '.png' in url_lower:
+            extension = 'png'
+        elif '.gif' in url_lower:
+            extension = 'gif'
+        elif '.webp' in url_lower:
+            extension = 'webp'
+    
+    return f"{url_hash}.{extension}"
+
+
+def save_cached_image(image_url: str, image_data: bytes, mime_type: str = None, source: str = 'trakt',
+                      width: int = None, height: int = None) -> int:
+    """
+    Save an image to the filesystem and store metadata in the cached_images table.
+    
+    This function ensures Trakt API compliance by:
+    1. Saving images to local filesystem (data/images/)
+    2. Never hotlinking to Trakt servers
+    3. Storing metadata for efficient retrieval
+    
+    Args:
+        image_url: Original image URL (from Trakt, TMDB, etc.)
+        image_data: Binary image data
+        mime_type: MIME type (e.g., 'image/webp')
+        source: Source of the image ('trakt', 'tmdb', etc.)
+        width: Image width in pixels (optional)
+        height: Image height in pixels (optional)
+
+    Returns:
+        int: ID of the cached image record
+        
+    Raises:
+        Exception: If file write fails or database update fails
+    """
+    try:
+        # Ensure images directory exists
+        images_dir = _ensure_images_directory()
+        
+        # Generate unique filename based on URL hash
+        filename = _generate_image_filename(image_url, mime_type)
+        local_path = str(images_dir / filename)
+        
+        # Skip if file already exists (avoid rewriting same file)
+        if not os.path.exists(local_path):
+            # Write image to file atomically
+            # Use temporary file + rename for atomic operation (prevents partial writes)
+            import tempfile
+            temp_path = None
+            try:
+                # Write to temp file in same directory (ensures same filesystem for atomic rename)
+                with tempfile.NamedTemporaryFile(mode='wb', dir=images_dir, delete=False) as tmp:
+                    tmp.write(image_data)
+                    temp_path = tmp.name
+                
+                # Atomic rename (ensures no partial files)
+                os.replace(temp_path, local_path)
+                logging.debug(f"Wrote {len(image_data)} bytes to {local_path}")
+            except Exception as e:
+                # Clean up temp file if rename failed
+                if temp_path and os.path.exists(temp_path):
+                    try:
+                        os.remove(temp_path)
+                    except:
+                        pass
+                raise e
+        else:
+            logging.debug(f"File already exists, skipping write: {local_path}")
+        
+        file_size = len(image_data)
+        
+        # Store in database (preserve existing cached_at if record exists)
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO cached_images
+                (image_url, local_path, mime_type, file_size, cached_at, last_accessed, source, width, height)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?)
+                ON CONFLICT(image_url) DO UPDATE SET
+                    local_path = excluded.local_path,
+                    mime_type = excluded.mime_type,
+                    file_size = excluded.file_size,
+                    last_accessed = CURRENT_TIMESTAMP,
+                    source = excluded.source,
+                    width = excluded.width,
+                    height = excluded.height
+            ''', (image_url, local_path, mime_type, file_size, source, width, height))
+            image_id = cursor.lastrowid
+            conn.commit()
+            logging.debug(f"Saved image to {local_path} (ID: {image_id})")
+            return image_id
+            
+    except Exception as e:
+        logging.error(f"Error saving cached image {image_url}: {e}", exc_info=True)
+        raise
+
+
+def get_cached_image(image_url: str) -> Optional[Dict[str, Any]]:
+    """
+    Get a cached image by URL. Returns metadata including local_path.
+
+    Args:
+        image_url: Original image URL
+
+    Returns:
+        dict: Image metadata including local_path, or None if not found
+    """
+    with sqlite3.connect(DB_FILE) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT * FROM cached_images WHERE image_url = ?
+        ''', (image_url,))
+        row = cursor.fetchone()
+
+        if row:
+            row_dict = dict(row)
+            local_path = row_dict.get('local_path')
+            
+            # Verify file exists
+            if local_path and os.path.exists(local_path):
+                # Update last_accessed timestamp
+                cursor.execute('''
+                    UPDATE cached_images SET last_accessed = CURRENT_TIMESTAMP WHERE id = ?
+                ''', (row['id'],))
+                conn.commit()
+                return row_dict
+            else:
+                # File missing but DB record exists - log and return None to trigger re-download
+                logging.warning(f"Cached image file missing: {local_path} (URL: {image_url})")
+                return None
+
+        return None
+
+
+def update_item_poster_url(item_id: int, poster_url: str):
+    """
+    Update the poster URL for a synced item.
+
+    Args:
+        item_id: Database ID of the synced item
+        poster_url: Poster URL (should be our proxy URL, not direct Trakt URL)
+    """
+    with sqlite3.connect(DB_FILE) as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE synced_items
+            SET poster_url = ?, poster_cached_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ''', (poster_url, item_id))
+        conn.commit()
+
+
+def update_collection_poster_url(list_type: str, list_id: str, poster_url: str):
+    """
+    Update the poster URL for a collection.
+
+    Args:
+        list_type: Should be 'collections'
+        list_id: Franchise name
+        poster_url: Poster URL (should be our proxy URL, not direct Trakt URL)
+    """
+    with sqlite3.connect(DB_FILE) as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE lists
+            SET poster_url = ?, poster_cached_at = CURRENT_TIMESTAMP
+            WHERE list_type = ? AND list_id = ?
+        ''', (poster_url, list_type, list_id))
+        conn.commit()
+
+
+def get_expired_cached_images(hours: int = 24) -> List[Dict[str, Any]]:
+    """
+    Get cached images that haven't been accessed recently.
+
+    Args:
+        hours: Consider images older than this expired
+
+    Returns:
+        List of image records that can be cleaned up
+    """
+    with sqlite3.connect(DB_FILE) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT * FROM cached_images
+            WHERE last_accessed < datetime('now', '-{} hours')
+            ORDER BY last_accessed ASC
+        '''.format(hours))
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def cleanup_expired_images(hours: int = 24) -> int:
+    """
+    Remove cached images that haven't been accessed recently.
+    Deletes both database records and files from filesystem.
+
+    Args:
+        hours: Remove images older than this
+
+    Returns:
+        int: Number of images removed
+    """
+    with sqlite3.connect(DB_FILE) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # Get expired images with their file paths
+        cursor.execute('''
+            SELECT id, local_path FROM cached_images
+            WHERE last_accessed < datetime('now', '-{} hours')
+        '''.format(hours))
+        expired_images = cursor.fetchall()
+        
+        deleted_count = 0
+        for row in expired_images:
+            local_path = row['local_path']
+            
+            # Delete file if it exists
+            if local_path and os.path.exists(local_path):
+                try:
+                    os.remove(local_path)
+                    logging.debug(f"Deleted expired image file: {local_path}")
+                except Exception as e:
+                    logging.warning(f"Failed to delete image file {local_path}: {e}")
+            
+            # Delete database record
+            cursor.execute('DELETE FROM cached_images WHERE id = ?', (row['id'],))
+            deleted_count += 1
+        
+        conn.commit()
+        logging.info(f"Cleaned up {deleted_count} expired images")
+        return deleted_count
+
+
+def migrate_blob_images_to_files() -> Dict[str, Any]:
+    """
+    Migrate existing BLOB images in database to filesystem storage.
+    This is a one-time migration function.
+    
+    Returns:
+        dict: Migration statistics
+    """
+    migrated_count = 0
+    skipped_count = 0
+    error_count = 0
+    
+    try:
+        images_dir = _ensure_images_directory()
+        
+        with sqlite3.connect(DB_FILE) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            # Get all images that have BLOB data but no local_path
+            cursor.execute('''
+                SELECT id, image_url, image_data, mime_type, source, file_size
+                FROM cached_images
+                WHERE image_data IS NOT NULL AND (local_path IS NULL OR local_path = '')
+            ''')
+            blob_images = cursor.fetchall()
+            
+            logging.info(f"Found {len(blob_images)} BLOB images to migrate")
+            
+            for row in blob_images:
+                try:
+                    image_url = row['image_url']
+                    image_data = row['image_data']
+                    
+                    if not image_data:
+                        skipped_count += 1
+                        continue
+                    
+                    # Generate filename
+                    filename = _generate_image_filename(image_url, row['mime_type'])
+                    local_path = str(images_dir / filename)
+                    
+                    # Skip if file already exists
+                    if os.path.exists(local_path):
+                        logging.debug(f"File already exists, skipping: {local_path}")
+                        # Update database record with path
+                        cursor.execute('''
+                            UPDATE cached_images
+                            SET local_path = ?
+                            WHERE id = ?
+                        ''', (local_path, row['id']))
+                        skipped_count += 1
+                        continue
+                    
+                    # Write image to file
+                    with open(local_path, 'wb') as f:
+                        f.write(image_data)
+                    
+                    # Update database record with local_path
+                    cursor.execute('''
+                        UPDATE cached_images
+                        SET local_path = ?
+                        WHERE id = ?
+                    ''', (local_path, row['id']))
+                    
+                    migrated_count += 1
+                    
+                    if migrated_count % 10 == 0:
+                        logging.info(f"Migrated {migrated_count} images...")
+                        conn.commit()
+                        
+                except Exception as e:
+                    logging.error(f"Error migrating image {row.get('image_url', 'unknown')}: {e}")
+                    error_count += 1
+            
+            conn.commit()
+            logging.info(f"Migration complete: {migrated_count} migrated, {skipped_count} skipped, {error_count} errors")
+            
+            return {
+                'migrated': migrated_count,
+                'skipped': skipped_count,
+                'errors': error_count,
+                'total': len(blob_images)
+            }
+            
+    except Exception as e:
+        logging.error(f"Error during image migration: {e}", exc_info=True)
+        return {
+            'migrated': migrated_count,
+            'skipped': skipped_count,
+            'errors': error_count,
+            'error': str(e)
+        }
+
+
+def get_cached_image_stats() -> Dict[str, Any]:
+    """
+    Get statistics about cached images.
+    Calculates sizes from filesystem for accuracy.
+
+    Returns:
+        dict: Statistics about image cache
+    """
+    with sqlite3.connect(DB_FILE) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        # Total images
+        cursor.execute('SELECT COUNT(*) FROM cached_images')
+        total_images = cursor.fetchone()[0]
+
+        # Get all images with their paths
+        cursor.execute('SELECT local_path, file_size, source FROM cached_images')
+        all_images = cursor.fetchall()
+
+        # Calculate total size from filesystem
+        total_size = 0
+        source_stats = {}
+        valid_images = 0
+        
+        for row in all_images:
+            local_path = row['local_path']
+            source = row['source'] or 'unknown'
+            
+            if local_path and os.path.exists(local_path):
+                try:
+                    file_size = os.path.getsize(local_path)
+                    total_size += file_size
+                    valid_images += 1
+                    
+                    # Track by source
+                    if source not in source_stats:
+                        source_stats[source] = {'count': 0, 'size_bytes': 0}
+                    source_stats[source]['count'] += 1
+                    source_stats[source]['size_bytes'] += file_size
+                except Exception as e:
+                    logging.warning(f"Error getting size for {local_path}: {e}")
+            else:
+                # Use database size if file missing
+                db_size = row['file_size'] or 0
+                total_size += db_size
+
+        # Oldest and newest
+        cursor.execute('SELECT MIN(cached_at), MAX(cached_at) FROM cached_images')
+        oldest, newest = cursor.fetchone()
+
+        return {
+            'total_images': total_images,
+            'valid_images': valid_images,
+            'total_size_bytes': total_size,
+            'total_size_mb': round(total_size / (1024 * 1024), 2),
+            'source_breakdown': source_stats,
+            'oldest_image': oldest,
+            'newest_image': newest
+        }

@@ -265,7 +265,7 @@ Description: Popular movies collection
 **Sync Settings:**
 - **Auto-sync** - Include in automated sync cycles
 - **Priority** - Sync order (high, normal, low)
-- **4K Requests** - Request 4K versions when available
+- **4K Requests** - Send requests as 4K to Overseerr
 - **Media Types** - Movies only, TV only, or both
 
 **Advanced Options:**

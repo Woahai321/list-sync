@@ -3,7 +3,7 @@
     <Transition name="modal">
       <div
         v-if="modelValue"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        class="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
         @click.self="handleBackdropClick"
       >
         <!-- Backdrop -->
@@ -12,7 +12,7 @@
         <!-- Modal Content -->
         <div
           :class="modalClasses"
-          class="relative z-10 w-full rounded-2xl glass-card shadow-2xl"
+          class="relative z-10 w-full rounded-t-3xl sm:rounded-2xl glass-card shadow-2xl"
           role="dialog"
           aria-modal="true"
         >
@@ -20,7 +20,7 @@
           <button
             v-if="closable"
             type="button"
-            class="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors"
+            class="absolute right-4 top-4 z-20 text-muted-foreground hover:text-foreground transition-colors touch-manipulation p-2 rounded-full hover:bg-purple-500/20"
             @click="close"
             aria-label="Close modal"
           >
@@ -28,7 +28,7 @@
           </button>
 
           <!-- Header -->
-          <div v-if="$slots.header || title" class="border-b border-purple-500/10 px-6 py-4 pr-12">
+          <div v-if="$slots.header || title" class="border-b border-purple-500/10 px-4 sm:px-6 py-3 sm:py-4 pr-14">
             <slot name="header">
               <h2 class="text-xl font-bold text-foreground">
                 {{ title }}
@@ -42,7 +42,7 @@
           </div>
 
           <!-- Footer -->
-          <div v-if="$slots.footer" class="border-t border-purple-500/10 px-6 py-4">
+          <div v-if="$slots.footer" class="border-t border-purple-500/10 px-4 sm:px-6 py-3 sm:py-4 sticky bottom-0 bg-background/95 backdrop-blur-sm">
             <slot name="footer" />
           </div>
         </div>
@@ -57,7 +57,7 @@ import { X as XIcon } from 'lucide-vue-next'
 interface Props {
   modelValue: boolean
   title?: string
-  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full'
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full'
   closable?: boolean
   closeOnBackdrop?: boolean
 }
@@ -90,14 +90,19 @@ const modalClasses = computed(() => {
     md: 'max-w-md',
     lg: 'max-w-lg',
     xl: 'max-w-xl',
-    full: 'max-w-full mx-4',
+    '2xl': 'max-w-2xl',
+    full: 'sm:max-w-7xl',
   }
 
   return sizeClasses[props.size]
 })
 
 const bodyClasses = computed(() => {
-  return 'px-6 py-4 max-h-[70vh] overflow-y-auto custom-scrollbar'
+  // For full-size modals, use more height
+  if (props.size === 'full') {
+    return 'px-4 sm:px-6 py-3 sm:py-4 max-h-[75vh] sm:max-h-[80vh] overflow-y-auto custom-scrollbar'
+  }
+  return 'px-4 sm:px-6 py-3 sm:py-4 max-h-[70vh] overflow-y-auto custom-scrollbar'
 })
 
 // Lock body scroll when modal is open

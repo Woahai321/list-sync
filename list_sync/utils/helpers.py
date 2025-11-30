@@ -344,6 +344,10 @@ def construct_list_url(list_type: str, list_id: str) -> str:
             # If it's already a URL, return as is
             return list_id
     
+    elif list_type.lower() == "collections":
+        # Collections don't have URLs, return a descriptive identifier
+        return f"collection:{list_id}"
+    
     else:
         # Unknown list type, return the ID as-is
         return list_id

@@ -20,7 +20,7 @@
       <div class="grid grid-cols-1 gap-4">
         <!-- Frontend Domain -->
         <div>
-          <label class="block text-[10px] font-bold mb-1.5 uppercase tracking-wide">
+          <label class="block text-xs font-semibold mb-2 text-foreground">
             Frontend Domain
           </label>
           <Input
@@ -30,14 +30,14 @@
             :icon="GlobeIcon"
             @update:model-value="emitUpdate"
           />
-          <p class="text-xs text-muted-foreground mt-1">
+          <p class="text-xs text-muted-foreground mt-1.5">
             URL where the Nuxt 3 Dashboard is accessible
           </p>
         </div>
 
         <!-- Backend Domain -->
         <div>
-          <label class="block text-[10px] font-bold mb-1.5 uppercase tracking-wide">
+          <label class="block text-xs font-semibold mb-2 text-foreground">
             Backend Domain
           </label>
           <Input
@@ -47,14 +47,14 @@
             :icon="ServerIcon"
             @update:model-value="emitUpdate"
           />
-          <p class="text-xs text-muted-foreground mt-1">
+          <p class="text-xs text-muted-foreground mt-1.5">
             URL where the FastAPI Server is running
           </p>
         </div>
 
         <!-- Nuxt Public API URL -->
         <div>
-          <label class="block text-[10px] font-bold mb-1.5 uppercase tracking-wide">
+          <label class="block text-xs font-semibold mb-2 text-foreground">
             Nuxt Public API URL
           </label>
           <Input
@@ -64,7 +64,7 @@
             :icon="LinkIcon"
             @update:model-value="emitUpdate"
           />
-          <p class="text-xs text-muted-foreground mt-1">
+          <p class="text-xs text-muted-foreground mt-1.5">
             Public API URL for client-side requests (no /api suffix needed)
           </p>
         </div>

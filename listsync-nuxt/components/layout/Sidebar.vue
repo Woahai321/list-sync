@@ -102,6 +102,7 @@
 import {
   LayoutDashboard as DashboardIcon,
   List as ListIcon,
+  FolderKanban as CollectionsIcon,
   RefreshCw as SyncIcon,
   History as HistoryIcon,
   Settings as SettingsIcon,
@@ -130,6 +131,11 @@ const navigation = [
     label: 'Lists',
     path: '/lists',
     icon: ListIcon,
+  },
+  {
+    label: 'Collections',
+    path: '/collections',
+    icon: CollectionsIcon,
   },
   {
     label: 'Items',

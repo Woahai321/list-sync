@@ -24,7 +24,9 @@ from typing import AsyncGenerator
 import statistics
 import zoneinfo
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Response
+from fastapi import Request
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
@@ -38,7 +40,8 @@ from list_sync.database import (
     load_list_ids,
     save_list_id,
     delete_list,
-    DB_FILE
+    DB_FILE,
+    init_database
 )
 from list_sync.config import load_env_config
 # Removed in-memory sync tracker - now using database-based tracking
@@ -65,6 +68,15 @@ app = FastAPI(
 async def startup_event():
     """Set the server start time when the FastAPI app starts"""
     global SERVER_START_TIME
+
+    # Ensure database schema is up to date (creates new tables/columns if missing)
+    try:
+        init_database()
+        logging.info("Database initialized / schema verified successfully at startup")
+    except Exception as e:
+        logging.error(f"Failed to initialize database on startup: {e}")
+        # Don't stop startup, but raise HTTPException later if DB is unusable
+
     SERVER_START_TIME = time.time()
     print(f"🚀 API Server started at: {datetime.fromtimestamp(SERVER_START_TIME).isoformat()}")
     print(f"📊 Dashboard available at: http://localhost:3222")
@@ -3031,24 +3043,27 @@ async def get_enriched_items(page: int = Query(1, ge=1), limit: int = Query(50, 
         config_tuple = load_env_config()
         overseerr_url = config_tuple[0] if config_tuple else None
         
-        # Batch fetch tmdb_ids from database (more efficient)
+        # Batch fetch tmdb_ids and poster URLs from database (more efficient)
         item_ids = [item[0] for item in page_items]
         tmdb_id_map = {}
-        
+        poster_url_map = {}
+
         try:
             with sqlite3.connect(DB_FILE) as conn:
                 cursor = conn.cursor()
                 placeholders = ','.join('?' * len(item_ids))
-                cursor.execute(f"SELECT id, tmdb_id FROM synced_items WHERE id IN ({placeholders})", item_ids)
+                cursor.execute(f"SELECT id, tmdb_id, poster_url FROM synced_items WHERE id IN ({placeholders})", item_ids)
                 for row in cursor.fetchall():
-                    if row[1]:
+                    item_db_id, tmdb_id, poster_url = row
+                    if tmdb_id:
                         try:
                             # Handle both string and int tmdb_ids
-                            tmdb_id_map[row[0]] = int(row[1]) if isinstance(row[1], str) else row[1]
+                            tmdb_id_map[item_db_id] = int(tmdb_id) if isinstance(tmdb_id, str) else tmdb_id
                         except (ValueError, TypeError):
-                            logging.warning(f"Invalid tmdb_id format for item {row[0]}: {row[1]}")
+                            logging.warning(f"Invalid tmdb_id format for item {item_db_id}: {tmdb_id}")
+                    poster_url_map[item_db_id] = poster_url
         except Exception as e:
-            logging.warning(f"Failed to batch fetch tmdb_ids: {e}")
+            logging.warning(f"Failed to batch fetch tmdb_ids and poster URLs: {e}")
         
         enriched_items = []
         current_time = time.time()
@@ -3056,9 +3071,10 @@ async def get_enriched_items(page: int = Query(1, ge=1), limit: int = Query(50, 
         for item in page_items:
             item_id, title, media_type, year, imdb_id, overseerr_id, status, last_synced = item
             
-            # Get tmdb_id from batch fetch
+            # Get tmdb_id and poster_url from batch fetch
             tmdb_id = tmdb_id_map.get(item_id)
-            
+            cached_poster_url = poster_url_map.get(item_id)
+
             # Create base enriched item
             enriched_item = {
                 "id": item_id,
@@ -3070,7 +3086,7 @@ async def get_enriched_items(page: int = Query(1, ge=1), limit: int = Query(50, 
                 "overseerr_id": overseerr_id,
                 "status": status,
                 "last_synced": last_synced,
-                "poster_url": None,
+                "poster_url": cached_poster_url,  # Use cached poster URL if available
                 "rating": None,
                 "overview": None,
                 "genres": [],
@@ -3090,13 +3106,24 @@ async def get_enriched_items(page: int = Query(1, ge=1), limit: int = Query(50, 
             # Try to enrich with metadata from cache or API
             cache_key = f"{media_type}_{tmdb_id or imdb_id}"
             
-            # Check cache
+            # Check if we have a cached poster URL from database
+            if cached_poster_url:
+                # We already have the poster URL, no need to fetch metadata
+                enriched_items.append(enriched_item)
+                continue
+
+            # Check metadata cache
             if cache_key in _metadata_cache:
                 cached_data, cache_time = _metadata_cache[cache_key]
                 if current_time - cache_time < _cache_ttl:
                     # Use cached data
+                    poster_url = cached_data.get("poster_url")
+                    if poster_url:
+                        from list_sync.database import update_item_poster_url
+                        update_item_poster_url(item_id, poster_url)
+
                     enriched_item.update({
-                        "poster_url": cached_data.get("poster_url"),
+                        "poster_url": poster_url,
                         "rating": cached_data.get("rating"),
                         "overview": cached_data.get("overview"),
                         "genres": cached_data.get("genres", [])
@@ -3115,10 +3142,16 @@ async def get_enriched_items(page: int = Query(1, ge=1), limit: int = Query(50, 
                 if metadata:
                     # Cache the metadata (even if some fields are None)
                     _metadata_cache[cache_key] = (metadata, current_time)
-                    
+
+                    # Store poster URL in database for this item
+                    poster_url = metadata.get("poster_url")
+                    if poster_url:
+                        from list_sync.database import update_item_poster_url
+                        update_item_poster_url(item_id, poster_url)
+
                     # Enrich item
                     enriched_item.update({
-                        "poster_url": metadata.get("poster_url"),
+                        "poster_url": poster_url,
                         "rating": metadata.get("rating"),
                         "overview": metadata.get("overview"),
                         "genres": metadata.get("genres", [])
@@ -4106,6 +4139,536 @@ async def get_requested_items(
         
     except Exception as e:
         print(f"Error getting requested items: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Collections API endpoints
+@app.get("/api/collections")
+async def get_collections(
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=100),
+    search: str = Query("", description="Search collections by franchise name"),
+    sort: str = Query("total_votes", regex="^(popularity|rating|movie_count|name|total_votes)$", description="Sort by popularity, rating, movie_count, name, or total_votes")
+):
+    """Get all collections with pagination, search, and sorting"""
+    try:
+        from list_sync.providers.collections import get_all_collections
+        from list_sync.database import load_list_ids
+        
+        collections = get_all_collections()
+        
+        # Get synced collections info
+        all_lists = load_list_ids()
+        synced_info = {}
+        for list_item in all_lists:
+            if list_item.get("type") == "collections":
+                franchise_name = list_item.get("id")
+                synced_info[franchise_name] = {
+                    "last_synced": list_item.get("last_synced"),
+                    "item_count": list_item.get("item_count", 0)
+                }
+        
+        # Apply search filter
+        if search.strip():
+            search_lower = search.strip().lower()
+            collections = [
+                c for c in collections
+                if search_lower in c.get("franchise", "").lower()
+            ]
+        
+        # Apply sorting (default: total_votes for quality content first)
+        if sort == "total_votes":
+            collections.sort(key=lambda x: x.get("totalVotes", 0), reverse=True)
+        elif sort == "popularity":
+            collections.sort(key=lambda x: x.get("popularityScore", 0), reverse=True)
+        elif sort == "rating":
+            collections.sort(key=lambda x: x.get("averageRating", 0), reverse=True)
+        elif sort == "movie_count":
+            collections.sort(key=lambda x: x.get("totalMovies", 0), reverse=True)
+        elif sort == "name":
+            collections.sort(key=lambda x: x.get("franchise", "").lower())
+        
+        # Calculate pagination
+        total = len(collections)
+        total_pages = (total + limit - 1) // limit if total > 0 else 0
+        start = (page - 1) * limit
+        end = start + limit
+        page_collections = collections[start:end]
+        
+        # Add synced info to each collection
+        for collection in page_collections:
+            franchise = collection.get("franchise")
+            if franchise in synced_info:
+                collection["_synced_info"] = synced_info[franchise]
+            else:
+                collection["_synced_info"] = None
+        
+        return {
+            "collections": page_collections,
+            "total": total,
+            "page": page,
+            "total_pages": total_pages,
+            "limit": limit
+        }
+    except Exception as e:
+        logging.error(f"Error getting collections: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/collections/random")
+async def get_random_collections(count: int = Query(5, ge=1, le=20, description="Number of random collections to return")):
+    """Get random collections from the full database (only collections with 3+ movies)"""
+    try:
+        import random
+        from list_sync.providers.collections import get_all_collections
+        
+        collections = get_all_collections()
+        logging.info(f"Found {len(collections)} total collections for random selection")
+        
+        # Filter to only collections with 3 or more movies
+        filtered_collections = [
+            c for c in collections 
+            if c and c.get("franchise") and c.get("totalMovies", 0) >= 3
+        ]
+        logging.info(f"Filtered to {len(filtered_collections)} collections with 3+ movies")
+        
+        if len(filtered_collections) == 0:
+            logging.warning("No collections with 3+ movies available for random selection")
+            return {
+                "collections": []
+            }
+        
+        # Get random sample from filtered collections
+        if len(filtered_collections) <= count:
+            random_collections = filtered_collections
+        else:
+            random_collections = random.sample(filtered_collections, count)
+        
+        # Ensure all collections have required fields
+        validated_collections = []
+        for collection in random_collections:
+            if collection and collection.get("franchise"):
+                # Ensure all expected fields exist
+                validated_collection = {
+                    "franchise": collection.get("franchise"),
+                    "totalMovies": collection.get("totalMovies", 0),
+                    "totalVotes": collection.get("totalVotes", 0),
+                    "averageRating": collection.get("averageRating", 0),
+                    "popularityScore": collection.get("popularityScore", 0),
+                    "poster_url": None,  # Will be fetched separately
+                }
+                validated_collections.append(validated_collection)
+        
+        logging.info(f"Returning {len(validated_collections)} random collections")
+        return {
+            "collections": validated_collections
+        }
+    except Exception as e:
+        logging.error(f"Error getting random collections: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/collections/popular")
+async def get_popular_collections():
+    """Get top 20 collections by total votes (quality content first)"""
+    try:
+        from list_sync.providers.collections import get_all_collections
+        from list_sync.database import load_list_ids
+        
+        collections = get_all_collections()
+        
+        # Sort by total votes (quality content first) and take top 20
+        collections.sort(key=lambda x: x.get("totalVotes", 0), reverse=True)
+        top_20 = collections[:20]
+        
+        # Get synced collections info
+        all_lists = load_list_ids()
+        synced_info = {}
+        for list_item in all_lists:
+            if list_item.get("type") == "collections":
+                franchise_name = list_item.get("id")
+                synced_info[franchise_name] = {
+                    "last_synced": list_item.get("last_synced"),
+                    "item_count": list_item.get("item_count", 0)
+                }
+        
+        # Add synced info to each collection
+        for collection in top_20:
+            franchise = collection.get("franchise")
+            if franchise in synced_info:
+                collection["_synced_info"] = synced_info[franchise]
+            else:
+                collection["_synced_info"] = None
+        
+        return {
+            "collections": top_20
+        }
+    except Exception as e:
+        logging.error(f"Error getting popular collections: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/collections/synced")
+async def get_synced_collections_info():
+    """Get information about synced collections (franchise name and last_synced timestamp)"""
+    try:
+        from list_sync.database import load_list_ids
+        
+        all_lists = load_list_ids()
+        synced_collections = {}
+        
+        for list_item in all_lists:
+            if list_item.get("type") == "collections":
+                franchise_name = list_item.get("id")
+                synced_collections[franchise_name] = {
+                    "last_synced": list_item.get("last_synced"),
+                    "item_count": list_item.get("item_count", 0)
+                }
+        
+        return {
+            "synced_collections": synced_collections
+        }
+    except Exception as e:
+        logging.error(f"Error getting synced collections info: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/collections/{franchise_name}")
+async def get_collection_details(franchise_name: str):
+    """Get specific collection details by franchise name"""
+    try:
+        from urllib.parse import unquote
+        from list_sync.providers.collections import get_collection_by_name
+        
+        # URL decode the franchise name
+        decoded_name = unquote(franchise_name)
+        
+        collection = get_collection_by_name(decoded_name)
+        
+        if not collection:
+            raise HTTPException(status_code=404, detail=f"Collection not found: {decoded_name}")
+        
+        return collection
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error getting collection details: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/collections/{franchise_name}/movies")
+async def get_collection_movies(franchise_name: str):
+    """Get movies in a collection with full details"""
+    try:
+        from urllib.parse import unquote
+        from list_sync.providers.collections import get_collection_by_name
+        
+        # URL decode the franchise name
+        decoded_name = unquote(franchise_name)
+        
+        collection = get_collection_by_name(decoded_name)
+        
+        if not collection:
+            raise HTTPException(status_code=404, detail=f"Collection not found: {decoded_name}")
+        
+        # Return full movieRatings data if available, otherwise fallback to basic format
+        movies = collection.get("movieRatings", [])
+        
+        # If no movieRatings, create basic format from movieIds
+        if not movies:
+            from list_sync.providers.collections import fetch_collection
+            movies = fetch_collection(decoded_name)
+        
+        return {
+            "franchise": decoded_name,
+            "movies": movies,
+            "total": len(movies)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error getting collection movies: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/collections/{franchise_name}/poster")
+async def get_collection_poster(franchise_name: str):
+    """Get poster URL for collection (uses most voted movie's poster from Trakt)"""
+    try:
+        from urllib.parse import unquote
+        from list_sync.providers.collections import get_collection_by_name, get_oldest_movie_id
+        from list_sync.providers.trakt import get_trakt_metadata
+        
+        # URL decode the franchise name
+        decoded_name = unquote(franchise_name)
+        
+        collection = get_collection_by_name(decoded_name)
+        
+        if not collection:
+            raise HTTPException(status_code=404, detail=f"Collection not found: {decoded_name}")
+        
+        # Get most voted movie ID (function name kept for compatibility but logic changed)
+        oldest_movie_id = get_oldest_movie_id(collection)
+        
+        if not oldest_movie_id:
+            return {"poster_url": None}
+        
+        # Fetch poster from Trakt
+        metadata = get_trakt_metadata(tmdb_id=oldest_movie_id, media_type="movie")
+        
+        poster_url = metadata.get("poster_url") if metadata else None
+        
+        return {
+            "poster_url": poster_url,
+            "movie_id": oldest_movie_id
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error getting collection poster: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/collections/posters/batch")
+async def get_collection_posters_batch(request: Request):
+    """Get poster URLs for multiple collections in parallel (faster than individual requests)"""
+    try:
+        import asyncio
+        from urllib.parse import unquote
+        from list_sync.providers.collections import get_collection_by_name, get_oldest_movie_id
+        from list_sync.providers.trakt import get_trakt_metadata
+        
+        body = await request.json()
+        franchise_names = body.get("franchise_names", [])
+        
+        if not franchise_names or not isinstance(franchise_names, list):
+            raise HTTPException(status_code=400, detail="franchise_names must be a non-empty list")
+        
+        if len(franchise_names) > 20:
+            raise HTTPException(status_code=400, detail="Maximum 20 franchise names per batch")
+        
+        async def fetch_poster(franchise_name: str):
+            """Fetch poster for a single collection"""
+            try:
+                decoded_name = unquote(franchise_name) if "%" in franchise_name else franchise_name
+                collection = get_collection_by_name(decoded_name)
+                
+                if not collection:
+                    return {
+                        "franchise": franchise_name,
+                        "poster_url": None,
+                        "error": "Collection not found"
+                    }
+                
+                oldest_movie_id = get_oldest_movie_id(collection)
+                
+                if not oldest_movie_id:
+                    return {
+                        "franchise": franchise_name,
+                        "poster_url": None,
+                        "movie_id": None
+                    }
+                
+                # Fetch poster from Trakt (run in thread pool to avoid blocking)
+                loop = asyncio.get_event_loop()
+                metadata = await loop.run_in_executor(
+                    None,
+                    lambda: get_trakt_metadata(tmdb_id=oldest_movie_id, media_type="movie")
+                )
+                
+                poster_url = metadata.get("poster_url") if metadata else None
+                
+                return {
+                    "franchise": franchise_name,
+                    "poster_url": poster_url,
+                    "movie_id": oldest_movie_id
+                }
+            except Exception as e:
+                logging.warning(f"Error fetching poster for {franchise_name}: {e}")
+                return {
+                    "franchise": franchise_name,
+                    "poster_url": None,
+                    "error": str(e)
+                }
+        
+        # Fetch all posters in parallel
+        results = await asyncio.gather(*[fetch_poster(name) for name in franchise_names])
+        
+        return {
+            "posters": results
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error getting batch collection posters: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/media/request")
+async def request_single_media(request: Request):
+    """Request a single media item to Overseerr (one-time sync, not a list)"""
+    try:
+        from list_sync.config import load_env_config
+        from list_sync.api.overseerr import OverseerrClient
+        
+        body = await request.json()
+        tmdb_id = body.get("tmdb_id")
+        media_type = body.get("media_type", "movie")
+        is_4k = body.get("is_4k", False)
+        
+        if not tmdb_id:
+            raise HTTPException(status_code=400, detail="tmdb_id is required")
+        
+        if media_type not in ["movie", "tv"]:
+            raise HTTPException(status_code=400, detail="media_type must be 'movie' or 'tv'")
+        
+        # Ensure tmdb_id is an integer
+        try:
+            tmdb_id = int(tmdb_id)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="tmdb_id must be a valid integer")
+        
+        # Get environment configuration
+        config_tuple = load_env_config()
+        if not config_tuple or not config_tuple[0] or not config_tuple[1]:
+            raise HTTPException(status_code=400, detail="Overseerr not configured")
+        
+        overseerr_url, api_key, requester_user_id = config_tuple[0], config_tuple[1], config_tuple[2] or "1"
+        is_4k_config = config_tuple[5] if len(config_tuple) > 5 else False
+        
+        # Use config 4K setting if not explicitly provided
+        if is_4k is None:
+            is_4k = is_4k_config
+        
+        # Create Overseerr client
+        overseerr_client = OverseerrClient(overseerr_url, api_key, requester_user_id)
+        
+        # Get media by TMDB ID to get Overseerr ID
+        media_data = overseerr_client.get_media_by_tmdb_id(tmdb_id, media_type)
+        
+        if not media_data:
+            return {
+                "success": False,
+                "status": "not_found",
+                "message": f"Media with TMDB ID {tmdb_id} not found in Overseerr"
+            }
+        
+        overseerr_id = media_data.get("id")
+        if not overseerr_id:
+            return {
+                "success": False,
+                "status": "error",
+                "message": "Could not determine Overseerr ID"
+            }
+        
+        # Check current status
+        is_available, is_requested, _ = overseerr_client.get_media_status(overseerr_id, media_type)
+        
+        if is_requested:
+            return {
+                "success": True,
+                "status": "already_requested",
+                "message": "Media is already requested in Overseerr",
+                "overseerr_id": overseerr_id
+            }
+        
+        if is_available:
+            return {
+                "success": True,
+                "status": "already_available",
+                "message": "Media is already available in Overseerr",
+                "overseerr_id": overseerr_id
+            }
+        
+        # Request the media
+        request_status = overseerr_client.request_media(overseerr_id, media_type, is_4k)
+        
+        if request_status == "success":
+            return {
+                "success": True,
+                "status": "requested",
+                "message": "Media successfully requested in Overseerr",
+                "overseerr_id": overseerr_id
+            }
+        elif request_status == "already_requested":
+            return {
+                "success": True,
+                "status": "already_requested",
+                "message": "Media is already requested in Overseerr",
+                "overseerr_id": overseerr_id
+            }
+        else:
+            return {
+                "success": False,
+                "status": "error",
+                "message": f"Failed to request media: {request_status}",
+                "overseerr_id": overseerr_id
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error requesting single media: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/collections/{franchise_name}/sync")
+async def sync_collection(franchise_name: str):
+    """Sync a collection to Overseerr using the same flow as single list sync"""
+    try:
+        from urllib.parse import unquote
+        from list_sync.config import load_env_config
+        from list_sync.main import sync_single_list
+        
+        # URL decode the franchise name
+        decoded_name = unquote(franchise_name)
+        
+        # Get environment configuration
+        config_tuple = load_env_config()
+        if not config_tuple or not config_tuple[0] or not config_tuple[1]:
+            raise HTTPException(status_code=400, detail="Overseerr not configured")
+        
+        overseerr_url, api_key, requester_user_id = config_tuple[0], config_tuple[1], config_tuple[2] or "1"
+        is_4k = config_tuple[5] if len(config_tuple) > 5 else False
+        
+        # Use sync_single_list which handles:
+        # - Session ID generation
+        # - Database tracking (start_sync_in_db, end_sync_in_db)
+        # - Proper logging with boundaries
+        # - Batching via sync_media_to_overseerr
+        # - All the same flow as regular list syncs
+        result = await asyncio.to_thread(
+            sync_single_list,
+            "collections",  # list_type
+            decoded_name,   # list_id (franchise name)
+            overseerr_url,
+            api_key,
+            requester_user_id,
+            is_4k,
+            False  # dry_run
+        )
+        
+        if result.get("success", False):
+            return {
+                "success": True,
+                "franchise": decoded_name,
+                "items_processed": result.get("items_processed", 0),
+                "items_requested": result.get("items_requested", 0),
+                "items_already_available": result.get("items_already_available", 0),
+                "items_already_requested": result.get("items_already_requested", 0),
+                "items_skipped": result.get("items_skipped", 0),
+                "items_not_found": result.get("items_not_found", 0),
+                "errors": result.get("errors", 0),
+                "message": result.get("message", "Collection synced successfully")
+            }
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=result.get("message", "Collection sync failed")
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error syncing collection: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/timezone/supported")
@@ -6643,11 +7206,286 @@ async def get_sync_session_raw_logs(session_id: str):
     raise HTTPException(status_code=404, detail="Session or log file not found")
 
 
+# ============================================================================
+# Image Caching and Proxy Endpoints - Trakt API Compliance
+# ============================================================================
+
+@app.get("/api/images/proxy")
+async def proxy_image(url: str = Query(..., description="Image URL to proxy/cache")):
+    """
+    Proxy and cache images from external sources (Trakt, TMDB, etc.).
+    This ensures compliance with Trakt's image caching requirements.
+    Images are stored in data/images/ folder and served from filesystem.
+    
+    FLOW:
+    1. Check if image is cached in database
+    2. If cached, verify file exists and serve from filesystem
+    3. If not cached or file missing:
+       - Download from original URL (Trakt, TMDB, etc.)
+       - Save to data/images/ with hash-based filename
+       - Store metadata in database
+       - Serve from filesystem
+    4. All subsequent requests serve from local cache (NO HOTLINKING)
+
+    Args:
+        url: The original image URL to proxy
+
+    Returns:
+        The cached image file with proper headers
+    """
+    from list_sync.database import get_cached_image, save_cached_image
+    import requests
+    import imghdr
+    import os
+
+    try:
+        # Validate URL
+        if not url or not url.startswith(('http://', 'https://')):
+            raise HTTPException(status_code=400, detail="Invalid image URL")
+        
+        # Check if we have this image cached
+        cached = get_cached_image(url)
+        if cached:
+            local_path = cached.get('local_path')
+            
+            # Verify file exists
+            if local_path and os.path.exists(local_path):
+                # Serve file from filesystem (NO HOTLINKING - Trakt API compliant)
+                logging.debug(f"Serving cached image from: {local_path}")
+                
+                # Generate ETag from file modification time for efficient caching
+                try:
+                    mtime = os.path.getmtime(local_path)
+                    etag = f'W/"{int(mtime)}"'
+                    last_modified = datetime.fromtimestamp(mtime).strftime('%a, %d %b %Y %H:%M:%S GMT')
+                except:
+                    etag = None
+                    last_modified = None
+                
+                headers = {
+                    'Cache-Control': 'public, max-age=31536000, immutable',  # 1 year - aggressive caching
+                    'X-Image-Source': cached.get('source', 'unknown'),
+                    'X-Image-Cached': 'true'
+                }
+                
+                if etag:
+                    headers['ETag'] = etag
+                if last_modified:
+                    headers['Last-Modified'] = last_modified
+                
+                return FileResponse(
+                    local_path,
+                    media_type=cached.get('mime_type') or 'image/webp',
+                    headers=headers
+                )
+            else:
+                # File missing but DB record exists - log and re-download
+                logging.warning(f"Cached image file missing, re-downloading: {url}")
+
+        # Download the image from original source (Trakt, TMDB, etc.)
+        logging.info(f"Downloading image from source: {url}")
+        response = requests.get(url, timeout=30, headers={
+            'User-Agent': 'ListSync/1.0.0'
+        })
+
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"Failed to fetch image: {response.status_code}"
+            )
+
+        image_data = response.content
+        
+        # Validate image data
+        if not image_data or len(image_data) == 0:
+            raise HTTPException(status_code=500, detail="Empty image data received")
+        
+        # Enforce reasonable file size limit (10MB)
+        max_size = 10 * 1024 * 1024  # 10MB
+        if len(image_data) > max_size:
+            logging.warning(f"Image too large ({len(image_data)} bytes), skipping cache: {url}")
+            # Serve directly without caching
+            return Response(
+                content=image_data,
+                media_type='image/webp',
+                headers={'Cache-Control': 'no-cache'}
+            )
+
+        # Detect image type from actual data (most reliable method)
+        image_type = imghdr.what(None, image_data)
+        if not image_type:
+            # Fallback: try to detect from URL or Content-Type header
+            content_type = response.headers.get('Content-Type', '')
+            if 'webp' in content_type:
+                image_type = 'webp'
+            elif 'jpeg' in content_type or 'jpg' in content_type:
+                image_type = 'jpeg'
+            elif 'png' in content_type:
+                image_type = 'png'
+            else:
+                image_type = 'webp'  # Default to webp for Trakt images
+
+        mime_type = f"image/{image_type}"
+
+        # Determine source from URL
+        if 'trakt.tv' in url or 'walter' in url:
+            source = 'trakt'
+        elif 'tmdb.org' in url or 'themoviedb.org' in url:
+            source = 'tmdb'
+        else:
+            source = 'unknown'
+
+        # Save to cache (saves to data/images/ filesystem and updates database)
+        logging.info(f"Saving {len(image_data)} bytes to cache as {image_type}")
+        image_id = save_cached_image(url, image_data, mime_type, source)
+        
+        # Get the saved image record to get local_path
+        cached = get_cached_image(url)
+        if cached and cached.get('local_path'):
+            local_path = cached['local_path']
+            
+            # Serve the newly saved file
+            # Generate ETag for newly saved file
+            try:
+                mtime = os.path.getmtime(local_path)
+                etag = f'W/"{int(mtime)}"'
+                last_modified = datetime.fromtimestamp(mtime).strftime('%a, %d %b %Y %H:%M:%S GMT')
+            except:
+                etag = None
+                last_modified = None
+            
+            headers = {
+                'Cache-Control': 'public, max-age=31536000, immutable',  # 1 year - aggressive caching
+                'X-Image-Source': source,
+                'X-Image-Cached': 'false'  # First time, so newly cached
+            }
+            
+            if etag:
+                headers['ETag'] = etag
+            if last_modified:
+                headers['Last-Modified'] = last_modified
+            
+            return FileResponse(
+                local_path,
+                media_type=mime_type,
+                headers=headers
+            )
+        else:
+            # Fallback: serve from memory if file save failed
+            logging.warning(f"Failed to get local_path after save, serving from memory: {url}")
+            return Response(
+                content=image_data,
+                media_type=mime_type,
+                headers={
+                    'Cache-Control': 'public, max-age=86400',
+                    'X-Image-Source': source,
+                    'X-Image-Cached': 'false'
+                }
+            )
+
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error fetching image {url}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to fetch image: {str(e)}")
+    except Exception as e:
+        logging.error(f"Error proxying image {url}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/images/cache/stats")
+async def get_image_cache_stats():
+    """
+    Get statistics about cached images.
+    
+    Returns:
+        dict: Statistics including total images, size, breakdown by source
+    """
+    from list_sync.database import get_cached_image_stats
+
+    try:
+        stats = get_cached_image_stats()
+        return stats
+    except Exception as e:
+        logging.error(f"Error getting image cache stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/images/cache/cleanup")
+async def cleanup_image_cache(hours: int = Query(720, description="Remove images not accessed in X hours")):
+    """
+    Clean up expired cached images.
+    Removes both database records and files from filesystem.
+    
+    Args:
+        hours: Remove images not accessed in this many hours (default: 720 = 30 days)
+    
+    Returns:
+        dict: Cleanup results
+    """
+    from list_sync.database import cleanup_expired_images
+    
+    try:
+        if hours < 24:
+            raise HTTPException(status_code=400, detail="Hours must be at least 24")
+        
+        deleted_count = cleanup_expired_images(hours)
+        return {
+            "success": True,
+            "deleted_count": deleted_count,
+            "hours": hours,
+            "message": f"Removed {deleted_count} expired images"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error cleaning up image cache: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/images/cache/cleanup")
+async def cleanup_image_cache(hours: int = Query(24, description="Remove images older than this many hours")):
+    """Clean up expired cached images."""
+    from list_sync.database import cleanup_expired_images
+
+    try:
+        deleted_count = cleanup_expired_images(hours)
+        return {
+            "message": f"Cleaned up {deleted_count} expired images",
+            "deleted_count": deleted_count
+        }
+    except Exception as e:
+        logging.error(f"Error cleaning up image cache: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/images/cache/list")
+async def list_cached_images(limit: int = Query(50, ge=1, le=1000)):
+    """List cached images for debugging."""
+    try:
+        from list_sync.database import DB_FILE
+        import sqlite3
+
+        with sqlite3.connect(DB_FILE) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT id, image_url, mime_type, file_size, cached_at, last_accessed, source
+                FROM cached_images
+                ORDER BY last_accessed DESC
+                LIMIT ?
+            ''', (limit,))
+            images = [dict(row) for row in cursor.fetchall()]
+
+        return {"images": images, "total": len(images)}
+    except Exception as e:
+        logging.error(f"Error listing cached images: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     print("🚀 Starting ListSync Web UI API Server...")
     print("📊 Dashboard will be available at: http://localhost:3222")
     print("🔗 API documentation at: http://localhost:4222/docs")
-    
+
     uvicorn.run(
         "api_server:app",
         host="0.0.0.0",

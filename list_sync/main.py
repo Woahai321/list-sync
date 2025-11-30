@@ -111,12 +111,13 @@ def get_credentials() -> tuple:
         sys.exit(1)
 
 
-def fetch_media_from_lists(list_ids: List[Dict[str, str]]) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
+def fetch_media_from_lists(list_ids: List[Dict[str, str]], is_single_list: bool = False) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
     """
     Fetch media items from all configured lists.
     
     Args:
         list_ids (List[Dict[str, str]]): List of dictionaries with list type and ID
+        is_single_list (bool): Whether this is a single list sync (affects log message format)
         
     Returns:
         tuple: (List of media items from all sources, List of synced list info with URLs)
@@ -262,8 +263,13 @@ def fetch_media_from_lists(list_ids: List[Dict[str, str]]) -> Tuple[List[Dict[st
     if len(all_media) != len(unique_media):
         print(color_gradient(f"\n🔄  Removed {len(all_media) - len(unique_media)} duplicate items", "#ffaa00", "#ff5500"))
     
-    print(color_gradient(f"\n📊  Total unique media items ready for sync: {len(unique_media)}", "#00aaff", "#00ffaa"))
-    logging.info(f"Fetched {len(unique_media)} unique media items from all lists")
+    # Use different log message for single list syncs to avoid false FULL sync detection
+    if is_single_list:
+        print(color_gradient(f"\n📋  Found {len(unique_media)} unique media items from list", "#00aaff", "#00ffaa"))
+        logging.info(f"Fetched {len(unique_media)} unique media items from single list")
+    else:
+        print(color_gradient(f"\n📊  Total unique media items ready for sync: {len(unique_media)}", "#00aaff", "#00ffaa"))
+        logging.info(f"Fetched {len(unique_media)} unique media items from all lists")
     return unique_media, synced_lists
 
 
@@ -330,8 +336,16 @@ def process_media_item(item: Dict[str, Any], overseerr_client: OverseerrClient, 
         
         # METHOD 1: Direct TMDB ID lookup (fastest, most reliable)
         if tmdb_id:
-            logging.info(f"🎯 METHOD 1: Direct TMDB ID lookup (ID: {tmdb_id})")
-            search_result = overseerr_client.get_media_by_tmdb_id(tmdb_id, media_type)
+            # Ensure tmdb_id is an integer (may be string from collections)
+            try:
+                tmdb_id_int = int(tmdb_id)
+            except (ValueError, TypeError):
+                logging.warning(f"Invalid TMDB ID format: {tmdb_id} (type: {type(tmdb_id)})")
+                tmdb_id_int = None
+            
+            if tmdb_id_int:
+                logging.info(f"🎯 METHOD 1: Direct TMDB ID lookup (ID: {tmdb_id_int})")
+                search_result = overseerr_client.get_media_by_tmdb_id(tmdb_id_int, media_type)
             if search_result:
                 match_method = "TMDB_ID_DIRECT"
                 logging.info(f"✅ SUCCESS: Direct TMDB ID lookup")
@@ -342,8 +356,16 @@ def process_media_item(item: Dict[str, Any], overseerr_client: OverseerrClient, 
             trakt_result = search_trakt_by_imdb_id(imdb_id)
             if trakt_result and trakt_result.get('tmdb_id'):
                 resolved_tmdb_id = trakt_result['tmdb_id']
-                logging.info(f"✅ Trakt resolved IMDB {imdb_id} → TMDB {resolved_tmdb_id}")
-                search_result = overseerr_client.get_media_by_tmdb_id(resolved_tmdb_id, media_type)
+                # Ensure it's an integer
+                try:
+                    resolved_tmdb_id = int(resolved_tmdb_id)
+                except (ValueError, TypeError):
+                    logging.warning(f"Invalid resolved TMDB ID format: {resolved_tmdb_id}")
+                    resolved_tmdb_id = None
+                
+                if resolved_tmdb_id:
+                    logging.info(f"✅ Trakt resolved IMDB {imdb_id} → TMDB {resolved_tmdb_id}")
+                    search_result = overseerr_client.get_media_by_tmdb_id(resolved_tmdb_id, media_type)
                 if search_result:
                     match_method = "IMDB_TO_TMDB"
                     logging.info(f"✅ SUCCESS: IMDB→Trakt→TMDB chain")
@@ -358,8 +380,16 @@ def process_media_item(item: Dict[str, Any], overseerr_client: OverseerrClient, 
             trakt_result = search_trakt_by_title(search_title, year, media_type)
             if trakt_result and trakt_result.get('tmdb_id'):
                 resolved_tmdb_id = trakt_result['tmdb_id']
-                logging.info(f"✅ Trakt resolved '{search_title}' ({year}) → TMDB {resolved_tmdb_id}")
-                search_result = overseerr_client.get_media_by_tmdb_id(resolved_tmdb_id, media_type)
+                # Ensure it's an integer
+                try:
+                    resolved_tmdb_id = int(resolved_tmdb_id)
+                except (ValueError, TypeError):
+                    logging.warning(f"Invalid resolved TMDB ID format: {resolved_tmdb_id}")
+                    resolved_tmdb_id = None
+                
+                if resolved_tmdb_id:
+                    logging.info(f"✅ Trakt resolved '{search_title}' ({year}) → TMDB {resolved_tmdb_id}")
+                    search_result = overseerr_client.get_media_by_tmdb_id(resolved_tmdb_id, media_type)
                 if search_result:
                     match_method = "TITLE_TO_TMDB"
                     logging.info(f"✅ SUCCESS: Title→Trakt→TMDB chain")
@@ -385,6 +415,13 @@ def process_media_item(item: Dict[str, Any], overseerr_client: OverseerrClient, 
         if search_result:
             overseerr_id = search_result["id"]
             
+            # Ensure overseerr_id is an integer (may be string from API response)
+            try:
+                overseerr_id = int(overseerr_id)
+            except (ValueError, TypeError):
+                logging.error(f"Invalid Overseerr ID format: {overseerr_id} (type: {type(overseerr_id)})")
+                return {"title": title, "status": "error", "year": year, "media_type": media_type}
+            
             logging.info(f"📊 MATCH SUMMARY: Method={match_method}, Overseerr_ID={overseerr_id}")
             
             # Get list information from item (can be single list or multiple lists)
@@ -403,6 +440,10 @@ def process_media_item(item: Dict[str, Any], overseerr_client: OverseerrClient, 
 
             logging.info(f"🔍 Checking media status in Overseerr...")
             is_available, is_requested, number_of_seasons = overseerr_client.get_media_status(overseerr_id, search_result["mediaType"])
+            
+            # Log status interpretation for debugging
+            if not is_available and not is_requested:
+                logging.debug(f"Media status: Not available, not requested - will attempt to request")
             
             if is_available:
                 logging.info(f"☑️ STATUS: Already available in library")
@@ -436,6 +477,12 @@ def process_media_item(item: Dict[str, Any], overseerr_client: OverseerrClient, 
                     for source_list in source_lists:
                         save_sync_result(title, media_type, imdb_id, overseerr_id, "requested", year, tmdb_id, source_list['type'], source_list['id'])
                     return {"title": title, "status": "requested", "year": year, "media_type": media_type}
+                elif request_status == "already_requested":
+                    logging.info(f"📌 STATUS: Already requested (detected from API response)")
+                    # Save relationship for all source lists
+                    for source_list in source_lists:
+                        save_sync_result(title, media_type, imdb_id, overseerr_id, "already_requested", year, tmdb_id, source_list['type'], source_list['id'])
+                    return {"title": title, "status": "already_requested", "year": year, "media_type": media_type}
                 else:
                     logging.error(f"❌ ERROR: Request failed")
                     # Save relationship for all source lists
@@ -1130,7 +1177,7 @@ def sync_single_list(
         single_list_info = [{"type": list_type, "id": list_id}]
         
         # Fetch media from the single list
-        media_items, synced_lists = fetch_media_from_lists(single_list_info)
+        media_items, synced_lists = fetch_media_from_lists(single_list_info, is_single_list=True)
         
         if not media_items:
             result = {

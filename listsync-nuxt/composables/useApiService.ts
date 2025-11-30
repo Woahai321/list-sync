@@ -470,6 +470,80 @@ export function useApiService() {
         body: data,
       })
     },
+
+    // Collections
+    async getCollections(
+      page: number = 1,
+      limit: number = 50,
+      search: string = '',
+      sort: string = 'popularity'
+    ) {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+        search,
+        sort,
+      })
+      return apiCall(`${baseURL}/collections?${params.toString()}`)
+    },
+
+    async getPopularCollections() {
+      return apiCall(`${baseURL}/collections/popular`)
+    },
+
+    async getRandomCollections(count: number = 5) {
+      return apiCall(`${baseURL}/collections/random?count=${count}`)
+    },
+
+    async getSyncedCollectionsInfo() {
+      return apiCall(`${baseURL}/collections/synced`)
+    },
+
+    async getCollectionDetails(franchiseName: string) {
+      const encoded = encodeURIComponent(franchiseName)
+      return apiCall(`${baseURL}/collections/${encoded}`)
+    },
+
+    async getCollectionMovies(franchiseName: string) {
+      const encoded = encodeURIComponent(franchiseName)
+      return apiCall(`${baseURL}/collections/${encoded}/movies`)
+    },
+
+    async getCollectionPoster(franchiseName: string) {
+      const encoded = encodeURIComponent(franchiseName)
+      return apiCall(`${baseURL}/collections/${encoded}/poster`)
+    },
+
+    async getCollectionPostersBatch(franchiseNames: string[]) {
+      return apiCall(`${baseURL}/collections/posters/batch`, {
+        method: 'POST',
+        body: JSON.stringify({ franchise_names: franchiseNames }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+    },
+
+    async requestSingleMedia(tmdbId: number, mediaType: string = 'movie', is4k?: boolean) {
+      return apiCall(`${baseURL}/media/request`, {
+        method: 'POST',
+        body: JSON.stringify({ 
+          tmdb_id: tmdbId,
+          media_type: mediaType,
+          is_4k: is4k
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+    },
+
+    async syncCollection(franchiseName: string) {
+      const encoded = encodeURIComponent(franchiseName)
+      return apiCall(`${baseURL}/collections/${encoded}/sync`, {
+        method: 'POST',
+      })
+    },
   }
 }
 

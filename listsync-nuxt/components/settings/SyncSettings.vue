@@ -20,9 +20,9 @@
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <!-- Sync Interval -->
         <div>
-          <label class="block text-[10px] font-bold mb-1.5 uppercase tracking-wide">
+          <label class="block text-xs font-semibold mb-2 text-foreground">
             Sync Interval (hours)
-            <span class="text-danger">*</span>
+            <span class="text-danger ml-1">*</span>
           </label>
           <Input
             v-model.number="localValue.interval"
@@ -34,16 +34,16 @@
             @update:model-value="emitUpdate"
           />
           <div class="mt-2 flex items-start gap-2 p-2 rounded-lg bg-info/10 border border-info/20">
-            <InfoIcon class="w-4 h-4 text-info flex-shrink-0 mt-0.5" />
+            <InfoIcon class="w-3.5 h-3.5 text-info flex-shrink-0 mt-0.5" />
             <p class="text-xs text-info">
-              This value is stored in the database and syncs with the /sync page. Changes take effect immediately.
+              Stored in database. Changes take effect immediately.
             </p>
           </div>
         </div>
 
         <!-- Timezone -->
         <div>
-          <label class="block text-[10px] font-bold mb-1.5 uppercase tracking-wide">
+          <label class="block text-xs font-semibold mb-2 text-foreground">
             Timezone
           </label>
           <div class="relative">
@@ -85,14 +85,14 @@
             </span>
           </div>
           
-          <p class="text-xs text-muted-foreground mt-1">
-            Timezone for scheduling syncs (supports IANA names, UTC offsets, and abbreviations)
+          <p class="text-xs text-muted-foreground mt-1.5">
+            Timezone for scheduling syncs
           </p>
         </div>
 
         <!-- Automated Mode -->
         <div class="md:col-span-2">
-          <label class="block text-sm font-medium mb-2">
+          <label class="block text-xs font-semibold mb-2 text-foreground">
             Automated Sync
           </label>
           <div class="flex items-center gap-3">
@@ -133,7 +133,7 @@
               {{ localValue.automatedMode ? 'Sync runs automatically' : 'Manual sync only' }}
             </span>
           </div>
-          <p class="text-xs text-muted-foreground mt-3">
+          <p class="text-xs text-muted-foreground mt-1.5">
             When enabled, sync will run automatically at the specified interval
           </p>
         </div>

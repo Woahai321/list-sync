@@ -28,7 +28,7 @@
       
       <div>
         <div class="flex items-center gap-1.5 mb-2">
-          <label class="text-xs font-medium text-purple-300/70 uppercase tracking-wide">URL</label>
+          <label class="text-xs font-semibold text-foreground">URL</label>
           <Tooltip content="The URL where your Overseerr instance is hosted. This is the web address you use to access Overseerr.">
             <HelpCircleIcon :size="14" class="text-purple-400/60 hover:text-purple-400 cursor-help transition-colors" />
           </Tooltip>
@@ -48,7 +48,7 @@
 
       <div>
         <div class="flex items-center gap-1.5 mb-2">
-          <label class="text-xs font-medium text-purple-300/70 uppercase tracking-wide">API Key</label>
+          <label class="text-xs font-semibold text-foreground">API Key</label>
           <Tooltip content="Your Overseerr API key. You can find this in Overseerr Settings > General > API Key.">
             <HelpCircleIcon :size="14" class="text-purple-400/60 hover:text-purple-400 cursor-help transition-colors" />
           </Tooltip>
@@ -73,7 +73,7 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <div class="flex items-center gap-1.5 mb-2">
-            <label class="text-xs font-medium text-purple-300/70 uppercase tracking-wide">User ID</label>
+            <label class="text-xs font-semibold text-foreground">User ID</label>
             <Tooltip content="The user ID for requests. Default is 1. You can find user IDs on each user's profile page in Overseerr.">
               <HelpCircleIcon :size="14" class="text-purple-400/60 hover:text-purple-400 cursor-help transition-colors" />
             </Tooltip>
@@ -89,7 +89,7 @@
         <div class="flex items-end">
           <div class="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-lg bg-purple-500/5 border border-purple-500/10 w-full">
             <div class="flex items-center gap-1.5">
-              <span class="text-xs font-medium text-purple-300/70 uppercase tracking-wide">4K</span>
+              <span class="text-xs font-semibold text-foreground">4K</span>
               <Tooltip content="Enable this if you want requests sent to Overseerr to be 4K requests. Disable for standard quality requests.">
                 <HelpCircleIcon :size="14" class="text-purple-400/60 hover:text-purple-400 cursor-help transition-colors" />
               </Tooltip>
@@ -123,7 +123,7 @@
       
       <div>
         <div class="flex items-center gap-1.5 mb-2">
-          <label class="text-xs font-medium text-purple-300/70 uppercase tracking-wide">Client ID</label>
+          <label class="text-xs font-semibold text-foreground">Client ID</label>
           <Tooltip content="Your Trakt Client ID. Create a new application at trakt.tv/oauth/applications to get your Client ID.">
             <HelpCircleIcon :size="14" class="text-purple-400/60 hover:text-purple-400 cursor-help transition-colors" />
           </Tooltip>

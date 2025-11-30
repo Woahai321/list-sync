@@ -10,7 +10,7 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <div>
           <div class="flex items-center gap-1.5 mb-2">
-            <label class="text-xs font-medium text-purple-300/70 uppercase tracking-wide">Interval (hours)</label>
+            <label class="text-xs font-semibold text-foreground">Interval (hours)</label>
             <Tooltip content="How often to automatically sync your lists. Minimum 1 hour, maximum 168 hours (7 days).">
               <HelpCircleIcon :size="14" class="text-purple-400/60 hover:text-purple-400 cursor-help transition-colors" />
             </Tooltip>
@@ -27,7 +27,7 @@
         
         <div>
           <div class="flex items-center gap-1.5 mb-2">
-            <label class="text-xs font-medium text-purple-300/70 uppercase tracking-wide">Timezone</label>
+            <label class="text-xs font-semibold text-foreground">Timezone</label>
             <Tooltip content="Your local timezone for scheduling syncs. This ensures syncs happen at the right time in your location.">
               <HelpCircleIcon :size="14" class="text-purple-400/60 hover:text-purple-400 cursor-help transition-colors" />
             </Tooltip>
@@ -46,7 +46,7 @@
 
       <div class="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-purple-500/5 border border-purple-500/10">
         <div class="flex items-center gap-1.5">
-          <span class="text-xs font-medium text-purple-300/70 uppercase tracking-wide">Auto Sync</span>
+          <span class="text-xs font-semibold text-foreground">Auto Sync</span>
           <Tooltip content="Enable automatic syncing of your lists at the configured interval. Disable to sync manually only.">
             <HelpCircleIcon :size="14" class="text-purple-400/60 hover:text-purple-400 cursor-help transition-colors" />
           </Tooltip>
@@ -96,7 +96,7 @@
       
       <div v-if="localValue.discord_enabled">
         <div class="flex items-center gap-1.5 mb-2">
-          <label class="text-xs font-medium text-blue-300/70 uppercase tracking-wide">Webhook URL</label>
+          <label class="text-xs font-semibold text-foreground">Webhook URL</label>
           <Tooltip content="Your Discord webhook URL. Create a webhook in your Discord server settings to get notifications about syncs.">
             <HelpCircleIcon :size="14" class="text-blue-400/60 hover:text-blue-400 cursor-help transition-colors" />
           </Tooltip>

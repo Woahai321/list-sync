@@ -111,10 +111,10 @@
           </NuxtLink>
         </div>
         <Card variant="default" class="glass-card">
-          <div v-if="recentItemsLoading" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4 p-2 sm:p-0">
-            <PosterCardSkeleton v-for="i in 5" :key="`skeleton-${i}`" />
+          <div v-if="recentItemsLoading" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 sm:gap-4 p-2 sm:p-0">
+            <PosterCardSkeleton v-for="i in 6" :key="`skeleton-${i}`" />
           </div>
-          <div v-else-if="recentItems.length > 0" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4 p-2 sm:p-0">
+          <div v-else-if="recentItems.length > 0" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 sm:gap-4 p-2 sm:p-0">
             <PosterCard
               v-for="item in recentItems"
               :key="item.id"
@@ -306,12 +306,12 @@ const fetchSyncHistoryStats = async () => {
   }
 }
 
-// Fetch recent items (5 most recently synced)
+// Fetch recent items (6 most recently synced)
 const fetchRecentItems = async () => {
   recentItemsLoading.value = true
   try {
     const api = useApiService()
-    const response: any = await api.getEnrichedItems(1, 5)
+    const response: any = await api.getEnrichedItems(1, 6)
     
     if (response && response.items && Array.isArray(response.items)) {
       recentItems.value = response.items

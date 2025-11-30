@@ -787,9 +787,15 @@ def get_trakt_metadata(tmdb_id: Optional[int] = None, imdb_id: Optional[str] = N
                 # Trakt returns image URLs without https:// prefix
                 poster_path = poster_array[0]
                 if poster_path:
-                    # Prepend https:// as per Trakt documentation
-                    poster_url = f"https://{poster_path}" if not poster_path.startswith('http') else poster_path
-                    logging.debug(f"Found poster URL from Trakt: {poster_url}")
+                    # Construct the full Trakt URL first
+                    trakt_url = f"https://{poster_path}" if not poster_path.startswith('http') else poster_path
+
+                    # Instead of returning the direct Trakt URL, return a proxy URL
+                    # This ensures compliance with Trakt's caching requirements
+                    from urllib.parse import quote
+                    poster_url = f"/api/images/proxy?url={quote(trakt_url)}"
+
+                    logging.debug(f"Constructed proxy poster URL for Trakt image: {poster_url} (original: {trakt_url})")
         
         # Extract metadata from Trakt
         metadata = {

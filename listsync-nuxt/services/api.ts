@@ -15,6 +15,10 @@ import type {
   LiveSyncStatus,
   PaginatedResponse,
   ProcessedItem,
+  CollectionsResponse,
+  CollectionMoviesResponse,
+  CollectionPosterResponse,
+  CollectionSyncResponse,
 } from '~/types'
 
 export class ApiService {
@@ -396,6 +400,77 @@ export class ApiService {
 
   async getSyncHistoryStats(): Promise<import('~/types').SyncHistoryStats> {
     return this.request<import('~/types').SyncHistoryStats>('/sync-history/stats')
+  }
+
+  // ==========================================
+  // Collections
+  // ==========================================
+
+  async getCollections(
+    page: number = 1,
+    limit: number = 50,
+    search: string = '',
+    sort: string = 'popularity'
+  ): Promise<CollectionsResponse> {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+      search,
+      sort,
+    })
+    return this.request<CollectionsResponse>(`/collections?${params.toString()}`)
+  }
+
+  async getPopularCollections(): Promise<{ collections: any[] }> {
+    return this.request<{ collections: any[] }>('/collections/popular')
+  }
+
+  async getRandomCollections(count: number = 5): Promise<{ collections: any[] }> {
+    return this.request<{ collections: any[] }>(`/collections/random?count=${count}`)
+  }
+
+  async getSyncedCollectionsInfo(): Promise<{ synced_collections: Record<string, { last_synced: string | null, item_count: number }> }> {
+    return this.request<{ synced_collections: Record<string, { last_synced: string | null, item_count: number }> }>('/collections/synced')
+  }
+
+  async getCollectionDetails(franchiseName: string) {
+    const encoded = encodeURIComponent(franchiseName)
+    return this.request(`/collections/${encoded}`)
+  }
+
+  async getCollectionMovies(franchiseName: string): Promise<CollectionMoviesResponse> {
+    const encoded = encodeURIComponent(franchiseName)
+    return this.request<CollectionMoviesResponse>(`/collections/${encoded}/movies`)
+  }
+
+  async getCollectionPoster(franchiseName: string): Promise<CollectionPosterResponse> {
+    const encoded = encodeURIComponent(franchiseName)
+    return this.request<CollectionPosterResponse>(`/collections/${encoded}/poster`)
+  }
+
+  async getCollectionPostersBatch(franchiseNames: string[]): Promise<{ posters: Array<{ franchise: string, poster_url: string | null, movie_id?: number | null, error?: string }> }> {
+    return this.request(`/collections/posters/batch`, {
+      method: 'POST',
+      body: JSON.stringify({ franchise_names: franchiseNames }),
+    })
+  }
+
+  async requestSingleMedia(tmdbId: number, mediaType: string = 'movie', is4k?: boolean): Promise<{ success: boolean, status: string, message: string, overseerr_id?: number }> {
+    return this.request(`/media/request`, {
+      method: 'POST',
+      body: JSON.stringify({ 
+        tmdb_id: tmdbId,
+        media_type: mediaType,
+        is_4k: is4k
+      }),
+    })
+  }
+
+  async syncCollection(franchiseName: string): Promise<CollectionSyncResponse> {
+    const encoded = encodeURIComponent(franchiseName)
+    return this.request<CollectionSyncResponse>(`/collections/${encoded}/sync`, {
+      method: 'POST',
+    })
   }
 
   // ==========================================

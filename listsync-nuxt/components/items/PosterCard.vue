@@ -10,21 +10,34 @@
     @keydown.space.prevent="handleClick"
   >
     <!-- Poster Image Container -->
-    <div class="poster-container relative w-full rounded-xl overflow-hidden shadow-xl">
+    <div ref="imageRef" class="poster-container relative w-full rounded-xl overflow-hidden shadow-xl">
       <!-- Aspect ratio keeper (2:3 for movie posters) -->
       <div class="aspect-[2/3] relative bg-gradient-to-br from-gray-900 via-purple-950/20 to-gray-900">
+        <!-- Blur Placeholder (shown while loading) -->
+        <div 
+          v-if="actualSrc && !imageLoaded && !imageError"
+          class="absolute inset-0 bg-gradient-to-br from-purple-900/40 to-gray-900/60 animate-pulse"
+        >
+          <div class="absolute inset-0 backdrop-blur-xl bg-purple-500/5"></div>
+        </div>
+        
         <!-- Poster Image -->
         <img
-          v-if="item.poster_url && !imageError"
-          :src="item.poster_url"
+          v-if="actualSrc && !imageError"
+          :src="actualSrc"
           :alt="`${item.title} poster`"
-          class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
-          loading="lazy"
-          @error="handleImageError"
+          class="absolute inset-0 w-full h-full object-cover transition-all duration-500 ease-out"
+          :class="{ 
+            'opacity-0 scale-105': !imageLoaded,
+            'opacity-100 scale-100': imageLoaded
+          }"
+          @load="handleLoad"
+          @error="handleError"
         />
-        <!-- Fallback Placeholder -->
+        
+        <!-- Fallback Placeholder (no poster URL or error) -->
         <div
-          v-else
+          v-if="!actualSrc || imageError"
           class="absolute inset-0 w-full h-full bg-gradient-to-br from-gray-900 via-purple-950/20 to-gray-900 flex items-center justify-center"
         >
           <FilmIcon v-if="item.media_type === 'movie'" :size="48" class="text-purple-500/30" />
@@ -122,13 +135,10 @@ const props = withDefaults(defineProps<Props>(), {
 
 const { showError } = useToast()
 
-// Track image error state
-const imageError = ref(false)
-
-// Handle poster image load error
-const handleImageError = () => {
-  imageError.value = true
-}
+// Use smart lazy loading composable
+const { imageRef, actualSrc, imageLoaded, imageError, handleLoad, handleError } = useLazyImage(
+  computed(() => props.item.poster_url)
+)
 
 // Get status icon component
 const getStatusIcon = (status: string) => {

@@ -340,6 +340,89 @@ export interface FailedItem {
   retryable: boolean
 }
 
+// ==========================================
+// Collections Types
+// ==========================================
+
+export interface CollectionMovie {
+  id: number
+  title: string
+  original_title?: string
+  rating?: number
+  voteCount?: number
+  releaseDate?: string
+  poster_path?: string
+  backdrop_path?: string
+  overview?: string
+  tagline?: string
+  runtime?: number
+  genres?: string[]
+  imdb_id?: string
+  popularity?: number
+  budget?: number
+  revenue?: number
+  status?: string
+  original_language?: string
+  production_countries?: string[]
+  spoken_languages?: string[]
+}
+
+export interface Collection {
+  franchise: string
+  popularityScore?: number
+  averageRating?: number
+  totalMovies?: number
+  totalVotes?: number
+  highestRatedMovie?: {
+    id: number
+    title: string
+    rating: number
+  }
+  lowestRatedMovie?: {
+    id: number
+    title: string
+    rating: number
+  }
+  movieRatings?: CollectionMovie[]
+  movieIds?: number[]
+  collectionId?: number
+  poster_path?: string
+  backdrop_path?: string
+  overview?: string
+  poster_url?: string
+}
+
+export interface CollectionsResponse {
+  collections: Collection[]
+  total: number
+  page: number
+  total_pages: number
+  limit: number
+}
+
+export interface CollectionMoviesResponse {
+  franchise: string
+  movies: CollectionMovie[]
+  total: number
+}
+
+export interface CollectionPosterResponse {
+  poster_url: string | null
+  movie_id: number
+}
+
+export interface CollectionSyncResponse {
+  success: boolean
+  franchise: string
+  items_processed: number
+  results: {
+    requested: number
+    already_requested: number
+    request_failed: number
+    errors: string[]
+  }
+}
+
 export interface FailedItemsResponse {
   items: FailedItem[]
   total: number
@@ -350,6 +433,23 @@ export interface FailedItemsResponse {
     total_pages: number
     has_next: boolean
     has_prev: boolean
+  }
+}
+
+export interface CollectionPosterResponse {
+  poster_url: string | null
+  movie_id: number
+}
+
+export interface CollectionSyncResponse {
+  success: boolean
+  franchise: string
+  items_processed: number
+  results: {
+    requested: number
+    already_requested: number
+    request_failed: number
+    errors: string[]
   }
 }
 
