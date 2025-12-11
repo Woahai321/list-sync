@@ -8,7 +8,7 @@ from typing import List, Dict, Any
 
 from seleniumbase import SB
 
-from . import register_provider
+from . import register_provider, check_and_raise_if_cancelled, SyncCancelledException
 
 
 @register_provider("imdb")
@@ -75,6 +75,9 @@ def fetch_imdb_list(list_id: str) -> List[Dict[str, Any]]:
             # Wait for any potential captcha/anti-bot verification to load
             sb.sleep(3)
             
+            # Check for cancellation before processing
+            check_and_raise_if_cancelled()
+            
             if is_chart:
                 # Process chart page (IMDb top charts)
                 media_items.extend(_process_imdb_chart(sb))
@@ -84,6 +87,10 @@ def fetch_imdb_list(list_id: str) -> List[Dict[str, Any]]:
             
             logging.info(f"Found {len(media_items)} items from IMDb list {list_id}")
             return media_items
+    
+    except SyncCancelledException:
+        logging.warning(f"⚠️ IMDb list fetch cancelled by user - returning {len(media_items)} items fetched so far")
+        raise
         
     except Exception as e:
         logging.error(f"Error fetching IMDb list {list_id}: {str(e)}")
@@ -231,7 +238,13 @@ def _process_imdb_chart(sb) -> List[Dict[str, Any]]:
     
     logging.info(f"Found {len(items)} items in chart")
     
-    for item in items:
+    # Check for cancellation before processing items
+    check_and_raise_if_cancelled()
+    
+    for idx, item in enumerate(items):
+        # Check for cancellation every 10 items
+        if idx > 0 and idx % 10 == 0:
+            check_and_raise_if_cancelled()
         try:
             # Get title element - try multiple selectors
             title_element = None
@@ -539,6 +552,8 @@ def _process_imdb_list(sb, url) -> List[Dict[str, Any]]:
     
     # Process items on the page
     while True:
+        # Check for cancellation at the start of each page
+        check_and_raise_if_cancelled()
         # Try multiple approaches to find list items
         items = []
         
@@ -589,7 +604,11 @@ def _process_imdb_list(sb, url) -> List[Dict[str, Any]]:
                 logging.info("No more pages expected, breaking loop")
                 break
         
-        for item in items:
+        for idx, item in enumerate(items):
+            # Check for cancellation every 10 items
+            if idx > 0 and idx % 10 == 0:
+                check_and_raise_if_cancelled()
+            
             try:
                 # Get title element with multiple fallbacks
                 title_element = None

@@ -177,6 +177,9 @@ export default defineNuxtConfig({
 
   // Vite configuration
   vite: {
+    build: {
+      sourcemap: true, // Enable source maps for debugging TDZ errors
+    },
     optimizeDeps: {
       include: ['date-fns', 'lucide-vue-next'],
     },

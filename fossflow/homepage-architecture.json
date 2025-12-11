@@ -1,0 +1,33 @@
+{
+  "t": "ListSync System Architecture",
+  "i": [
+    ["User", "user", "Opens dashboard"],
+    ["Nuxt Dashboard", "web", "Vue 3 frontend"],
+    ["FastAPI Backend", "api", "REST API server"],
+    ["Core Sync Engine", "server", "Python orchestrator"],
+    ["SQLite Database", "storage", "Data persistence"],
+    ["Provider System", "function", "Multi-source hub"],
+    ["Selenium", "monitor", "Browser automation"],
+    ["IMDb", "cloud", "Charts & lists"],
+    ["Letterboxd", "cloud", "Film lists"],
+    ["MDBList", "cloud", "Collections"],
+    ["TVDB", "cloud", "Favorites"],
+    ["Trakt API", "api", "Trending lists"],
+    ["TMDB API", "api", "Collections"],
+    ["AniList", "api", "Anime lists"],
+    ["Steven Lu", "storage", "Popular movies"],
+    ["Extract Data", "function", "Parse media info"],
+    ["Deduplicate", "function", "Filter duplicates"],
+    ["Search Overseerr", "api", "Fuzzy matching"],
+    ["Check Status", "security", "Availability"],
+    ["Create Requests", "queue", "Submit requests"],
+    ["Overseerr", "queue", "Media manager"]
+  ],
+  "v": [
+    [
+      [[0, -8, -6], [1, -4, -6], [2, 0, -6], [3, 4, -6], [4, 8, -6], [5, 0, -2], [6, -4, 0], [7, -8, 2], [8, -6, 2], [9, -4, 2], [10, -2, 2], [11, 2, 0], [12, 4, 0], [13, 6, 0], [14, 8, 0], [15, 0, 2], [16, 0, 4], [17, 0, 6], [18, 0, 8], [19, 0, 10], [20, 4, 10]],
+      [[0, 1], [1, 2], [2, 3], [3, 4], [3, 5], [5, 6], [6, 7], [6, 8], [6, 9], [6, 10], [5, 11], [5, 12], [5, 13], [5, 14], [5, 15], [15, 16], [16, 17], [17, 18], [18, 19], [19, 20], [19, 4], [4, 3]]
+    ]
+  ],
+  "_": { "f": "compact", "v": "1.0" }
+}

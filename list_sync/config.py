@@ -443,6 +443,24 @@ def format_time_remaining(seconds):
     return f"{int(hours)}h {int(minutes)}m {int(secs)}s"
 
 
+def is_masked_value(value: str) -> bool:
+    """
+    Check if a value is a masked placeholder (e.g., '****abc123').
+    
+    Masked values are used in the UI to hide sensitive information while
+    still showing that a value exists. They start with 4+ asterisks.
+    
+    Args:
+        value: Value to check
+        
+    Returns:
+        bool: True if value is a masked placeholder, False otherwise
+    """
+    if not value or not isinstance(value, str):
+        return False
+    return value.startswith('****') and len(value) >= 4
+
+
 # ============================================================================
 # ConfigManager - Database-Backed Configuration with .env Fallback
 # ============================================================================
@@ -574,6 +592,13 @@ class ConfigManager:
         else:
             str_value = str(value)
             setting_type = 'string'
+        
+        # CRITICAL FIX: Don't overwrite real values with masked placeholders
+        # Masked values (****...) are displayed in the UI for security but should
+        # never be saved back to the database as they would overwrite real API keys
+        if encrypt and is_masked_value(str_value):
+            logging.info(f"Skipping masked value for '{key}' (preserving existing encrypted value)")
+            return  # Skip saving, keep existing value in database
         
         # Encrypt if needed
         if encrypt and str_value:

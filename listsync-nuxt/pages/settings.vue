@@ -112,6 +112,11 @@
           />
         </div>
 
+        <!-- Users Tab -->
+        <div v-if="activeTab === 'users'">
+          <UsersManagement />
+        </div>
+
         <!-- About Tab -->
         <div v-if="activeTab === 'about'">
           <AboutSection />
@@ -155,6 +160,7 @@ import {
   Bell as BellIcon,
   Code as CodeIcon,
   Info as InfoIcon,
+  Users as UsersIcon,
 } from 'lucide-vue-next'
 
 const { showSuccess, showError, showInfo } = useToast()
@@ -186,6 +192,12 @@ const tabs = [
     label: 'Integrations',
     icon: BellIcon,
     description: 'Discord notifications',
+  },
+  {
+    id: 'users',
+    label: 'Users',
+    icon: UsersIcon,
+    description: 'Manage Overseerr users for per-list assignment',
   },
   {
     id: 'advanced',

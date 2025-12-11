@@ -274,7 +274,6 @@ TRAKT_SPECIAL_ITEMS_LIMIT=50
 | **Trending** | `trending:movies` | `trending:shows` |
 | **Popular** | `popular:movies` | `popular:shows` |
 | **Anticipated** | `anticipated:movies` | `anticipated:shows` |
-| **Recommendations** | `recommendations:movies` | `recommendations:shows` |
 
 #### Letterboxd Lists
 

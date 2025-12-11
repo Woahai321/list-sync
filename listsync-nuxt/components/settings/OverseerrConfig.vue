@@ -66,23 +66,6 @@
           </p>
         </div>
 
-        <!-- User ID -->
-        <div>
-          <label class="block text-xs font-semibold mb-2 text-foreground">
-            User ID
-          </label>
-          <Input
-            v-model="localValue.userId"
-            type="text"
-            placeholder="1"
-            :icon="UserIcon"
-            @update:model-value="emitUpdate"
-          />
-          <p class="text-xs text-muted-foreground mt-1.5">
-            Default user for requests (usually 1)
-          </p>
-        </div>
-
         <!-- 4K Toggle -->
         <div>
           <label class="block text-xs font-semibold mb-2 text-foreground">
@@ -175,7 +158,6 @@ import {
   TestTube as TestTubeIcon,
   Globe as GlobeIcon,
   Key as KeyIcon,
-  User as UserIcon,
   CheckCircle as CheckCircleIcon,
   Check as CheckIcon,
   X as XIcon,

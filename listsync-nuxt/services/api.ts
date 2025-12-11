@@ -19,6 +19,7 @@ import type {
   CollectionMoviesResponse,
   CollectionPosterResponse,
   CollectionSyncResponse,
+  OverseerrUser,
 } from '~/types'
 
 export class ApiService {
@@ -79,6 +80,17 @@ export class ApiService {
 
   async getLists(): Promise<{ lists: List[] }> {
     return this.request<{ lists: List[] }>('/lists')
+  }
+
+  async getListItems(listType: string, listId: string, limit: number = 20): Promise<{
+    items: any[]
+    total: number
+    limit: number
+    has_more: boolean
+  }> {
+    // Encode listId for URL (handles special characters and slashes)
+    const encodedListId = encodeURIComponent(listId)
+    return this.request(`/lists/${listType}/${encodedListId}/items?limit=${limit}`)
   }
 
   async addList(list: CreateListRequest): Promise<void> {
@@ -178,13 +190,32 @@ export class ApiService {
     )
   }
 
+  async getEnrichedItems(
+    page: number = 1,
+    limit: number = 50,
+    queryParams?: { list_source?: string }
+  ): Promise<PaginatedResponse<any>> {
+    let url = `/items/enriched?page=${page}&limit=${limit}`
+    console.log('🌐 getEnrichedItems called with queryParams:', queryParams)
+    if (queryParams?.list_source) {
+      url += `&list_source=${encodeURIComponent(queryParams.list_source)}`
+      console.log('🌐 Added list_source to URL:', url)
+    } else {
+      console.log('🌐 No list_source in queryParams, URL:', url)
+    }
+    return this.request<PaginatedResponse<any>>(url)
+  }
+
   async getProcessedItems(
     page: number = 1,
-    limit: number = 50
+    limit: number = 50,
+    queryParams?: { list_source?: string }
   ): Promise<PaginatedResponse<ProcessedItem>> {
-    return this.request<PaginatedResponse<ProcessedItem>>(
-      `/processed?page=${page}&limit=${limit}`
-    )
+    let url = `/processed?page=${page}&limit=${limit}`
+    if (queryParams?.list_source) {
+      url += `&list_source=${encodeURIComponent(queryParams.list_source)}`
+    }
+    return this.request<PaginatedResponse<ProcessedItem>>(url)
   }
 
   async getFailedItems(
@@ -224,6 +255,16 @@ export class ApiService {
 
   async getOverseerrConfig() {
     return this.request('/overseerr/config')
+  }
+
+  async getOverseerrUsers(): Promise<{ success: boolean; users: OverseerrUser[]; count: number }> {
+    return this.request<{ success: boolean; users: OverseerrUser[]; count: number }>('/overseerr/users')
+  }
+
+  async syncOverseerrUsers(): Promise<{ success: boolean; message: string; users: OverseerrUser[]; count: number }> {
+    return this.request<{ success: boolean; message: string; users: OverseerrUser[]; count: number }>('/overseerr/users/sync', {
+      method: 'POST',
+    })
   }
 
   async testConnection() {

@@ -78,6 +78,11 @@ export function useApiService() {
       return apiCall(`${baseURL}/lists`)
     },
 
+    async getListItems(listType: string, listId: string, limit: number = 20) {
+      const encodedListId = encodeURIComponent(listId)
+      return apiCall(`${baseURL}/lists/${listType}/${encodedListId}/items?limit=${limit}`)
+    },
+
     async addList(list: any) {
       return apiCall(`${baseURL}/lists`, {
         method: 'POST',
@@ -106,12 +111,14 @@ export function useApiService() {
     },
 
     async syncSingleList(listType: string, listId: string) {
+      const requestBody = {
+        list_type: listType,
+        list_id: listId,
+      }
+      console.log('[API Service] Sending single list sync request:', requestBody)
       return apiCall(`${baseURL}/sync/single`, {
         method: 'POST',
-        body: {
-          list_type: listType,
-          list_id: listId,
-        },
+        body: requestBody,
       })
     },
 
@@ -169,12 +176,20 @@ export function useApiService() {
       return apiCall(`${baseURL}/items`)
     },
 
-    async getEnrichedItems(page: number = 1, limit: number = 50) {
-      return apiCall(`${baseURL}/items/enriched?page=${page}&limit=${limit}`)
+    async getEnrichedItems(page: number = 1, limit: number = 50, queryParams?: { list_source?: string }) {
+      let url = `${baseURL}/items/enriched?page=${page}&limit=${limit}`
+      if (queryParams?.list_source) {
+        url += `&list_source=${encodeURIComponent(queryParams.list_source)}`
+      }
+      return apiCall(url)
     },
 
-    async getProcessedItems(page: number = 1, limit: number = 50) {
-      return apiCall(`${baseURL}/processed?page=${page}&limit=${limit}&_t=${Date.now()}`)
+    async getProcessedItems(page: number = 1, limit: number = 50, queryParams?: { list_source?: string }) {
+      let url = `${baseURL}/processed?page=${page}&limit=${limit}&_t=${Date.now()}`
+      if (queryParams?.list_source) {
+        url += `&list_source=${encodeURIComponent(queryParams.list_source)}`
+      }
+      return apiCall(url)
     },
 
     async getFailedItems(page: number = 1, limit: number = 50): Promise<FailedItemsResponse> {
@@ -239,6 +254,16 @@ export function useApiService() {
 
     async checkOverseerr() {
       return apiCall(`${baseURL}/overseerr/status`)
+    },
+
+    async getOverseerrUsers() {
+      return apiCall(`${baseURL}/overseerr/users`)
+    },
+
+    async syncOverseerrUsers() {
+      return apiCall(`${baseURL}/overseerr/users/sync`, {
+        method: 'POST',
+      })
     },
 
     async testConnection() {

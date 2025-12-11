@@ -31,6 +31,28 @@ html {
   input[type="submit"] {
     min-height: 44px;
   }
+  
+  /* Optimize wizard card padding on mobile */
+  .setup-wizard-card {
+    padding: 1rem;
+  }
+}
+
+/* Extra small devices optimization */
+@media (max-width: 375px) {
+  /* Tighter spacing for very small screens */
+  .setup-wizard-card {
+    padding: 0.75rem;
+  }
+  
+  /* Smaller text for compact displays */
+  .setup-wizard-card h1 {
+    font-size: 1.5rem;
+  }
+  
+  .setup-wizard-card h2 {
+    font-size: 1.25rem;
+  }
 }
 
 /* Custom scrollbar */
@@ -331,6 +353,26 @@ button, .no-select {
   }
 }
 
+@keyframes float-subtle {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(0);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
 .animate-pulse-glow {
   animation: pulse-glow 2s ease-in-out infinite;
 }
@@ -341,6 +383,29 @@ button, .no-select {
 
 .animate-shimmer {
   animation: shimmer 2s ease-in-out infinite;
+}
+
+.animate-float-subtle {
+  animation: float-subtle 3s ease-in-out infinite;
+}
+
+/* Input focus animation */
+input:focus,
+select:focus,
+textarea:focus {
+  animation: input-focus-pulse 0.3s ease-out;
+}
+
+@keyframes input-focus-pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.01);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 /* Titillium Web Font Classes */
@@ -883,6 +948,25 @@ button, .no-select {
 
 .animate-fade-in-delay-4 {
   animation: fade-in-delay-4 1.6s ease-out forwards;
+}
+
+/* ============================================
+   STEP TRANSITION ANIMATIONS
+   ============================================ */
+
+.step-transition-enter-active,
+.step-transition-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.step-transition-enter-from {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+.step-transition-leave-to {
+  opacity: 0;
+  transform: translateX(-30px);
 }
 
 /* ============================================

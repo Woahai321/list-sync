@@ -22,26 +22,69 @@
       </Button>
     </div>
 
-    <!-- Loading State -->
-    <div v-if="isInitialLoading" class="flex items-center justify-center py-12 sm:py-20 px-4">
-      <div class="text-center space-y-3 sm:space-y-4">
-        <LoadingSpinner size="lg" :text="loadError ? 'Retrying...' : 'Loading dashboard...'" />
-        <div v-if="loadError" class="space-y-1.5 sm:space-y-2">
-          <p class="text-xs sm:text-sm text-yellow-400 px-2">
-            {{ loadError }}
-          </p>
-          <p class="text-xs text-muted-foreground px-2">
-            Waiting for first sync to complete... (Attempt {{ retryCount }}/{{ maxRetries }})
-          </p>
-          <p class="text-xs text-muted-foreground px-2">
-            Retrying in 5 seconds...
-          </p>
-        </div>
-        <p v-else class="text-xs sm:text-sm text-muted-foreground px-2">
-          Initializing dashboard components...
-        </p>
+    <!-- Loading State with Skeletons -->
+    <template v-if="isInitialLoading">
+      <!-- Error Message (if any) -->
+      <div v-if="loadError" class="mb-4 sm:mb-6">
+        <Card variant="default" class="glass-card border-yellow-500/30">
+          <div class="text-center py-4 sm:py-6 px-4">
+            <p class="text-xs sm:text-sm text-yellow-400 mb-2">
+              {{ loadError }}
+            </p>
+            <p class="text-xs text-muted-foreground">
+              Waiting for first sync to complete... (Attempt {{ retryCount }}/{{ maxRetries }})
+            </p>
+            <p class="text-xs text-muted-foreground mt-1">
+              Retrying in 5 seconds...
+            </p>
+          </div>
+        </Card>
       </div>
-    </div>
+
+      <!-- Dashboard Skeleton -->
+      <div class="space-y-6 sm:space-y-8">
+        <!-- Stats Overview Skeleton -->
+        <div class="space-y-3 sm:space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+            <SkeletonLoader width="1/4" height="md" />
+            <SkeletonLoader width="1/4" height="xs" />
+          </div>
+          <StatsOverviewSkeleton />
+        </div>
+
+        <!-- Recent Items Skeleton -->
+        <div class="space-y-3 sm:space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+            <SkeletonLoader width="1/4" height="md" />
+            <SkeletonLoader width="1/4" height="xs" />
+          </div>
+          <Card variant="default" class="glass-card">
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 sm:gap-4 p-2 sm:p-0">
+              <PosterCardSkeleton v-for="i in 6" :key="`skeleton-${i}`" />
+            </div>
+          </Card>
+        </div>
+
+        <!-- System Status & Sync History Skeleton -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+          <div class="space-y-3 sm:space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+              <SkeletonLoader width="1/3" height="md" />
+              <SkeletonLoader width="1/4" height="xs" />
+            </div>
+            <SystemStatusSkeleton />
+          </div>
+
+          <div class="space-y-3 sm:space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+              <SkeletonLoader width="1/3" height="md" />
+              <SkeletonLoader width="1/4" height="xs" />
+            </div>
+            <SyncHistoryOverviewSkeleton />
+          </div>
+        </div>
+      </div>
+    </template>
 
     <!-- Error State (after max retries) -->
     <Card v-else-if="loadError && retryCount >= maxRetries" variant="default" class="glass-card">
@@ -241,6 +284,10 @@ import { Transition, watch } from 'vue'
 import type { RecentActivity, SyncHistoryStats } from '~/types'
 import PosterCard from '~/components/items/PosterCard.vue'
 import PosterCardSkeleton from '~/components/items/PosterCardSkeleton.vue'
+import StatsOverviewSkeleton from '~/components/dashboard/StatsOverviewSkeleton.vue'
+import SystemStatusSkeleton from '~/components/dashboard/SystemStatusSkeleton.vue'
+import SyncHistoryOverviewSkeleton from '~/components/dashboard/SyncHistoryOverviewSkeleton.vue'
+import SkeletonLoader from '~/components/ui/SkeletonLoader.vue'
 
 const statsStore = useStatsStore()
 const systemStore = useSystemStore()

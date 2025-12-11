@@ -1,0 +1,27 @@
+{
+  "t": "Request Processing and Status",
+  "i": [
+    ["Sync Media", "function", "Start sync to Overseerr"],
+    ["Check Status", "api", "Query media availability"],
+    ["Already Available?", "security", "Check if in library"],
+    ["Mark Available", "storage", "Update as available"],
+    ["Already Requested?", "security", "Check pending requests"],
+    ["Mark Requested", "storage", "Update as requested"],
+    ["Media Type?", "security", "Movie or TV check"],
+    ["Request Movie", "queue", "Submit movie request"],
+    ["Get Season Count", "api", "Fetch TV metadata"],
+    ["Request All Seasons", "queue", "Submit TV request"],
+    ["Track Result", "storage", "Record sync outcome"],
+    ["Save to Database", "storage", "Persist changes"],
+    ["More Items?", "security", "Loop continuation"],
+    ["Sync Complete", "monitor", "Process finished"]
+  ],
+  "v": [
+    [
+      [[0, -18, -6], [1, -12, -6], [2, -6, -6], [3, -6, 0], [4, 0, -6], [5, 0, 0], [6, 6, -6], [7, 6, -12], [8, 12, -6], [9, 12, 0], [10, 6, 6], [11, 0, 10], [12, -6, 10], [13, 6, 14]],
+      [[0, 1], [1, 2], [2, 3], [2, 4], [4, 5], [4, 6], [6, 7], [6, 8], [8, 9], [3, 10], [5, 10], [7, 10], [9, 10], [10, 11], [11, 12], [12, 1], [12, 13]]
+    ]
+  ],
+  "_": { "f": "compact", "v": "1.0" }
+}
+

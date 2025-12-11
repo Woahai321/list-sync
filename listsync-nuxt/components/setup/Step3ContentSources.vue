@@ -144,9 +144,9 @@
       </div>
 
       <!-- TMDB (with API key) -->
-      <div class="space-y-3 p-4 rounded-lg bg-blue-500/5 border border-blue-500/20">
+      <div class="space-y-3 p-4 rounded-lg bg-purple-500/5 border border-purple-500/20">
         <div class="flex items-center gap-2">
-          <FilmIcon class="w-4 h-4 text-blue-400" />
+          <FilmIcon class="w-4 h-4 text-purple-400" />
           <span class="text-sm font-bold">TMDB Configuration</span>
           <Badge variant="secondary" size="sm">TMDB</Badge>
         </div>

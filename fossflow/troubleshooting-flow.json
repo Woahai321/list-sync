@@ -1,0 +1,23 @@
+{
+  "t": "Troubleshooting Decision Tree",
+  "i": [
+    ["Problem?", "security", "ListSync issue detected"],
+    ["Connection Issue", "network", "Network/API problems"],
+    ["Sync Issue", "function", "Sync not working"],
+    ["Docker Issue", "server", "Container problems"],
+    ["Frontend Issue", "web", "Dashboard problems"],
+    ["Test Overseerr URL", "api", "Verify API access"],
+    ["Check API Key", "security", "Validate credentials"],
+    ["Check Logs", "storage", "Review error logs"],
+    ["Check Container", "monitor", "Docker status"],
+    ["Check Ports", "network", "Port accessibility"]
+  ],
+  "v": [
+    [
+      [[0, 0, -10], [1, -10, -4], [2, -4, -4], [3, 4, -4], [4, 10, -4], [5, -10, 4], [6, -10, 10], [7, -4, 4], [8, 4, 4], [9, 10, 4]],
+      [[0, 1], [0, 2], [0, 3], [0, 4], [1, 5], [5, 6], [2, 7], [3, 8], [4, 9]]
+    ]
+  ],
+  "_": { "f": "compact", "v": "1.0" }
+}
+

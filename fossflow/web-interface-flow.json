@@ -1,0 +1,19 @@
+{
+  "t": "Web Interface Data Flow",
+  "i": [
+    ["User", "user", "Dashboard operator"],
+    ["Nuxt 3 Frontend", "web", "Vue 3 web application"],
+    ["FastAPI Backend", "api", "REST API server"],
+    ["Core Sync Service", "server", "Python sync engine"],
+    ["SQLite Database", "storage", "Persistent data store"],
+    ["Overseerr API", "queue", "Media request service"]
+  ],
+  "v": [
+    [
+      [[0, -16, 0], [1, -8, 0], [2, 0, 0], [3, 8, 0], [4, 8, 6], [5, 16, 0]],
+      [[0, 1], [1, 2], [2, 3], [3, 4], [2, 4], [3, 5]]
+    ]
+  ],
+  "_": { "f": "compact", "v": "1.0" }
+}
+

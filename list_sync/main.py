@@ -22,10 +22,10 @@ from .database import (
     init_database, load_list_ids, save_list_id, delete_list,
     load_sync_interval, configure_sync_interval, should_sync_item,
     save_sync_result, update_list_item_count, update_list_sync_info, DB_FILE,
-    start_sync_in_db, end_sync_in_db, add_item_to_sync
+    start_sync_in_db, end_sync_in_db, add_item_to_sync, update_sync_lists_in_db
 )
 from .notifications.discord import send_to_discord_webhook
-from .providers import get_provider, get_available_providers
+from .providers import get_provider, get_available_providers, SyncCancelledException
 from .ui.cli import handle_menu_choice, manage_lists
 from .ui.display import (
     display_ascii_art, display_banner, display_menu, display_lists,
@@ -34,7 +34,144 @@ from .ui.display import (
 from .utils.helpers import custom_input, format_time_remaining, init_selenium_driver, color_gradient, construct_list_url
 from .utils.logger import setup_logging, ensure_data_directory_exists
 from .utils.log_rotation import get_log_rotator, check_and_rotate_logs
+from .utils.sync_status import (
+    get_sync_tracker,
+    is_cancel_requested_persisted,
+    clear_cancel_request,
+    set_cancel_request,
+    get_pause_until,
+    clear_pause_until,
+    set_pause_until,
+)
 # Removed in-memory sync tracker - now using database-based tracking
+
+# Global variable to track current sync session for signal handlers
+_current_sync_session_id: Optional[str] = None
+
+
+def _handle_termination_signal(signum, frame):
+    """
+    Handle SIGTERM/SIGINT for immediate sync termination.
+    This is called when the cancel button forcefully terminates the sync process.
+    """
+    global _current_sync_session_id
+    
+    logging.warning(f"⚠️ Received termination signal {signum} - requesting graceful stop")
+    
+    # Get the sync tracker and clean up
+    try:
+        sync_tracker = get_sync_tracker()
+        session_id = _current_sync_session_id or sync_tracker.get_state().get('session_id')
+        
+        # Persist cancel request so the running loop can see it
+        if session_id:
+            try:
+                set_cancel_request(session_id)
+            except Exception:
+                pass
+        
+        # Update database to mark sync as cancelled
+        if session_id:
+            try:
+                import sqlite3
+                from .database import DB_FILE
+                conn = sqlite3.connect(DB_FILE)
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE sync_history 
+                    SET status = 'cancelled',
+                        end_time = CURRENT_TIMESTAMP
+                    WHERE session_id = ? AND status = 'running'
+                """, (session_id,))
+                conn.commit()
+                conn.close()
+                logging.info(f"Marked sync session {session_id} as cancelled in database (signal handler)")
+            except Exception as e:
+                logging.error(f"Error updating database in signal handler: {e}")
+        
+        # Clear the tracker state and persisted flag
+        sync_tracker.end_sync()
+        if session_id:
+            try:
+                clear_cancel_request(session_id)
+            except Exception:
+                pass
+        
+    except Exception as e:
+        logging.error(f"Error in termination signal handler: {e}")
+    
+    # Do not exit the process; allow the loop to notice cancellation and return
+
+
+def setup_sync_signal_handlers():
+    """
+    Set up signal handlers for sync termination.
+    Call this at the start of sync operations.
+    """
+    try:
+        signal.signal(signal.SIGTERM, _handle_termination_signal)
+        signal.signal(signal.SIGINT, _handle_termination_signal)
+        logging.debug("Sync termination signal handlers installed")
+    except Exception as e:
+        logging.warning(f"Could not set up signal handlers: {e}")
+
+
+def check_cancellation_requested(session_id: Optional[str] = None) -> bool:
+    """
+    Check if sync cancellation has been requested.
+    
+    Returns:
+        bool: True if cancellation requested, False otherwise
+    """
+    try:
+        sync_tracker = get_sync_tracker()
+        in_mem = sync_tracker.is_cancellation_requested()
+        
+        # Also check persisted flag to support cross-process cancellation
+        sid = session_id or _current_sync_session_id
+        persisted = is_cancel_requested_persisted(sid) if sid else False
+        return in_mem or persisted
+    except Exception as e:
+        logging.warning(f"Error checking cancellation status: {e}")
+        return False
+
+
+def handle_cancellation(sync_tracker, session_id: Optional[str] = None):
+    """
+    Handle sync cancellation gracefully.
+    
+    Args:
+        sync_tracker: SyncStatusTracker instance
+        session_id: Optional session ID for database tracking
+    """
+    logging.warning("⚠️ Sync cancellation requested - stopping gracefully")
+    
+    # Clear cancellation flag
+    sync_tracker.clear_cancellation()
+    if session_id:
+        clear_cancel_request(session_id)
+    
+    # End sync in tracker
+    sync_tracker.end_sync()
+    
+    # Update database if session_id provided
+    if session_id:
+        try:
+            import sqlite3
+            from .database import DB_FILE
+            conn = sqlite3.connect(DB_FILE)
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE sync_history 
+                SET status = 'cancelled',
+                    end_time = CURRENT_TIMESTAMP
+                WHERE session_id = ? AND status = 'running'
+            """, (session_id,))
+            conn.commit()
+            conn.close()
+            logging.info(f"Marked sync session {session_id} as cancelled in database")
+        except Exception as e:
+            logging.error(f"Error updating database for cancelled sync: {e}")
 
 
 def startup():
@@ -126,12 +263,19 @@ def fetch_media_from_lists(list_ids: List[Dict[str, str]], is_single_list: bool 
     synced_lists = []
     
     for list_info in list_ids:
+        # Check for cancellation request
+        if check_cancellation_requested():
+            logging.warning("⚠️ Cancellation detected while fetching lists")
+            # Return what we have so far
+            return all_media, synced_lists
+        
         list_type = list_info["type"]
         list_id = list_info["id"]
+        list_user_id = list_info.get("user_id", "1")
         
         try:
             # Display progress message to user
-            print(color_gradient(f"\n🔍  Fetching items from {list_type.upper()} list: {list_id}...", "#ffaa00", "#ff5500"))
+            print(color_gradient(f"\n🔍  Fetching items from {list_type.upper()} list: {list_id}... (check backend logs for details - this can take some time)", "#ffaa00", "#ff5500"))
             
             logging.info(f"Fetching {list_type.upper()} list: {list_id}")
             # Get the appropriate provider function
@@ -151,9 +295,10 @@ def fetch_media_from_lists(list_ids: List[Dict[str, str]], is_single_list: bool 
                     if title:  # Only keep items with non-empty titles
                         item['title'] = title  # Update the cleaned title
                         # Attach list information to each item
-                        # This allows tracking which list(s) each item came from
+                        # This allows tracking which list(s) each item came from (with user)
                         item['_source_list_type'] = list_type
                         item['_source_list_id'] = list_id
+                        item['_source_list_user_id'] = list_user_id
                         valid_items.append(item)
                     else:
                         logging.warning(f"Skipping item with empty title from {list_type.upper()} list: {list_id}")
@@ -168,7 +313,8 @@ def fetch_media_from_lists(list_ids: List[Dict[str, str]], is_single_list: bool 
                     'type': list_type,
                     'id': list_id,
                     'url': list_url,
-                    'item_count': len(media_items)
+                    'item_count': len(media_items),
+                    'user_id': list_user_id
                 })
             else:
                 # Display warning message to user
@@ -180,8 +326,14 @@ def fetch_media_from_lists(list_ids: List[Dict[str, str]], is_single_list: bool 
                     'type': list_type,
                     'id': list_id,
                     'url': list_url,
-                    'item_count': 0
+                    'item_count': 0,
+                    'user_id': list_user_id
                 })
+        except SyncCancelledException:
+            # Cancellation was requested - return what we have so far
+            logging.warning(f"⚠️ Sync cancelled during fetch of {list_type.upper()} list: {list_id}")
+            print(color_gradient(f"⚠️  Sync cancelled - stopping list fetch", "#ffaa00", "#ff5500"))
+            return all_media, synced_lists
         except Exception as e:
             # Display error message to user
             print(color_gradient(f"❌  Error fetching {list_type.upper()} list {list_id}: {str(e)}", "#ff0000", "#aa0000"))
@@ -212,7 +364,8 @@ def fetch_media_from_lists(list_ids: List[Dict[str, str]], is_single_list: bool 
         list_id = item.get('_source_list_id')
         
         # Track which list this item came from
-        list_info = {'type': list_type, 'id': list_id}
+        list_user_id = item.get('_source_list_user_id', "1")
+        list_info = {'type': list_type, 'id': list_id, 'user_id': list_user_id}
         
         # Try to match by IMDb ID first (most reliable)
         if imdb_id:
@@ -227,8 +380,8 @@ def fetch_media_from_lists(list_ids: List[Dict[str, str]], is_single_list: bool 
                 if '_source_lists' not in existing_item:
                     existing_item['_source_lists'] = []
                 # Check if this list is already tracked (by comparing type and id)
-                list_key = f"{list_type}:{list_id}"
-                existing_keys = [f"{l['type']}:{l['id']}" for l in existing_item['_source_lists']]
+                list_key = f"{list_type}:{list_id}:{list_user_id}"
+                existing_keys = [f"{l['type']}:{l['id']}:{l.get('user_id','1')}" for l in existing_item['_source_lists']]
                 if list_key not in existing_keys:
                     existing_item['_source_lists'].append(list_info)
         # Try TMDB ID as fallback
@@ -241,8 +394,8 @@ def fetch_media_from_lists(list_ids: List[Dict[str, str]], is_single_list: bool 
                 existing_item = seen_tmdb_ids[tmdb_id]
                 if '_source_lists' not in existing_item:
                     existing_item['_source_lists'] = []
-                list_key = f"{list_type}:{list_id}"
-                existing_keys = [f"{l['type']}:{l['id']}" for l in existing_item['_source_lists']]
+                list_key = f"{list_type}:{list_id}:{list_user_id}"
+                existing_keys = [f"{l['type']}:{l['id']}:{l.get('user_id','1')}" for l in existing_item['_source_lists']]
                 if list_key not in existing_keys:
                     existing_item['_source_lists'].append(list_info)
         # Fallback to title + year + media_type
@@ -255,8 +408,8 @@ def fetch_media_from_lists(list_ids: List[Dict[str, str]], is_single_list: bool 
                 existing_item = seen_titles[title_key]
                 if '_source_lists' not in existing_item:
                     existing_item['_source_lists'] = []
-                list_key = f"{list_type}:{list_id}"
-                existing_keys = [f"{l['type']}:{l['id']}" for l in existing_item['_source_lists']]
+                list_key = f"{list_type}:{list_id}:{list_user_id}"
+                existing_keys = [f"{l['type']}:{l['id']}:{l.get('user_id','1')}" for l in existing_item['_source_lists']]
                 if list_key not in existing_keys:
                     existing_item['_source_lists'].append(list_info)
     
@@ -271,6 +424,55 @@ def fetch_media_from_lists(list_ids: List[Dict[str, str]], is_single_list: bool 
         print(color_gradient(f"\n📊  Total unique media items ready for sync: {len(unique_media)}", "#00aaff", "#00ffaa"))
         logging.info(f"Fetched {len(unique_media)} unique media items from all lists")
     return unique_media, synced_lists
+
+
+def get_source_lists_from_item(item: Dict[str, Any], list_type: Optional[str] = None, list_id: Optional[str] = None) -> List[Dict[str, str]]:
+    """
+    Extract source lists from an item, with multiple fallback strategies.
+    
+    Args:
+        item: The media item dictionary
+        list_type: Optional list type parameter
+        list_id: Optional list ID parameter
+        
+    Returns:
+        List of source list dictionaries with 'type' and 'id' keys
+    """
+    # First, try _source_lists (for items that came from multiple lists)
+    source_lists = item.get('_source_lists', [])
+    
+    # Fallback 1: Use _source_list_type and _source_list_id (for single-list items)
+    if not source_lists:
+        source_list_type = item.get('_source_list_type')
+        source_list_id = item.get('_source_list_id')
+        source_list_user_id = item.get('_source_list_user_id', "1")
+        if source_list_type and source_list_id:
+            source_lists = [{'type': source_list_type, 'id': source_list_id, 'user_id': source_list_user_id}]
+    
+    # Fallback 2: Use function parameters
+    if not source_lists and list_type and list_id:
+        source_lists = [{'type': list_type, 'id': list_id, 'user_id': item.get('_source_list_user_id', "1")}]
+    
+    # Ensure all source list entries carry user_id (default to "1")
+    for sl in source_lists:
+        if 'user_id' not in sl or sl['user_id'] is None:
+            sl['user_id'] = "1"
+        else:
+            sl['user_id'] = str(sl['user_id'])
+    
+    return source_lists
+
+
+def choose_request_user_id(source_lists: List[Dict[str, Any]], default_user_id: str) -> str:
+    """
+    Choose which Overseerr requester user_id to use for this item.
+    Prefers the first source list that has a user_id; falls back to the client's default.
+    """
+    for source in source_lists:
+        user_id = source.get('user_id')
+        if user_id:
+            return str(user_id)
+    return str(default_user_id or "1")
 
 
 def process_media_item(item: Dict[str, Any], overseerr_client: OverseerrClient, dry_run: bool, is_4k: bool = False, list_type: Optional[str] = None, list_id: Optional[str] = None) -> Dict[str, Any]:
@@ -292,6 +494,13 @@ def process_media_item(item: Dict[str, Any], overseerr_client: OverseerrClient, 
     Returns:
         Dict[str, Any]: Processing result
     """
+    # Check for cancellation before processing
+    if check_cancellation_requested():
+        title = item.get('title', 'Unknown Title').strip()
+        media_type = item.get('media_type', 'unknown')
+        year = item.get('year')
+        return {"title": title, "status": "cancelled", "year": year, "media_type": media_type}
+    
     title = item.get('title', 'Unknown Title').strip()
     # Clean up backslashes and other problematic characters
     title = title.replace('\\', '').strip()
@@ -424,11 +633,20 @@ def process_media_item(item: Dict[str, Any], overseerr_client: OverseerrClient, 
             
             logging.info(f"📊 MATCH SUMMARY: Method={match_method}, Overseerr_ID={overseerr_id}")
             
-            # Get list information from item (can be single list or multiple lists)
-            source_lists = item.get('_source_lists', [])
-            # If no source_lists but we have list_type/list_id params, use those
-            if not source_lists and list_type and list_id:
-                source_lists = [{'type': list_type, 'id': list_id}]
+            # Get list information from item using helper function
+            source_lists = get_source_lists_from_item(item, list_type, list_id)
+            
+            # Debug: Log source lists
+            if source_lists:
+                list_keys = [f"{l['type']}:{l['id']}" for l in source_lists]
+                logging.info(f"📋 Item will be linked to {len(source_lists)} list(s): {list_keys}")
+            else:
+                logging.error(f"❌ CRITICAL: No source lists found for item '{title}'! _source_lists={item.get('_source_lists')}, _source_list_type={item.get('_source_list_type')}, _source_list_id={item.get('_source_list_id')}, list_type={list_type}, list_id={list_id}")
+                # Don't proceed without list information - this will cause items to not be linked to lists
+
+            # Determine which Overseerr user to request as
+            requester_user_id = choose_request_user_id(source_lists, overseerr_client.requester_user_id)
+            logging.info(f"🙋 Using Overseerr user_id {requester_user_id} for '{title}'")
             
             # Check if we should skip this item based on last sync time
             if not should_sync_item(overseerr_id):
@@ -463,13 +681,13 @@ def process_media_item(item: Dict[str, Any], overseerr_client: OverseerrClient, 
                     # Check if a specific season is requested
                     if season_number is not None:
                         logging.info(f"📺 TV SERIES: Requesting Season {season_number} specifically")
-                        request_status = overseerr_client.request_specific_season(overseerr_id, season_number, is_4k)
+                        request_status = overseerr_client.request_specific_season(overseerr_id, season_number, is_4k, requester_user_id=requester_user_id)
                     else:
                         logging.info(f"📺 TV SERIES: Requesting {number_of_seasons} season(s)")
-                        request_status = overseerr_client.request_tv_series(overseerr_id, number_of_seasons, is_4k)
+                        request_status = overseerr_client.request_tv_series(overseerr_id, number_of_seasons, is_4k, requester_user_id=requester_user_id)
                 else:
                     logging.info(f"🎬 MOVIE: Submitting request")
-                    request_status = overseerr_client.request_media(overseerr_id, search_result["mediaType"], is_4k)
+                    request_status = overseerr_client.request_media(overseerr_id, search_result["mediaType"], is_4k, requester_user_id=requester_user_id)
                 
                 if request_status == "success":
                     logging.info(f"✅ SUCCESS: Request submitted successfully!")
@@ -491,19 +709,33 @@ def process_media_item(item: Dict[str, Any], overseerr_client: OverseerrClient, 
                     return {"title": title, "status": "request_failed", "year": year, "media_type": media_type}
         else:
             logging.error(f"❌ ERROR: Could not find match using any method")
-            # Get list information from item
-            source_lists = item.get('_source_lists', [])
-            if not source_lists and list_type and list_id:
-                source_lists = [{'type': list_type, 'id': list_id}]
+            # Get list information from item using helper function
+            source_lists = get_source_lists_from_item(item, list_type, list_id)
             # Save relationship for all source lists
-            for source_list in source_lists:
-                save_sync_result(title, media_type, imdb_id, None, "not_found", year, tmdb_id, source_list['type'], source_list['id'])
+            if source_lists:
+                for source_list in source_lists:
+                    save_sync_result(title, media_type, imdb_id, None, "not_found", year, tmdb_id, source_list['type'], source_list['id'])
+            else:
+                logging.error(f"❌ CRITICAL: Cannot save 'not_found' item without list information!")
             return {"title": title, "status": "not_found", "year": year, "media_type": media_type}
     except Exception as e:
         logging.error(f"❌ ERROR: Exception during processing: {str(e)}")
         logging.debug(f"Exception details:", exc_info=True)
         result["status"] = "error"
         result["error_message"] = str(e)
+        # Try to save error status with list information if available
+        try:
+            source_lists = get_source_lists_from_item(item, list_type, list_id)
+            if source_lists:
+                title = item.get('title', 'Unknown')
+                media_type = item.get('media_type', 'movie')
+                imdb_id = item.get('imdb_id')
+                year = item.get('year')
+                tmdb_id = item.get('tmdb_id')
+                for source_list in source_lists:
+                    save_sync_result(title, media_type, imdb_id, None, "error", year, tmdb_id, source_list['type'], source_list['id'])
+        except Exception as save_error:
+            logging.error(f"Failed to save error status: {save_error}")
         return result
 
 
@@ -548,6 +780,13 @@ def sync_media_to_overseerr(
         
         # Process items sequentially to avoid race conditions
         for i, item in enumerate(media_items, 1):
+            # Check for cancellation request
+            if check_cancellation_requested():
+                logging.warning(f"⚠️ Cancellation detected during sequential processing at item {i}/{sync_results.total_items}")
+                handle_cancellation(get_sync_tracker(), session_id)
+                sync_results.cancelled = True
+                return sync_results
+            
             try:
                 result = process_media_item(item, overseerr_client, dry_run, is_4k)
                 status = result["status"]
@@ -583,6 +822,13 @@ def sync_media_to_overseerr(
         total_batches = (len(media_items) + batch_size - 1) // batch_size
         
         for batch_num in range(total_batches):
+            # Check for cancellation request before each batch
+            if check_cancellation_requested():
+                logging.warning(f"⚠️ Cancellation detected before batch {batch_num + 1}/{total_batches}")
+                handle_cancellation(get_sync_tracker(), session_id)
+                sync_results.cancelled = True
+                return sync_results
+            
             start_idx = batch_num * batch_size
             end_idx = min(start_idx + batch_size, len(media_items))
             batch_items = media_items[start_idx:end_idx]
@@ -624,6 +870,13 @@ def sync_media_to_overseerr(
                         print(f"❓ {title}{year_str}: {status} ({index}/{sync_results.total_items})")
                     
                     current_item += 1
+                    
+                    # Check for cancellation after processing each item
+                    if check_cancellation_requested():
+                        logging.warning(f"⚠️ Cancellation detected after item {start_idx + i + 1}/{sync_results.total_items}")
+                        handle_cancellation(get_sync_tracker(), session_id)
+                        sync_results.cancelled = True
+                        return sync_results
                     
                     # Track additional information
                     if status == "not_found":
@@ -713,13 +966,39 @@ def automated_sync(
             logging.warning(f"Error loading sync interval from database: {e}")
             return current_interval_hours  # Fallback to current
     
-    def perform_sync(force_full_sync=False):
+    def perform_sync(force_full_sync=False, ignore_pause=False):
         """
         Perform a single sync operation
         
         Args:
             force_full_sync (bool): If True, skip single list sync checks and perform full sync
+            ignore_pause (bool): If True, ignore any pause_until timer (e.g. for manual triggers)
         """
+        # Honor pause-until if set (from prior cancellation)
+        try:
+            if not ignore_pause:
+                pause_until = get_pause_until()
+                if pause_until:
+                    from datetime import datetime
+                    now = datetime.utcnow()
+                    try:
+                        pause_dt = datetime.fromisoformat(pause_until)
+                    except Exception:
+                        pause_dt = None
+                    if pause_dt and now < pause_dt:
+                        remaining = (pause_dt - now).total_seconds()
+                        logging.info(f"⏸️  Sync paused until {pause_dt.isoformat()} (about {int(remaining)}s remaining)")
+                        time.sleep(max(remaining, 0))
+                    # Clear pause so next run can proceed
+                    clear_pause_until()
+        except Exception as e:
+            logging.warning(f"Pause check failed: {e}")
+        
+        # Check for cancellation at the start
+        if check_cancellation_requested():
+            logging.warning("⚠️ Cancellation detected before sync started")
+            return False
+        
         try:
             # Check for single list sync request files (both legacy and queued)
             # Skip this check if force_full_sync is True (e.g., on startup)
@@ -795,6 +1074,11 @@ def automated_sync(
                 logging.info(f"Found {len(queued_syncs)} queued sync request(s)")
                 
                 for sync_req in queued_syncs:
+                    # Check for cancellation between queued syncs
+                    if check_cancellation_requested():
+                        logging.warning("⚠️ Cancellation detected while processing queued syncs")
+                        return False
+                    
                     list_type = sync_req["list_type"]
                     list_id = sync_req["list_id"]
                     request_file = sync_req["file"]
@@ -806,14 +1090,15 @@ def automated_sync(
                         try:
                             # Get environment config for single list sync
                             from list_sync.config import load_env_config
-                            overseerr_url, overseerr_api_key, user_id, _, _, is_4k_env = load_env_config()
+                            overseerr_url, overseerr_api_key, _, _, _, is_4k_env = load_env_config()
                             
+                            # Pass user_id=None so sync_single_list fetches the per-list user_id from database
                             result = sync_single_list(
                                 list_type,
                                 list_id,
                                 overseerr_url,
                                 overseerr_api_key,
-                                user_id,
+                                None,  # Let sync_single_list fetch user_id from list's database record
                                 is_4k_env or is_4k,  # Use environment 4K setting or current setting
                                 False  # dry_run=False
                             )
@@ -858,14 +1143,15 @@ def automated_sync(
                 try:
                     # Get environment config for single list sync
                     from list_sync.config import load_env_config
-                    overseerr_url, overseerr_api_key, user_id, _, _, is_4k_env = load_env_config()
+                    overseerr_url, overseerr_api_key, _, _, _, is_4k_env = load_env_config()
                     
+                    # Pass user_id=None so sync_single_list fetches the per-list user_id from database
                     result = sync_single_list(
                         single_list_type,
                         single_list_id,
                         overseerr_url,
                         overseerr_api_key,
-                        user_id,
+                        None,  # Let sync_single_list fetch user_id from list's database record
                         is_4k_env or is_4k,  # Use environment 4K setting or current setting
                         False  # dry_run=False
                     )
@@ -959,9 +1245,14 @@ def automated_sync(
             return False
     
     # Set up signal handlers
+    def signal_handler(signum, frame):
+        logging.info(f"Received signal {signum} in automated_sync loop")
+        immediate_sync_requested.set()
+    
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGUSR1, signal_handler)
+    logging.info("Signal handler for SIGUSR1 installed in automated_sync")
     
     logging.info(f"Starting automated sync mode (initial interval: {current_interval_hours} hours)")
     logging.info(f"Process PID: {os.getpid()} - Send SIGUSR1 to trigger immediate sync")
@@ -979,12 +1270,30 @@ def automated_sync(
                 logging.info(f"Sync interval updated from {current_interval_hours} to {new_interval} hours")
                 current_interval_hours = new_interval
             
+            wait_seconds = max(current_interval_hours * 3600, 0)
+            
+            # Also respect pause-until if set (e.g., from a cancellation)
+            pause_until = None
+            try:
+                from datetime import datetime
+                pause_str = get_pause_until()
+                if pause_str:
+                    pause_until = datetime.fromisoformat(pause_str)
+                    now = datetime.utcnow()
+                    if pause_until > now:
+                        wait_seconds = max(wait_seconds, (pause_until - now).total_seconds())
+                        logging.info(f"⏸️  Waiting until {pause_until.isoformat()} before next sync")
+            except Exception as e:
+                logging.warning(f"Pause wait check failed: {e}")
+            
             # Wait for the interval or immediate sync signal
-            if immediate_sync_requested.wait(timeout=current_interval_hours * 3600):
+            logging.info(f"Waiting for sync... (Timeout: {wait_seconds}s)")
+            if immediate_sync_requested.wait(timeout=wait_seconds):
                 # Signal received - perform immediate sync
-                logging.info("Immediate sync requested via signal")
+                logging.info(f"Immediate sync requested via signal (Flag set: {immediate_sync_requested.is_set()})")
                 immediate_sync_requested.clear()  # Reset the flag
-                perform_sync()
+                logging.info("Calling perform_sync(ignore_pause=True)")
+                perform_sync(ignore_pause=True)
             else:
                 # Timeout reached - perform scheduled sync
                 logging.info(f"Scheduled sync interval reached ({current_interval_hours} hours)")
@@ -1039,6 +1348,11 @@ def run_sync(
         is_4k (bool, optional): Whether to request 4K. Defaults to False.
         automated_mode (bool, optional): Whether to run in automated mode. Defaults to False.
     """
+    global _current_sync_session_id
+    
+    # Set up signal handlers for immediate termination support
+    setup_sync_signal_handlers()
+    
     # Check and rotate logs if necessary before starting sync
     check_and_rotate_logs()
     
@@ -1046,82 +1360,100 @@ def run_sync(
     import uuid
     session_id = f"{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}"
     
-    # Track sync start in database
-    sync_id = start_sync_in_db(session_id=session_id, sync_type='full')
+    # Store session ID globally for signal handlers
+    _current_sync_session_id = session_id
     
-    # Log sync start with clear marker
-    sync_start_marker = f"========== SYNC START [FULL] - Session: {session_id} =========="
-    logging.info(sync_start_marker)
-    print(color_gradient(f"\n{sync_start_marker}", "#00aaff", "#00ffaa"))
-    
-    # Load lists
-    list_ids = load_list_ids()
-    
-    if not list_ids:
-        logging.warning("No lists configured")
-        print("\n⚠️  No lists configured. Please add lists first.")
-        # Log sync end marker even for early exit
-        sync_end_marker = f"========== SYNC COMPLETE [FULL] - Session: {session_id} - Status: NO_LISTS =========="
-        logging.info(sync_end_marker)
-        # Mark sync as ended in database
-        end_sync_in_db(session_id=session_id, status='no_lists')
-        return
-    
-    # Fetch media from lists
-    media_items, synced_lists = fetch_media_from_lists(list_ids)
-    
-    if not media_items:
-        logging.warning("No media items found in configured lists")
-        print("\n⚠️  No media items found in configured lists.")
-        # Log sync end marker for early exit
-        sync_end_marker = f"========== SYNC COMPLETE [FULL] - Session: {session_id} - Status: NO_ITEMS =========="
-        logging.info(sync_end_marker)
-        # Mark sync as ended in database
-        end_sync_in_db(session_id=session_id, status='no_items')
-        return
-    
-    # Update item counts and last_synced timestamps in database for all processed lists
-    for list_info in synced_lists:
+    try:
+        # Track sync start in database
+        sync_id = start_sync_in_db(session_id=session_id, sync_type='full')
+        
+        # Register subprocess PID in tracker for immediate termination
+        sync_tracker = get_sync_tracker()
+        sync_tracker.set_subprocess_pid(os.getpid())
+        
+        # Log sync start with clear marker
+        sync_start_marker = f"========== SYNC START [FULL] - Session: {session_id} =========="
+        logging.info(sync_start_marker)
+        print(color_gradient(f"\n{sync_start_marker}", "#00aaff", "#00ffaa"))
+        
+        # Load lists
+        list_ids = load_list_ids()
+        
+        if not list_ids:
+            logging.warning("No lists configured")
+            print("\n⚠️  No lists configured. Please add lists first.")
+            # Log sync end marker even for early exit
+            sync_end_marker = f"========== SYNC COMPLETE [FULL] - Session: {session_id} - Status: NO_LISTS =========="
+            logging.info(sync_end_marker)
+            # Mark sync as ended in database
+            end_sync_in_db(session_id=session_id, status='no_lists')
+            return
+        
+        # Fetch media from lists
+        media_items, synced_lists = fetch_media_from_lists(list_ids)
+        
+        if not media_items:
+            logging.warning("No media items found in configured lists")
+            print("\n⚠️  No media items found in configured lists.")
+            # Log sync end marker for early exit
+            sync_end_marker = f"========== SYNC COMPLETE [FULL] - Session: {session_id} - Status: NO_ITEMS =========="
+            logging.info(sync_end_marker)
+            # Mark sync as ended in database
+            end_sync_in_db(session_id=session_id, status='no_items')
+            return
+        
+        # Update sync_history with list information for full syncs
         try:
-            update_list_sync_info(list_info['type'], list_info['id'], list_info['item_count'])
-            logging.info(f"Updated sync info for {list_info['type']} list {list_info['id']}: {list_info['item_count']} items")
+            update_sync_lists_in_db(session_id=session_id, synced_lists=synced_lists)
         except Exception as e:
-            logging.warning(f"Failed to update sync info for {list_info['type']} list {list_info['id']}: {e}")
-    
-    # Perform the sync
-    sync_results = sync_media_to_overseerr(
-        media_items,
-        overseerr_client,
-        synced_lists=synced_lists,
-        is_4k=is_4k,
-        dry_run=dry_run,
-        automated_mode=automated_mode,
-        sync_id=sync_id,
-        session_id=session_id
-    )
-    
-    # Display summary
-    summary_text = str(sync_results)
-    display_summary(sync_results)
-    
-    # Send to Discord webhook if configured
-    if not dry_run:
-        send_to_discord_webhook(summary_text, sync_results, automated=automated_mode)
-    
-    # Log sync complete with clear marker
-    sync_end_marker = f"========== SYNC COMPLETE [FULL] - Session: {session_id} - Status: SUCCESS =========="
-    logging.info(sync_end_marker)
-    print(color_gradient(f"\n{sync_end_marker}", "#00ff00", "#00aa00"))
-    
-    # Mark sync as ended in database
-    end_sync_in_db(
-        session_id=session_id,
-        status='completed',
-        total_items=sync_results.total_items,
-        items_requested=sync_results.results.get('requested', 0),
-        items_skipped=sync_results.results.get('skipped', 0),
-        items_errors=sync_results.results.get('error', 0)
-    )
+            logging.warning(f"Failed to update sync lists in database: {e}")
+        
+        # Update item counts and last_synced timestamps in database for all processed lists
+        for list_info in synced_lists:
+            try:
+                update_list_sync_info(list_info['type'], list_info['id'], list_info['item_count'])
+                logging.info(f"Updated sync info for {list_info['type']} list {list_info['id']}: {list_info['item_count']} items")
+            except Exception as e:
+                logging.warning(f"Failed to update sync info for {list_info['type']} list {list_info['id']}: {e}")
+        
+        # Perform the sync
+        sync_results = sync_media_to_overseerr(
+            media_items,
+            overseerr_client,
+            synced_lists=synced_lists,
+            is_4k=is_4k,
+            dry_run=dry_run,
+            automated_mode=automated_mode,
+            sync_id=sync_id,
+            session_id=session_id
+        )
+        
+        # Display summary
+        summary_text = str(sync_results)
+        display_summary(sync_results)
+        
+        # Send to Discord webhook if configured
+        if not dry_run:
+            send_to_discord_webhook(summary_text, sync_results, automated=automated_mode)
+        
+        # Log sync complete with clear marker
+        sync_end_marker = f"========== SYNC COMPLETE [FULL] - Session: {session_id} - Status: SUCCESS =========="
+        logging.info(sync_end_marker)
+        print(color_gradient(f"\n{sync_end_marker}", "#00ff00", "#00aa00"))
+        
+        # Mark sync as ended in database
+        end_sync_in_db(
+            session_id=session_id,
+            status='completed',
+            total_items=sync_results.total_items,
+            items_requested=sync_results.results.get('requested', 0),
+            items_skipped=sync_results.results.get('skipped', 0),
+            items_errors=sync_results.results.get('error', 0)
+        )
+        
+    finally:
+        # Clear global session ID to prevent zombie cancellation state
+        _current_sync_session_id = None
 
 
 def sync_single_list(
@@ -1141,14 +1473,19 @@ def sync_single_list(
         list_id (str): ID of the specific list to sync
         overseerr_url (str): Overseerr URL
         overseerr_api_key (str): Overseerr API key
-        user_id (Optional[str]): User ID for requests
+        user_id (Optional[str]): User ID for requests (if None, will be fetched from database)
         is_4k (bool): Whether to request 4K versions
         dry_run (bool): Whether to run in dry-run mode
         
     Returns:
         Dict[str, Any]: Sync results
     """
+    global _current_sync_session_id
+    
     try:
+        # Set up signal handlers for immediate termination support
+        setup_sync_signal_handlers()
+        
         # Check and rotate logs if necessary before starting sync
         check_and_rotate_logs()
         
@@ -1156,100 +1493,146 @@ def sync_single_list(
         import uuid
         session_id = f"{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}"
         
-        # Track sync start in database
-        sync_id = start_sync_in_db(
-            session_id=session_id,
-            sync_type='single',
-            list_type=list_type,
-            list_id=list_id
-        )
+        # Store session ID globally for signal handlers
+        _current_sync_session_id = session_id
         
-        # Log sync start with clear marker
-        sync_start_marker = f"========== SYNC START [SINGLE] - Session: {session_id} - List: {list_type}:{list_id} =========="
-        logging.info(sync_start_marker)
-        print(color_gradient(f"\n{sync_start_marker}", "#00aaff", "#00ffaa"))
-        print(color_gradient(f"🎯  Single List Sync: {list_type.upper()}:{list_id}", "#00aaff", "#00ffaa"))
-        
-        # Create Overseerr client
-        overseerr_client = OverseerrClient(overseerr_url, overseerr_api_key, user_id)
-        
-        # Create a single list info dictionary
-        single_list_info = [{"type": list_type, "id": list_id}]
-        
-        # Fetch media from the single list
-        media_items, synced_lists = fetch_media_from_lists(single_list_info, is_single_list=True)
-        
-        if not media_items:
+        try:
+            # Track sync start in database
+            sync_id = start_sync_in_db(
+                session_id=session_id,
+                sync_type='single',
+                list_type=list_type,
+                list_id=list_id
+            )
+            
+            # Register subprocess PID in tracker for immediate termination
+            sync_tracker = get_sync_tracker()
+            sync_tracker.set_subprocess_pid(os.getpid())
+            
+            # Log sync start with clear marker
+            sync_start_marker = f"========== SYNC START [SINGLE] - Session: {session_id} - List: {list_type}:{list_id} =========="
+            logging.info(sync_start_marker)
+            print(color_gradient(f"\n{sync_start_marker}", "#00aaff", "#00ffaa"))
+            print(color_gradient(f"🎯  Single List Sync: {list_type.upper()}:{list_id}", "#00aaff", "#00ffaa"))
+            
+            # Get user_id from database if not provided
+            if user_id is None:
+                from .database import load_list_ids
+                lists = load_list_ids()
+                for list_item in lists:
+                    if list_item['type'] == list_type and list_item['id'] == list_id:
+                        user_id = list_item.get('user_id', '1')
+                        logging.info(f"Using user_id {user_id} from list configuration")
+                        break
+                if user_id is None:
+                    user_id = '1'  # Default fallback
+                    logging.warning(f"List not found in database, using default user_id: 1")
+            
+            # Validate that the user exists in Overseerr
+            from .database import get_overseerr_user_by_id
+            user_exists = get_overseerr_user_by_id(user_id)
+            if not user_exists:
+                logging.warning(f"User ID {user_id} not found in local user database. This may cause issues if the user doesn't exist in Overseerr.")
+                # Try to fetch from Overseerr directly
+                try:
+                    import requests
+                    users_url = f"{overseerr_url.rstrip('/')}/api/v1/user"
+                    headers = {"X-Api-Key": overseerr_api_key}
+                    response = requests.get(users_url, headers=headers, timeout=10)
+                    if response.status_code == 200:
+                        users_data = response.json()
+                        users = users_data.get('results', [])
+                        user_found = any(str(user.get('id')) == str(user_id) for user in users)
+                        if not user_found:
+                            logging.warning(f"User ID {user_id} not found in Overseerr. Falling back to default user ID 1.")
+                            user_id = '1'
+                except Exception as e:
+                    logging.warning(f"Failed to validate user in Overseerr: {e}. Proceeding with user_id {user_id}")
+            
+            # Create Overseerr client with the appropriate user_id
+            overseerr_client = OverseerrClient(overseerr_url, overseerr_api_key, user_id)
+            
+            # Create a single list info dictionary (carry user_id so requests use correct requester)
+            single_list_info = [{"type": list_type, "id": list_id, "user_id": user_id}]
+            
+            # Fetch media from the single list
+            media_items, synced_lists = fetch_media_from_lists(single_list_info, is_single_list=True)
+            
+            if not media_items:
+                result = {
+                    "success": True,
+                    "message": f"No items found in {list_type}:{list_id}",
+                    "items_processed": 0,
+                    "items_requested": 0,
+                    "errors": 0,
+                    "list_info": synced_lists[0] if synced_lists else None
+                }
+                logging.info(f"Single list sync completed - no items found")
+                # Mark sync as ended in database
+                end_sync_in_db(session_id=session_id, status='no_items')
+                return result
+            
+            # Sync the media items to Overseerr
+            sync_results = sync_media_to_overseerr(
+                media_items=media_items,
+                overseerr_client=overseerr_client,
+                synced_lists=synced_lists,
+                is_4k=is_4k,
+                dry_run=dry_run,
+                automated_mode=True,  # Treat single sync as automated to avoid interactive prompts
+                sync_id=sync_id,
+                session_id=session_id
+            )
+            
+            # Update item count for the synced list
+            if synced_lists:
+                list_info = synced_lists[0]
+                update_list_sync_info(list_type, list_id, list_info.get('item_count', 0))
+            
+            # Convert sync results to return format
             result = {
                 "success": True,
-                "message": f"No items found in {list_type}:{list_id}",
-                "items_processed": 0,
-                "items_requested": 0,
-                "errors": 0,
-                "list_info": synced_lists[0] if synced_lists else None
+                "message": f"Single list sync completed for {list_type}:{list_id}",
+                "items_processed": sync_results.total_items,
+                "items_requested": sync_results.results["requested"],
+                "items_already_available": sync_results.results["already_available"],
+                "items_already_requested": sync_results.results["already_requested"],
+                "items_skipped": sync_results.results["skipped"],
+                "items_not_found": sync_results.results["not_found"],
+                "errors": sync_results.results["error"],
+                "list_info": synced_lists[0] if synced_lists else None,
+                "dry_run": dry_run
             }
-            logging.info(f"Single list sync completed - no items found")
+            
+            logging.info(f"Single list sync completed successfully: {result}")
+            print(color_gradient(f"✅  Single list sync completed: {sync_results.results['requested']} requested, {sync_results.results['error']} errors", "#00ff00", "#00aa00"))
+            
+            # Send to Discord webhook if configured (only if not dry run)
+            if not dry_run:
+                summary_text = f"Single list sync completed for {list_type}:{list_id}"
+                send_to_discord_webhook(summary_text, sync_results, automated=True, is_single_list=True)
+            
+            # Log sync complete with clear marker
+            sync_end_marker = f"========== SYNC COMPLETE [SINGLE] - Session: {session_id} - List: {list_type}:{list_id} - Status: SUCCESS =========="
+            logging.info(sync_end_marker)
+            print(color_gradient(f"\n{sync_end_marker}", "#00ff00", "#00aa00"))
+            
             # Mark sync as ended in database
-            end_sync_in_db(session_id=session_id, status='no_items')
+            end_sync_in_db(
+                session_id=session_id,
+                status='completed',
+                total_items=sync_results.total_items,
+                items_requested=sync_results.results.get('requested', 0),
+                items_skipped=sync_results.results.get('skipped', 0),
+                items_errors=sync_results.results.get('error', 0)
+            )
+            
             return result
         
-        # Sync the media items to Overseerr
-        sync_results = sync_media_to_overseerr(
-            media_items=media_items,
-            overseerr_client=overseerr_client,
-            synced_lists=synced_lists,
-            is_4k=is_4k,
-            dry_run=dry_run,
-            automated_mode=True,  # Treat single sync as automated to avoid interactive prompts
-            sync_id=sync_id,
-            session_id=session_id
-        )
-        
-        # Update item count for the synced list
-        if synced_lists:
-            list_info = synced_lists[0]
-            update_list_sync_info(list_type, list_id, list_info.get('item_count', 0))
-        
-        # Convert sync results to return format
-        result = {
-            "success": True,
-            "message": f"Single list sync completed for {list_type}:{list_id}",
-            "items_processed": sync_results.total_items,
-            "items_requested": sync_results.results["requested"],
-            "items_already_available": sync_results.results["already_available"],
-            "items_already_requested": sync_results.results["already_requested"],
-            "items_skipped": sync_results.results["skipped"],
-            "items_not_found": sync_results.results["not_found"],
-            "errors": sync_results.results["error"],
-            "list_info": synced_lists[0] if synced_lists else None,
-            "dry_run": dry_run
-        }
-        
-        logging.info(f"Single list sync completed successfully: {result}")
-        print(color_gradient(f"✅  Single list sync completed: {sync_results.results['requested']} requested, {sync_results.results['error']} errors", "#00ff00", "#00aa00"))
-        
-        # Send to Discord webhook if configured (only if not dry run)
-        if not dry_run:
-            summary_text = f"Single list sync completed for {list_type}:{list_id}"
-            send_to_discord_webhook(summary_text, sync_results, automated=True, is_single_list=True)
-        
-        # Log sync complete with clear marker
-        sync_end_marker = f"========== SYNC COMPLETE [SINGLE] - Session: {session_id} - List: {list_type}:{list_id} - Status: SUCCESS =========="
-        logging.info(sync_end_marker)
-        print(color_gradient(f"\n{sync_end_marker}", "#00ff00", "#00aa00"))
-        
-        # Mark sync as ended in database
-        end_sync_in_db(
-            session_id=session_id,
-            status='completed',
-            total_items=sync_results.total_items,
-            items_requested=sync_results.results.get('requested', 0),
-            items_skipped=sync_results.results.get('skipped', 0),
-            items_errors=sync_results.results.get('error', 0)
-        )
-        
-        return result
-        
+        finally:
+            # Clear global session ID to prevent zombie cancellation state
+            _current_sync_session_id = None
+            
     except Exception as e:
         error_message = f"Error in single list sync for {list_type}:{list_id}: {str(e)}"
         logging.error(error_message)

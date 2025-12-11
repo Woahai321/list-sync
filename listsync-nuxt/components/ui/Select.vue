@@ -16,7 +16,6 @@
         :class="selectClasses"
         @change="handleChange"
       >
-        <option v-if="placeholder" value="" disabled class="bg-card text-foreground">{{ placeholder }}</option>
         <option
           v-for="option in normalizedOptions"
           :key="option.value"

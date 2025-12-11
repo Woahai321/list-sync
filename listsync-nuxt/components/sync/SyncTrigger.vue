@@ -1,103 +1,61 @@
 <template>
   <Card class="glass-card border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
-    <div class="text-center py-6">
-      <!-- Status Icon -->
-      <div class="flex items-center justify-center mb-4">
+    <div class="text-center py-6 sm:py-8">
+      <!-- Mascot Icon -->
+      <div class="flex items-center justify-center mb-4 sm:mb-6">
         <div
-          class="relative w-16 h-16 rounded-full flex items-center justify-center"
+          class="relative"
           :class="[
-            isSyncing
-              ? 'bg-purple-600/20 border-2 border-purple-500 animate-pulse'
-              : 'bg-purple-600/10 border-2 border-purple-500/20'
+            isSyncing && 'mascot-pulse-glow'
           ]"
         >
-          <component
-            :is="statusIcon"
-            :class="[
-              'w-8 h-8',
-              isSyncing ? 'text-purple-400 animate-spin' : 'text-purple-400'
-            ]"
+          <img 
+            :src="logoImage" 
+            alt="ListSync Mascot" 
+            class="w-20 h-20 sm:w-24 sm:h-24 object-contain"
           />
         </div>
       </div>
 
       <!-- Status Text -->
-      <h2 class="text-xl font-bold mb-1.5 titillium-web-bold">
+      <h3 class="text-xl sm:text-2xl font-bold mb-2 titillium-web-bold">
         {{ statusTitle }}
-      </h2>
-      <p class="text-muted-foreground mb-6 text-sm">
+      </h3>
+      <p class="text-muted-foreground mb-6 sm:mb-8 text-sm">
         {{ statusDescription }}
       </p>
 
-      <!-- Sync Button - MUCH MORE PROMINENT -->
-      <button
-        :disabled="isSyncing"
-        :class="[
-          'relative group px-16 py-6 text-xl font-bold rounded-2xl transition-all duration-300',
-          'bg-gradient-to-r from-primary via-purple-600 to-accent',
-          'hover:scale-105 active:scale-95',
-          'disabled:opacity-70 disabled:cursor-not-allowed',
-          'shadow-2xl shadow-primary/50',
-          isSyncing ? '' : 'animate-pulse-glow'
-        ]"
-        @click="$emit('trigger-sync')"
-      >
-        <!-- Glow effect -->
-        <span 
+      <!-- Sync Buttons - Improved styling -->
+      <div class="flex flex-col sm:flex-row gap-3 justify-center items-stretch sm:items-center">
+        <Button
           v-if="!isSyncing"
-          class="absolute inset-0 rounded-2xl bg-gradient-to-r from-primary to-accent opacity-75 blur-xl animate-pulse-slow"
-        />
+          variant="primary"
+          :icon="PlayIcon"
+          size="lg"
+          class="w-full sm:w-auto sm:min-w-[200px] touch-manipulation"
+          @click="$emit('trigger-sync')"
+        >
+          Start Sync Now
+        </Button>
         
-        <!-- Content -->
-        <span class="relative flex items-center justify-center gap-3 text-white">
-          <component
-            :is="isSyncing ? RefreshCwIcon : PlayIcon"
-            :class="[
-              'w-7 h-7',
-              isSyncing && 'animate-spin'
-            ]"
-          />
-          <span class="titillium-web-bold">
-            {{ isSyncing ? 'Syncing...' : 'Start Sync' }}
-          </span>
-        </span>
-      </button>
+        <Button
+          v-else
+          variant="danger"
+          :icon="StopIcon"
+          size="lg"
+          class="w-full sm:w-auto sm:min-w-[200px] touch-manipulation"
+          @click="$emit('stop-sync')"
+        >
+          Stop Sync
+        </Button>
+      </div>
 
       <!-- Helper text -->
-      <p class="text-sm text-muted-foreground mt-4">
-        {{ isSyncing ? 'Sync is currently running...' : 'Click to start synchronization now' }}
+      <p class="text-xs text-muted-foreground mt-3">
+        {{ isSyncing ? 'Click stop to immediately terminate the sync' : 'Click to begin synchronization' }}
       </p>
 
-      <!-- Sync Info -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8 pt-8 border-t border-border/50">
-        <!-- Last Sync -->
-        <div>
-          <div class="flex items-center justify-center gap-2 mb-2">
-            <ClockIcon class="w-4 h-4 text-muted-foreground" />
-            <span class="text-sm font-medium text-muted-foreground">Last Sync</span>
-          </div>
-          <div class="text-lg font-semibold">
-            {{ lastSyncFormatted }}
-          </div>
-          <div class="text-sm text-muted-foreground mt-1">
-            {{ lastSyncRelative }}
-          </div>
-        </div>
-
-        <!-- Next Sync -->
-        <div>
-          <div class="flex items-center justify-center gap-2 mb-2">
-            <CalendarIcon class="w-4 h-4 text-muted-foreground" />
-            <span class="text-sm font-medium text-muted-foreground">Next Sync</span>
-          </div>
-          <div class="text-lg font-semibold">
-            {{ nextSyncFormatted }}
-          </div>
-          <div class="text-sm text-muted-foreground mt-1">
-            {{ nextSyncCountdown }}
-          </div>
-        </div>
-      </div>
+      <!-- Sync Info - Removed (now in SyncStatusCards) -->
     </div>
   </Card>
 </template>
@@ -105,13 +63,10 @@
 <script setup lang="ts">
 import {
   Play as PlayIcon,
-  RefreshCw as RefreshIcon,
   RefreshCw as RefreshCwIcon,
-  CheckCircle as CheckCircleIcon,
-  Clock as ClockIcon,
-  Calendar as CalendarIcon,
+  Square as StopIcon,
 } from 'lucide-vue-next'
-import { formatDistanceToNow, format } from 'date-fns'
+import logoImage from '~/assets/images/list-sync-logo.webp'
 
 interface Props {
   isSyncing: boolean
@@ -123,100 +78,38 @@ const props = defineProps<Props>()
 
 defineEmits<{
   'trigger-sync': []
+  'stop-sync': []
 }>()
 
 // Status computed
-const statusIcon = computed(() => {
-  return props.isSyncing ? RefreshIcon : CheckCircleIcon
-})
-
 const statusTitle = computed(() => {
   return props.isSyncing ? 'Sync in Progress' : 'Ready to Sync'
 })
 
 const statusDescription = computed(() => {
   return props.isSyncing
-    ? 'Synchronization is currently running...'
-    : 'Click the button below to start a new sync operation'
-})
-
-// Format last sync
-const lastSyncFormatted = computed(() => {
-  if (!props.lastSync) return 'Never'
-  try {
-    return format(new Date(props.lastSync), 'MMM d, yyyy h:mm a')
-  } catch {
-    return 'Unknown'
-  }
-})
-
-const lastSyncRelative = computed(() => {
-  if (!props.lastSync) return ''
-  try {
-    return formatDistanceToNow(new Date(props.lastSync), { addSuffix: true })
-  } catch {
-    return ''
-  }
-})
-
-// Format next sync
-const nextSyncFormatted = computed(() => {
-  if (!props.nextSync) return 'Not scheduled'
-  try {
-    return format(new Date(props.nextSync), 'MMM d, yyyy h:mm a')
-  } catch {
-    return 'Unknown'
-  }
-})
-
-// Countdown to next sync
-const nextSyncCountdown = ref('')
-
-const updateCountdown = () => {
-  if (!props.nextSync) {
-    nextSyncCountdown.value = ''
-    return
-  }
-
-  try {
-    const now = new Date()
-    const next = new Date(props.nextSync)
-    const diff = next.getTime() - now.getTime()
-
-    if (diff <= 0) {
-      nextSyncCountdown.value = 'Due now'
-      return
-    }
-
-    const hours = Math.floor(diff / (1000 * 60 * 60))
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-    const seconds = Math.floor((diff % (1000 * 60)) / 1000)
-
-    if (hours > 0) {
-      nextSyncCountdown.value = `in ${hours}h ${minutes}m`
-    } else if (minutes > 0) {
-      nextSyncCountdown.value = `in ${minutes}m ${seconds}s`
-    } else {
-      nextSyncCountdown.value = `in ${seconds}s`
-    }
-  } catch {
-    nextSyncCountdown.value = ''
-  }
-}
-
-// Update countdown every second
-onMounted(() => {
-  if (process.client) {
-    updateCountdown()
-    const interval = setInterval(updateCountdown, 1000)
-    
-    onUnmounted(() => clearInterval(interval))
-  }
-})
-
-// Watch for next sync changes
-watch(() => props.nextSync, () => {
-  updateCountdown()
+    ? 'Your data is being synchronized...'
+    : 'Start synchronization to update your lists'
 })
 </script>
 
+<style scoped>
+/* Purple pulsating glow animation for mascot */
+@keyframes mascot-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 25px rgba(168, 85, 247, 0.8)) drop-shadow(0 0 40px rgba(168, 85, 247, 0.6));
+  }
+}
+
+.mascot-pulse-glow {
+  animation: mascot-pulse 1.5s ease-in-out infinite;
+}
+
+/* Button active state */
+.active\:scale-98:active {
+  transform: scale(0.98);
+}
+</style>

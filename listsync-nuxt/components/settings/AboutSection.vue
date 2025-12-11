@@ -49,39 +49,39 @@
               <p class="text-[10px] text-muted-foreground">Join our community</p>
             </div>
           </div>
-          <ExternalLinkIcon class="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+          <ExternalLinkIcon class="w-3 h-3 text-muted-foreground group-hover:text-purple-400 transition-colors" />
         </a>
 
         <a
           href="https://github.com/login?return_to=https://github.com/Woahai321/list-sync/issues"
           target="_blank"
           rel="noopener noreferrer"
-          class="flex items-center justify-between p-3 rounded-lg bg-muted/20 hover:bg-muted/30 transition-colors group"
+          class="flex items-center justify-between p-2 rounded-lg bg-purple-600/10 border border-purple-500/20 hover:border-purple-400/40 hover:bg-purple-600/15 transition-all group"
         >
-          <div class="flex items-center gap-3">
-            <BugIcon class="w-5 h-5" />
+          <div class="flex items-center gap-2">
+            <BugIcon class="w-4 h-4 text-purple-400" />
             <div>
-              <p class="font-medium">Report an Issue</p>
-              <p class="text-xs text-muted-foreground">Found a bug? Let us know</p>
+              <p class="text-sm font-medium">Report an Issue</p>
+              <p class="text-[10px] text-muted-foreground">Found a bug? Let us know</p>
             </div>
           </div>
-          <ExternalLinkIcon class="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+          <ExternalLinkIcon class="w-3 h-3 text-muted-foreground group-hover:text-purple-400 transition-colors" />
         </a>
 
         <a
           href="https://github.com/Woahai321/list-sync/tree/main/docs"
           target="_blank"
           rel="noopener noreferrer"
-          class="flex items-center justify-between p-3 rounded-lg bg-muted/20 hover:bg-muted/30 transition-colors group"
+          class="flex items-center justify-between p-2 rounded-lg bg-purple-600/10 border border-purple-500/20 hover:border-purple-400/40 hover:bg-purple-600/15 transition-all group"
         >
-          <div class="flex items-center gap-3">
-            <BookOpenIcon class="w-5 h-5" />
+          <div class="flex items-center gap-2">
+            <BookOpenIcon class="w-4 h-4 text-purple-400" />
             <div>
-              <p class="font-medium">Documentation</p>
-              <p class="text-xs text-muted-foreground">Learn how to use ListSync</p>
+              <p class="text-sm font-medium">Documentation</p>
+              <p class="text-[10px] text-muted-foreground">Learn how to use ListSync</p>
             </div>
           </div>
-          <ExternalLinkIcon class="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+          <ExternalLinkIcon class="w-3 h-3 text-muted-foreground group-hover:text-purple-400 transition-colors" />
         </a>
       </div>
 

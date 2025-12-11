@@ -2,582 +2,412 @@
   <Modal
     v-model="isOpen"
     title="Add New List"
-    size="lg"
+    size="full"
     @close="handleClose"
   >
-    <div class="space-y-4">
-      <!-- Progress Indicator -->
-      <div class="flex items-center justify-center gap-2">
-        <div
-          v-for="step in 4"
-          :key="step"
-          :class="[
-            'h-1.5 rounded-full transition-all',
-            step === currentStep ? 'w-8 bg-purple-500' : step < currentStep ? 'w-6 bg-purple-500/50' : 'w-6 bg-white/10'
-          ]"
-        />
-      </div>
-
-      <!-- Step 1: Choose Sources -->
-      <div v-if="currentStep === 1" class="space-y-4">
-        <div class="text-center space-y-1.5">
-          <p class="text-xs text-muted-foreground font-medium">
-            Select a source for your list
-          </p>
-          <p class="text-[10px] text-muted-foreground">
-            Choose one provider to add a list from
-          </p>
-        </div>
-
-        <!-- Lists Already Selected Indicator -->
-        <div v-if="listsToAdd.length > 0" class="flex items-center justify-center">
-          <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20">
-            <component :is="CheckCircleIcon" :size="14" class="text-purple-400" />
-            <span class="text-xs font-medium text-foreground">
-              {{ listsToAdd.length }} list{{ listsToAdd.length > 1 ? 's' : '' }} already selected
-            </span>
+    <!-- Main Split Layout -->
+    <div class="flex flex-col sm:flex-row h-[70vh] sm:h-[650px] max-h-[600px] sm:max-h-none -mx-4 sm:-mx-6 -my-3 sm:-my-4">
+      <!-- Left Panel: Configuration Steps -->
+      <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <!-- Step Indicator -->
+        <div class="px-4 sm:px-6 pt-5 pb-4 border-b border-purple-500/10 bg-purple-500/5">
+          <div class="flex items-center justify-center gap-2 sm:gap-4">
+            <button
+              v-for="step in 3"
+              :key="step"
+              type="button"
+              :class="[
+                'flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all',
+                currentStep === step
+                  ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/30'
+                  : currentStep > step
+                    ? 'bg-purple-500/30 text-purple-300 cursor-pointer hover:bg-purple-500/40'
+                    : 'bg-white/5 text-muted-foreground'
+              ]"
+              :disabled="currentStep < step"
+              @click="currentStep > step && (currentStep = step)"
+            >
+              <span class="w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold"
+                :class="currentStep >= step ? 'bg-white/20' : 'bg-white/10'"
+              >
+                {{ step }}
+              </span>
+              <span class="hidden sm:inline">{{ stepLabels[step - 1] }}</span>
+            </button>
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-3">
-          <!-- Collections Button (First, 2 columns wide) -->
-          <button
-            :class="[
-              'col-span-2 p-4 rounded-xl border-2 transition-all duration-300',
-              'bg-gradient-to-br from-purple-500/20 to-purple-600/20',
-              'border-purple-500/40 hover:border-purple-400/60',
-              'hover:from-purple-500/30 hover:to-purple-600/30',
-              'active:scale-[0.98]'
-            ]"
-            @click="handleCollectionsRedirect"
-          >
-            <div class="flex items-center gap-4">
-              <div class="p-3 rounded-xl bg-purple-500/30 border border-purple-400/40">
-                <component :is="LayersIcon" :size="32" class="text-purple-300" />
-              </div>
-              <div class="flex-1 text-left">
-                <span class="font-semibold text-foreground block text-lg">Collections</span>
-                <span class="text-xs text-muted-foreground mt-1">Browse popular movie collections and sync them to Overseerr</span>
-              </div>
-              <component :is="ChevronRightIcon" :size="20" class="text-purple-400" />
+        <!-- Step Content -->
+        <div class="flex-1 overflow-y-auto px-4 sm:px-6 py-4 custom-scrollbar">
+          <!-- Step 1: Choose Provider -->
+          <div v-if="currentStep === 1" class="space-y-5">
+            <div class="text-center mb-6">
+              <p class="text-lg font-bold text-foreground">Select a Provider</p>
+              <p class="text-sm text-muted-foreground mt-2">Choose where your list is from</p>
             </div>
-          </button>
-          
-          <button
-            v-for="source in paginatedSources"
-            :key="source.value"
-            :class="getSourceButtonClass(source.value)"
-            @click="selectSource(source.value)"
-          >
-            <div class="flex flex-col items-center gap-3">
-              <div :class="[
-                'p-3 rounded-xl transition-all duration-300',
-                source.bgColor,
-                selectedProviders.includes(source.value) ? source.borderColor : 'border border-transparent'
-              ]">
-                <component :is="source.icon" :size="28" :class="source.color" />
-              </div>
-              <div class="text-center">
-                <span class="font-semibold text-foreground block">{{ source.label }}</span>
-                <span class="text-xs text-muted-foreground mt-1">{{ source.description }}</span>
-              </div>
-            </div>
-          </button>
-        </div>
 
-        <!-- Pagination Controls - Sticky at bottom of sources -->
-        <div v-if="totalPages > 1" class="sticky bottom-0 bg-gradient-to-t from-background via-background to-transparent pt-4 pb-2">
-          <div class="flex items-center justify-between p-3 rounded-lg bg-black/60 backdrop-blur-lg border border-purple-500/30">
-            <Button
-              variant="ghost"
-              size="sm"
-              :icon="ChevronLeftIcon"
-              :disabled="currentPage === 1"
-              @click="currentPage = Math.max(1, currentPage - 1)"
+            <!-- Collections Banner -->
+            <button
+              class="w-full p-3 sm:p-4 rounded-xl border border-purple-500/30 bg-gradient-to-r from-purple-500/10 to-purple-600/10 hover:from-purple-500/20 hover:to-purple-600/20 transition-all group"
+              @click="handleCollectionsRedirect"
             >
-              Previous
-            </Button>
+              <div class="flex items-center gap-3 sm:gap-4">
+                <div class="p-2 sm:p-3 rounded-lg bg-purple-500/20">
+                  <component :is="LayersIcon" :size="20" class="sm:w-6 sm:h-6 text-purple-400" />
+                </div>
+                <div class="flex-1 text-left">
+                  <span class="font-medium text-foreground text-sm sm:text-base">Collections</span>
+                  <span class="text-xs sm:text-sm text-muted-foreground ml-2">Browse popular movie collections</span>
+                </div>
+                <component :is="ChevronRightIcon" :size="18" class="sm:w-5 sm:h-5 text-purple-400 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </button>
 
-            <div class="flex items-center gap-2">
+            <!-- Provider Grid -->
+            <div class="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3">
               <button
-                v-for="page in totalPages"
-                :key="page"
+                v-for="source in sources"
+                :key="source.value"
+                type="button"
                 :class="[
-                  'w-8 h-8 rounded-full text-sm font-medium transition-all',
-                  page === currentPage
-                    ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/50'
-                    : 'bg-white/10 text-muted-foreground hover:bg-white/20'
+                  'p-3 sm:p-4 rounded-xl border-2 transition-all text-center group',
+                  'hover:scale-[1.02] hover:shadow-lg',
+                  selectedSource === source.value
+                    ? `${source.borderColor} ${source.bgColor}`
+                    : 'border-border bg-black/20 hover:border-purple-500/40'
                 ]"
-                @click="currentPage = page"
+                @click="selectSource(source.value)"
               >
-                {{ page }}
+                <div :class="['p-2 sm:p-3 rounded-lg mx-auto w-fit mb-2', source.bgColor]">
+                  <component :is="source.icon" :size="20" class="sm:w-6 sm:h-6" :class="source.color" />
+                </div>
+                <span class="text-xs sm:text-sm font-medium text-foreground block">{{ source.label }}</span>
+                <span v-if="hasPresets(source.value)" class="text-[9px] sm:text-[10px] text-purple-400 mt-0.5 block">
+                  {{ getPresetCount(source.value) }} presets
+                </span>
               </button>
             </div>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              :icon="ChevronRightIcon"
-              :disabled="currentPage === totalPages"
-              @click="currentPage = Math.min(totalPages, currentPage + 1)"
-            >
-              Next
-            </Button>
           </div>
-        </div>
-      </div>
 
-      <!-- Step 2: Enter Details -->
-      <div v-else-if="currentStep === 2" class="space-y-4">
-        <div class="flex items-center justify-between mb-4">
-          <div class="flex items-center gap-2">
-            <button
-              type="button"
-              class="p-1 rounded hover:bg-white/5 transition-colors"
-              @click="currentStep = 1"
-            >
-              <component :is="ChevronLeftIcon" :size="20" />
-            </button>
-            <Badge :variant="'primary'" size="sm">
-              <component :is="getSourceIcon(selectedSource)" :size="12" />
-              {{ formatListSource(selectedSource) }}
-            </Badge>
-          </div>
-          <div class="text-xs text-muted-foreground">
-            {{ selectedProviders.indexOf(currentProvider) + 1 }} of {{ selectedProviders.length }}
-          </div>
-        </div>
+          <!-- Step 2: Select List -->
+          <div v-else-if="currentStep === 2" class="space-y-4">
+            <!-- Back + Provider Badge -->
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                class="p-1 rounded hover:bg-white/5 transition-colors"
+                @click="currentStep = 1"
+              >
+                <component :is="ChevronLeftIcon" :size="18" class="text-muted-foreground" />
+              </button>
+              <Badge variant="primary" size="sm">
+                <component :is="getSourceIcon(selectedSource)" :size="12" />
+                {{ formatListSource(selectedSource) }}
+              </Badge>
+            </div>
 
-        <form @submit.prevent="handleSubmit" class="space-y-4">
-          <!-- Trakt Special Button Grid -->
-          <div v-if="isTraktSpecial" class="space-y-4">
-            <!-- List Type Buttons -->
-            <div>
-              <label class="block text-sm font-medium text-foreground mb-3">
-                Choose List Type
-              </label>
-              <div class="grid grid-cols-2 gap-2">
-                <button
-                  v-for="type in traktSpecialTypes"
-                  :key="type.value"
-                  type="button"
-                  :class="[
-                    'p-3 rounded-lg border-2 text-sm font-medium transition-all',
-                    selectedTraktType === type.value
-                      ? 'border-purple-500 bg-purple-500/20 text-purple-300'
-                      : 'border-border bg-black/20 text-foreground hover:border-purple-500/50'
-                  ]"
-                  @click="handleTraktTypeSelect(type.value)"
-                >
-                  {{ type.label }}
-                </button>
+            <!-- Trakt Special Selection - Categorized like other providers -->
+            <div v-if="isTraktSpecial" class="space-y-3">
+              <!-- Search -->
+              <div class="relative">
+                <component :is="SearchIcon" :size="14" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  v-model="presetSearch"
+                  type="text"
+                  placeholder="Search Trakt lists..."
+                  class="w-full pl-8 pr-3 py-2 rounded-lg bg-black/20 border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500 transition-all"
+                />
+              </div>
+
+              <!-- Trakt Presets Grid -->
+              <div class="space-y-3 max-h-[280px] sm:max-h-[350px] overflow-y-auto custom-scrollbar pr-1">
+                <div v-for="category in filteredTraktSpecialPresets" :key="category.category" class="space-y-2">
+                  <button
+                    type="button"
+                    @click="toggleCategory(`trakt_special-${category.category}`)"
+                    class="w-full flex items-center justify-between p-2 rounded-lg bg-black/30 hover:bg-black/40 transition-colors"
+                  >
+                    <div class="flex items-center gap-2">
+                      <component :is="category.category === 'Movies' ? FilmIcon : TvIcon" :size="14" :class="category.category === 'Movies' ? 'text-purple-400' : 'text-green-400'" />
+                      <span class="text-xs font-semibold text-foreground uppercase tracking-wider">
+                        {{ category.category }}
+                      </span>
+                      <span class="text-[10px] text-muted-foreground">({{ category.items.length }})</span>
+                    </div>
+                    <component 
+                      :is="isCategoryCollapsed(`trakt_special-${category.category}`) ? ChevronDownIcon : ChevronUpIcon" 
+                      :size="14" 
+                      class="text-muted-foreground"
+                    />
+                  </button>
+                  
+                  <div 
+                    v-show="!isCategoryCollapsed(`trakt_special-${category.category}`)"
+                    class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2"
+                  >
+                    <button
+                      v-for="preset in category.items"
+                      :key="`${preset.type}-${preset.media}`"
+                      type="button"
+                      :class="[
+                        'group relative p-3 rounded-xl border-2 text-left transition-all hover:scale-[1.01] hover:shadow-md',
+                        selectedTraktType === preset.type && selectedTraktMedia === preset.media
+                          ? 'border-purple-500 bg-purple-500/20'
+                          : 'border-border bg-black/20 hover:border-purple-500/40'
+                      ]"
+                      @click="handleTraktSpecialPresetSelect(preset.type, preset.media)"
+                    >
+                      <div class="flex items-start gap-2.5">
+                        <div :class="[
+                          'p-1.5 rounded-lg transition-colors flex-shrink-0',
+                          selectedTraktType === preset.type && selectedTraktMedia === preset.media
+                            ? 'bg-purple-500/30' 
+                            : 'bg-white/5 group-hover:bg-white/10'
+                        ]">
+                          <component :is="ZapIcon" :size="14" class="text-purple-400" />
+                        </div>
+                        <div class="flex-1 min-w-0">
+                          <p class="text-xs sm:text-sm font-medium text-foreground truncate">{{ preset.label }}</p>
+                          <p class="text-[10px] text-muted-foreground mt-0.5">Trakt {{ category.category }}</p>
+                        </div>
+                        <div class="flex items-center gap-1.5 flex-shrink-0">
+                          <button
+                            type="button"
+                            class="p-1 rounded-md bg-black/20 hover:bg-purple-500/20 border border-purple-500/30 hover:border-purple-500/50 transition-all opacity-0 group-hover:opacity-100"
+                            title="Preview on Trakt"
+                            @click.stop="openTraktSpecialUrl(preset.type, preset.media)"
+                          >
+                            <component :is="ExternalLinkIcon" :size="12" class="text-purple-400" />
+                          </button>
+                          <component 
+                            v-if="selectedTraktType === preset.type && selectedTraktMedia === preset.media" 
+                            :is="CheckIcon" 
+                            :size="16" 
+                            class="text-purple-400" 
+                          />
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+                
+                <div v-if="filteredTraktSpecialPresets.length === 0" class="text-center py-6 text-muted-foreground text-sm">
+                  No presets found matching your search
+                </div>
               </div>
             </div>
 
-            <!-- Media Type Buttons -->
-            <div v-if="selectedTraktType">
-              <label class="block text-sm font-medium text-foreground mb-3">
-                Choose Media Type
-              </label>
-              <div class="grid grid-cols-2 gap-2">
-                <button
-                  v-for="media in traktMediaTypes"
-                  :key="media.value"
-                  type="button"
-                  :class="[
-                    'p-3 rounded-lg border-2 text-sm font-medium transition-all',
-                    selectedTraktMedia === media.value
-                      ? 'border-green-500 bg-green-500/20 text-green-300'
-                      : 'border-border bg-black/20 text-foreground hover:border-green-500/50'
-                  ]"
-                  @click="handleTraktMediaSelect(media.value)"
-                >
-                  {{ media.label }}
-                </button>
+            <!-- Provider with Presets -->
+            <div v-else-if="hasPresets(selectedSource)" class="space-y-3">
+              <!-- Search -->
+              <div class="relative">
+                <component :is="SearchIcon" :size="14" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  v-model="presetSearch"
+                  type="text"
+                  placeholder="Search presets..."
+                  class="w-full pl-8 pr-3 py-2 rounded-lg bg-black/20 border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500 transition-all"
+                />
               </div>
-            </div>
-          </div>
 
-          <!-- IMDb Presets -->
-          <div v-else-if="selectedSource === 'imdb'" class="space-y-4">
-            <div>
-              <label class="block text-sm font-medium text-foreground mb-3">
-                Choose IMDb List or Enter Custom ID
-              </label>
-              
-              <!-- Preset Buttons -->
-              <div class="grid grid-cols-2 gap-2 mb-4">
-                <button
-                  v-for="preset in imdbPresets"
-                  :key="preset.value"
-                  type="button"
-                  :class="[
-                    'p-3 rounded-lg border-2 text-sm font-medium transition-all',
-                    listId === preset.value
-                      ? 'border-yellow-500 bg-yellow-500/20 text-yellow-300'
-                      : 'border-border bg-black/20 text-foreground hover:border-yellow-500/50'
-                  ]"
-                  @click="handleImdbPresetSelect(preset.value)"
-                >
-                  {{ preset.label }}
-                </button>
+              <!-- Preset Grid with Rich Cards -->
+              <div class="space-y-3 max-h-[280px] sm:max-h-[350px] overflow-y-auto custom-scrollbar pr-1">
+                <div v-for="category in currentFilteredPresets" :key="category.category" class="space-y-2">
+                  <button
+                    type="button"
+                    @click="toggleCategory(`${selectedSource}-${category.category}`)"
+                    class="w-full flex items-center justify-between p-2 rounded-lg bg-black/30 hover:bg-black/40 transition-colors"
+                  >
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs font-semibold text-foreground uppercase tracking-wider">
+                        {{ category.category }}
+                      </span>
+                      <span class="text-[10px] text-muted-foreground">({{ category.items.length }})</span>
+                    </div>
+                    <component 
+                      :is="isCategoryCollapsed(`${selectedSource}-${category.category}`) ? ChevronDownIcon : ChevronUpIcon" 
+                      :size="14" 
+                      class="text-muted-foreground"
+                    />
+                  </button>
+                  
+                  <div 
+                    v-show="!isCategoryCollapsed(`${selectedSource}-${category.category}`)"
+                    class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2"
+                  >
+                    <button
+                      v-for="preset in category.items"
+                      :key="preset.value"
+                      type="button"
+                      :class="[
+                        'group relative p-3 rounded-xl border-2 text-left transition-all hover:scale-[1.01] hover:shadow-md',
+                        listId === preset.value
+                          ? `${getProviderColor(selectedSource).border} ${getProviderColor(selectedSource).bg}`
+                          : 'border-border bg-black/20 hover:border-purple-500/40'
+                      ]"
+                      @click="handlePresetSelect(preset.value, preset.label)"
+                    >
+                      <div class="flex items-start gap-2.5">
+                        <div :class="[
+                          'p-1.5 rounded-lg transition-colors flex-shrink-0',
+                          listId === preset.value 
+                            ? getProviderColor(selectedSource).bg 
+                            : 'bg-white/5 group-hover:bg-white/10'
+                        ]">
+                          <component :is="getSourceIcon(selectedSource)" :size="14" :class="getSourceColor(selectedSource).color" />
+                        </div>
+                        <div class="flex-1 min-w-0">
+                          <p class="text-xs sm:text-sm font-medium text-foreground truncate">{{ preset.label }}</p>
+                          <p class="text-[10px] text-muted-foreground mt-0.5">{{ formatListSource(selectedSource) }}</p>
+                        </div>
+                        <div class="flex items-center gap-1.5 flex-shrink-0">
+                          <button
+                            v-if="getPresetUrl(selectedSource, preset.value)"
+                            type="button"
+                            class="p-1 rounded-md bg-black/20 hover:bg-purple-500/20 border border-purple-500/30 hover:border-purple-500/50 transition-all opacity-0 group-hover:opacity-100"
+                            title="Preview on website"
+                            @click.stop="openPresetUrl($event, selectedSource, preset.value)"
+                          >
+                            <component :is="ExternalLinkIcon" :size="12" class="text-purple-400" />
+                          </button>
+                          <component 
+                            v-if="listId === preset.value" 
+                            :is="CheckIcon" 
+                            :size="16" 
+                            :class="getSourceColor(selectedSource).color" 
+                          />
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+                
+                <div v-if="currentFilteredPresets.length === 0" class="text-center py-6 text-muted-foreground text-sm">
+                  No presets found matching your search
+                </div>
               </div>
-              
-              <!-- Divider -->
-              <div class="relative my-4">
+
+              <!-- Custom Input Divider -->
+              <div class="relative py-2">
                 <div class="absolute inset-0 flex items-center">
                   <div class="w-full border-t border-border"></div>
                 </div>
-                <div class="relative flex justify-center text-xs uppercase">
+                <div class="relative flex justify-center text-[10px] uppercase">
                   <span class="bg-background px-2 text-muted-foreground">Or enter custom</span>
                 </div>
               </div>
-              
+
               <!-- Custom Input -->
               <Input
                 v-model="listId"
-                label="Custom IMDb List ID"
-                placeholder="e.g., ls0000000 or tt1234567"
+                :placeholder="getPlaceholder(selectedSource)"
                 :error="error"
                 @blur="validateInput"
+                @keydown.enter="handleAddList"
               />
             </div>
-          </div>
 
-          <!-- Steven Lu Button -->
-          <div v-else-if="selectedSource === 'stevenlu'" class="space-y-4">
-            <div>
-              <label class="block text-sm font-medium text-foreground mb-3">
-                Steven Lu's Movie Collection
-              </label>
+            <!-- Provider without Presets (Custom Input Only) -->
+            <div v-else class="space-y-3">
+              <Input
+                v-model="listId"
+                :label="`${formatListSource(selectedSource)} List ${isUrlRequired ? 'URL' : 'ID'}`"
+                :placeholder="getPlaceholder(selectedSource)"
+                :error="error"
+                @blur="validateInput"
+                @keydown.enter="handleAddList"
+              />
               
-              <button
-                type="button"
-                :class="[
-                  'w-full p-4 rounded-lg border-2 text-sm font-medium transition-all',
-                  listId === 'stevenlu'
-                    ? 'border-green-500 bg-green-500/20 text-green-300'
-                    : 'border-border bg-black/20 text-foreground hover:border-green-500/50'
-                ]"
-                @click="handleStevenLuSelect"
-              >
-                <div class="flex items-center justify-center gap-2">
-                  <DatabaseIcon :size="20" />
-                  <span>Sync Steven Lu's Movie List</span>
-                </div>
-              </button>
+              <div class="flex items-start gap-2 p-2.5 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                <component :is="InfoIcon" :size="14" class="text-purple-400 flex-shrink-0 mt-0.5" />
+                <p class="text-[11px] text-muted-foreground leading-relaxed">
+                  {{ getHelperText(selectedSource) }}
+                </p>
+              </div>
             </div>
           </div>
 
-          <!-- Regular List ID / URL Input -->
-          <Input
-            v-else
-            v-model="listId"
-            :label="`${formatListSource(selectedSource)} List ${isUrlRequired ? 'URL' : 'ID'}`"
-            :placeholder="getPlaceholder(selectedSource)"
-            :error="error"
-            required
-            @blur="validateInput"
-          />
-
-          <!-- Helper Text -->
-          <div class="flex items-start gap-2 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
-            <component :is="InfoIcon" :size="16" class="text-purple-400 flex-shrink-0 mt-0.5" />
-            <p class="text-xs text-muted-foreground">
-              {{ getHelperText(selectedSource) }}
-            </p>
-          </div>
-        </form>
-      </div>
-
-      <!-- Step 3: Sync Options -->
-      <div v-if="currentStep === 3" class="space-y-4">
-        <div class="text-center space-y-2">
-          <p class="text-sm font-medium text-foreground">
-            List ready to be added!
-          </p>
-          <p class="text-xs text-muted-foreground">
-            Choose how you want to sync this list
-          </p>
-        </div>
-
-        <!-- Add More Lists Section -->
-        <div class="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
-          <div class="flex items-start gap-3">
-            <component :is="InfoIcon" :size="16" class="text-purple-400 flex-shrink-0 mt-0.5" />
-            <div class="flex-1">
-              <p class="text-sm font-medium text-foreground mb-2">
-                Want to add more lists?
+          <!-- Step 3: Confirm -->
+          <div v-else-if="currentStep === 3" class="space-y-5">
+            <div class="text-center mb-6">
+              <div class="flex justify-center mb-4">
+                <div class="relative">
+                  <!-- Subtle glow -->
+                  <div class="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-green-500/20 rounded-full blur-xl" />
+                  
+                  <!-- Logo Image -->
+                  <div class="relative">
+                    <img 
+                      :src="logoImage" 
+                      alt="ListSync Logo" 
+                      class="w-20 h-20 object-contain relative z-10"
+                    />
+                    
+                    <!-- Success checkmark badge -->
+                    <div class="absolute -top-1 -right-1 bg-gradient-to-br from-green-400 to-green-600 rounded-full p-1.5 shadow-lg">
+                      <component :is="CheckIcon" class="w-4 h-4 text-white" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p class="text-lg font-bold text-foreground">Ready to Add</p>
+              <p class="text-sm text-muted-foreground mt-2">
+                {{ listsToAdd.length }} list{{ listsToAdd.length !== 1 ? 's' : '' }} will be added
               </p>
-              <p class="text-xs text-muted-foreground mb-3">
-                Add more lists before continuing to sync all at once
-              </p>
-              <Button
-                variant="ghost"
-                size="sm"
-                :icon="PlusIcon"
-                @click="addAnotherList"
-                class="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
-              >
-                Add Another List{{ listsToAdd.length > 0 ? ` (${listsToAdd.length} selected)` : '' }}
-              </Button>
             </div>
-          </div>
-        </div>
 
-        <!-- Sync Options -->
-        <div class="space-y-3">
-          <!-- Option 1: Sync This One Now -->
-          <button
-            type="button"
-            :class="[
-              'w-full p-4 rounded-lg border-2 text-left transition-all',
-              selectedSyncOption === 'single'
-                ? 'border-purple-500 bg-purple-500/10'
-                : 'border-border bg-black/20 hover:border-purple-500/50'
-            ]"
-            @click="selectedSyncOption = 'single'"
-          >
-            <div class="flex items-start gap-3">
-              <div class="flex-shrink-0 mt-1">
-                <div
-                  :class="[
-                    'w-5 h-5 rounded-full border-2 flex items-center justify-center',
-                    selectedSyncOption === 'single'
-                      ? 'border-purple-500 bg-purple-500'
-                      : 'border-border'
-                  ]"
-                >
-                  <div v-if="selectedSyncOption === 'single'" class="w-2 h-2 bg-white rounded-full" />
+            <!-- Summary -->
+            <div class="p-4 rounded-xl bg-black/30 border border-border space-y-3">
+              <div v-for="list in listsToAdd" :key="list.id" class="flex items-center gap-3 text-sm">
+                <div :class="['p-2 rounded-lg', getSourceColor(list.source || list.listType || '').bgColor]">
+                  <component :is="getSourceIcon(list.source || list.listType || '')" :size="16" :class="getSourceColor(list.source || list.listType || '').color" />
                 </div>
-              </div>
-              <div class="flex-1">
-                <p class="font-medium text-foreground">Sync This List Now</p>
-                <p class="text-xs text-muted-foreground mt-1">
-                  Immediately sync only this new list
-                </p>
+                <span class="flex-1 truncate text-foreground">{{ list.displayName }}</span>
+                <span class="text-muted-foreground">{{ formatListSource(list.source || list.listType || '') }}</span>
               </div>
             </div>
-          </button>
 
-          <!-- Option 2: Sync All Now -->
-          <button
-            type="button"
-            :class="[
-              'w-full p-4 rounded-lg border-2 text-left transition-all',
-              selectedSyncOption === 'all'
-                ? 'border-purple-500 bg-purple-500/10'
-                : 'border-border bg-black/20 hover:border-purple-500/50'
-            ]"
-            @click="selectedSyncOption = 'all'"
-          >
-            <div class="flex items-start gap-3">
-              <div class="flex-shrink-0 mt-1">
-                <div
-                  :class="[
-                    'w-5 h-5 rounded-full border-2 flex items-center justify-center',
-                    selectedSyncOption === 'all'
-                      ? 'border-purple-500 bg-purple-500'
-                      : 'border-border'
-                  ]"
-                >
-                  <div v-if="selectedSyncOption === 'all'" class="w-2 h-2 bg-white rounded-full" />
-                </div>
-              </div>
-              <div class="flex-1">
-                <p class="font-medium text-foreground">Sync All Lists Now</p>
-                <p class="text-xs text-muted-foreground mt-1">
-                  Immediately sync all configured lists including this new one
-                </p>
-              </div>
-            </div>
-          </button>
-
-          <!-- Option 3: Just Add (Scheduled) -->
-          <button
-            type="button"
-            :class="[
-              'w-full p-4 rounded-lg border-2 text-left transition-all',
-              selectedSyncOption === 'schedule'
-                ? 'border-purple-500 bg-purple-500/10'
-                : 'border-border bg-black/20 hover:border-purple-500/50'
-            ]"
-            @click="selectedSyncOption = 'schedule'"
-          >
-            <div class="flex items-start gap-3">
-              <div class="flex-shrink-0 mt-1">
-                <div
-                  :class="[
-                    'w-5 h-5 rounded-full border-2 flex items-center justify-center',
-                    selectedSyncOption === 'schedule'
-                      ? 'border-purple-500 bg-purple-500'
-                      : 'border-border'
-                  ]"
-                >
-                  <div v-if="selectedSyncOption === 'schedule'" class="w-2 h-2 bg-white rounded-full" />
-                </div>
-              </div>
-              <div class="flex-1">
-                <p class="font-medium text-foreground">Add to Next Scheduled Sync</p>
-                <p class="text-xs text-muted-foreground mt-1">
-                  List will be synced automatically during the next scheduled sync interval
-                </p>
-              </div>
-            </div>
-          </button>
-        </div>
-      </div>
-
-      <!-- Step 4: Summary & Schedule -->
-      <div v-if="currentStep === 4" class="space-y-6">
-        <div class="text-center space-y-2">
-          <p class="text-sm font-medium text-foreground">
-            {{ listsToAdd.length }} List{{ listsToAdd.length > 1 ? 's' : '' }} Ready to Add
-          </p>
-          <p class="text-xs text-muted-foreground">
-            Choose how you want to sync these lists
-          </p>
-        </div>
-
-        <!-- Lists Summary -->
-        <div class="space-y-3 max-h-60 overflow-y-auto">
-          <div
-            v-for="(list, index) in listsToAdd"
-            :key="list.id"
-            class="flex items-center justify-between p-4 rounded-lg bg-black/20 border border-border"
-          >
-            <div class="flex items-center gap-3">
-              <div :class="[
-                'p-2 rounded-lg',
-                getSourceColor(list.source).bgColor
-              ]">
-                <component :is="getSourceIcon(list.source)" :size="16" :class="getSourceColor(list.source).color" />
-              </div>
-              <div>
-                <p class="font-medium text-foreground">{{ list.displayName }}</p>
-                <p class="text-xs text-muted-foreground">{{ formatListSource(list.source) }}</p>
-              </div>
-            </div>
+            <!-- Add More Button -->
             <button
-              @click="removeListFromBatch(index)"
-              class="p-1 rounded hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors"
-              title="Remove from batch"
+              type="button"
+              class="w-full flex items-center justify-center gap-3 p-4 rounded-xl border-2 border-dashed border-purple-500/30 text-purple-400 text-sm font-semibold hover:bg-purple-500/10 hover:border-purple-500/50 transition-all"
+              @click="addAnotherList"
             >
-              <component :is="TrashIcon" :size="16" />
+              <component :is="PlusIcon" :size="18" />
+              Add Another List
             </button>
           </div>
         </div>
+      </div>
 
-        <!-- Add More Lists Button -->
-        <div class="text-center">
-          <Button
-            variant="ghost"
-            :icon="PlusIcon"
-            @click="addAnotherList"
-          >
-            Add Another List
-          </Button>
-        </div>
+      <!-- Right Panel: Selection Sidebar (Desktop) / Bottom Sheet (Mobile) -->
+      <div class="hidden sm:flex w-80 flex-shrink-0">
+        <SelectedListsSidebar
+          :lists="allSelectedLists"
+          :users="usersStore.users"
+          :selected-user-id="selectedUserId"
+          :selected-sync-option="selectedSyncOption"
+          :overseerr-url="overseerrUrl"
+          @remove="removeListFromBatch"
+          @update:selected-user-id="selectedUserId = $event"
+          @update:selected-sync-option="selectedSyncOption = $event"
+        />
+      </div>
 
-        <!-- Sync Options -->
-        <div class="space-y-3">
-          <!-- Option 1: Sync These Lists Now -->
+      <!-- Mobile: Collapsed Sidebar Summary -->
+      <div class="sm:hidden border-t border-purple-500/20 px-4 py-3 bg-black/30">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-muted-foreground">{{ listsToAdd.length }} list{{ listsToAdd.length !== 1 ? 's' : '' }}</span>
+            <span class="text-xs text-muted-foreground">|</span>
+            <span class="text-xs text-foreground">{{ usersStore.users.find(u => String(u.id) === selectedUserId)?.display_name || 'User' }}</span>
+          </div>
           <button
             type="button"
-            :class="[
-              'w-full p-4 rounded-lg border-2 text-left transition-all',
-              selectedSyncOption === 'single'
-                ? 'border-purple-500 bg-purple-500/10'
-                : 'border-border bg-black/20 hover:border-purple-500/50'
-            ]"
-            @click="selectedSyncOption = 'single'"
+            class="text-xs text-purple-400 hover:text-purple-300"
+            @click="showMobileSidebar = true"
           >
-            <div class="flex items-start gap-3">
-              <div class="flex-shrink-0 mt-1">
-                <div
-                  :class="[
-                    'w-5 h-5 rounded-full border-2 flex items-center justify-center',
-                    selectedSyncOption === 'single'
-                      ? 'border-purple-500 bg-purple-500'
-                      : 'border-border'
-                  ]"
-                >
-                  <div v-if="selectedSyncOption === 'single'" class="w-2 h-2 bg-white rounded-full" />
-                </div>
-              </div>
-              <div class="flex-1">
-                <p class="font-medium text-foreground">Sync These Lists Now</p>
-                <p class="text-xs text-muted-foreground mt-1">
-                  Immediately sync only these {{ listsToAdd.length }} new lists
-                </p>
-              </div>
-            </div>
-          </button>
-
-          <!-- Option 2: Sync All Now -->
-          <button
-            type="button"
-            :class="[
-              'w-full p-4 rounded-lg border-2 text-left transition-all',
-              selectedSyncOption === 'all'
-                ? 'border-purple-500 bg-purple-500/10'
-                : 'border-border bg-black/20 hover:border-purple-500/50'
-            ]"
-            @click="selectedSyncOption = 'all'"
-          >
-            <div class="flex items-start gap-3">
-              <div class="flex-shrink-0 mt-1">
-                <div
-                  :class="[
-                    'w-5 h-5 rounded-full border-2 flex items-center justify-center',
-                    selectedSyncOption === 'all'
-                      ? 'border-purple-500 bg-purple-500'
-                      : 'border-border'
-                  ]"
-                >
-                  <div v-if="selectedSyncOption === 'all'" class="w-2 h-2 bg-white rounded-full" />
-                </div>
-              </div>
-              <div class="flex-1">
-                <p class="font-medium text-foreground">Sync All Lists Now</p>
-                <p class="text-xs text-muted-foreground mt-1">
-                  Immediately sync all configured lists including these {{ listsToAdd.length }} new ones
-                </p>
-              </div>
-            </div>
-          </button>
-
-          <!-- Option 3: Just Add (Scheduled) -->
-          <button
-            type="button"
-            :class="[
-              'w-full p-4 rounded-lg border-2 text-left transition-all',
-              selectedSyncOption === 'schedule'
-                ? 'border-purple-500 bg-purple-500/10'
-                : 'border-border bg-black/20 hover:border-purple-500/50'
-            ]"
-            @click="selectedSyncOption = 'schedule'"
-          >
-            <div class="flex items-start gap-3">
-              <div class="flex-shrink-0 mt-1">
-                <div
-                  :class="[
-                    'w-5 h-5 rounded-full border-2 flex items-center justify-center',
-                    selectedSyncOption === 'schedule'
-                      ? 'border-purple-500 bg-purple-500'
-                      : 'border-border'
-                  ]"
-                >
-                  <div v-if="selectedSyncOption === 'schedule'" class="w-2 h-2 bg-white rounded-full" />
-                </div>
-              </div>
-              <div class="flex-1">
-                <p class="font-medium text-foreground">Add to Next Scheduled Sync</p>
-                <p class="text-xs text-muted-foreground mt-1">
-                  Lists will be synced automatically during the next scheduled sync interval
-                </p>
-              </div>
-            </div>
+            Configure
           </button>
         </div>
       </div>
@@ -586,56 +416,75 @@
     <!-- Footer -->
     <template #footer>
       <div class="flex items-center justify-between gap-3">
-        <Button
-          variant="ghost"
-          @click="handleClose"
-        >
+        <Button variant="ghost" @click="handleClose">
           Cancel
         </Button>
 
         <div class="flex items-center gap-2">
-          <Button
-            v-if="currentStep > 1 && currentStep < 4"
-            variant="secondary"
-            :disabled="loading"
-            @click="currentStep--"
-          >
-            Back
-          </Button>
-
-
+          <!-- Step 1: No action needed, just select provider -->
+          
+          <!-- Step 2: Add List Button -->
           <Button
             v-if="currentStep === 2"
             variant="primary"
             :disabled="!canProceed"
             :loading="loading"
-            @click="addListToBatch"
+            @click="handleAddList"
           >
-            {{ selectedProviders.indexOf(currentProvider) < selectedProviders.length - 1 ? 'Add List & Next' : 'Add List & Finish' }}
+            <component :is="PlusIcon" :size="14" class="mr-1" />
+            Add List
           </Button>
 
+          <!-- Step 3: Submit Button -->
           <Button
             v-if="currentStep === 3"
             variant="primary"
-            :disabled="!canProceed"
-            :loading="loading"
-            @click="handleStep3Submit"
-          >
-            Add {{ listsToAdd.length > 0 ? `${listsToAdd.length + 1} Lists` : 'List' }} & {{ getSyncButtonText() }}
-          </Button>
-
-          <Button
-            v-if="currentStep === 4"
-            variant="primary"
             :disabled="listsToAdd.length === 0"
             :loading="loading"
-            @click="handleSubmitMultiple"
+            @click="handleSubmitAll"
           >
-            Add {{ listsToAdd.length }} List{{ listsToAdd.length > 1 ? 's' : '' }} & {{ getSyncButtonText() }}
+            {{ getSubmitButtonText() }}
           </Button>
         </div>
       </div>
     </template>
+
+    <!-- Mobile Sidebar Modal -->
+    <Teleport to="body">
+      <Transition name="slide-up">
+        <div
+          v-if="showMobileSidebar"
+          class="sm:hidden fixed inset-0 z-[60] flex items-end"
+          @click.self="showMobileSidebar = false"
+        >
+          <div class="absolute inset-0 bg-black/80" />
+          <div class="relative w-full max-h-[70vh] bg-card rounded-t-2xl overflow-hidden">
+            <div class="p-4 border-b border-border flex items-center justify-between">
+              <h3 class="text-sm font-semibold text-foreground">Configuration</h3>
+              <button
+                type="button"
+                class="p-1 rounded hover:bg-white/10"
+                @click="showMobileSidebar = false"
+              >
+                <component :is="XIcon" :size="18" />
+              </button>
+            </div>
+            <div class="overflow-y-auto max-h-[calc(70vh-60px)]">
+              <SelectedListsSidebar
+                :lists="allSelectedLists"
+                :users="usersStore.users"
+                :selected-user-id="selectedUserId"
+                :selected-sync-option="selectedSyncOption"
+                :overseerr-url="overseerrUrl"
+                @remove="removeListFromBatch"
+                @update:selected-user-id="selectedUserId = $event"
+                @update:selected-sync-option="selectedSyncOption = $event"
+              />
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </Modal>
 </template>
 
@@ -647,6 +496,8 @@ import {
   Info as InfoIcon,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
+  ChevronDown as ChevronDownIcon,
+  ChevronUp as ChevronUpIcon,
   Star as StarIcon,
   TrendingUp as TrendingUpIcon,
   BookOpen as BookOpenIcon,
@@ -654,15 +505,19 @@ import {
   Zap as ZapIcon,
   Heart as HeartIcon,
   Calendar as CalendarIcon,
-  Users as UsersIcon,
-  Monitor as MonitorIcon,
   Plus as PlusIcon,
-  Trash2 as TrashIcon,
+  X as XIcon,
   Sparkles as SparklesIcon,
+  Check as CheckIcon,
   CheckCircle as CheckCircleIcon,
   Layers as LayersIcon,
+  Search as SearchIcon,
+  ExternalLink as ExternalLinkIcon,
 } from 'lucide-vue-next'
 import { useSyncStore } from '~/stores/sync'
+import { useUsersStore } from '~/stores/users'
+import SelectedListsSidebar from './SelectedListsSidebar.vue'
+import logoImage from '~/assets/images/list-sync-logo.webp'
 
 interface Props {
   modelValue: boolean
@@ -677,12 +532,8 @@ const emit = defineEmits<{
 
 const { showSuccess, showError } = useToast()
 const router = useRouter()
-
-// Computed for v-model
-const isOpen = computed({
-  get: () => props.modelValue,
-  set: (value) => emit('update:modelValue', value),
-})
+const usersStore = useUsersStore()
+const api = useApiService()
 
 // State
 const currentStep = ref(1)
@@ -691,8 +542,14 @@ const listId = ref('')
 const error = ref('')
 const loading = ref(false)
 const selectedSyncOption = ref<'all' | 'single' | 'schedule'>('single')
-const currentPage = ref(1)
-const itemsPerPage = 4 // Reduced to 4 to fit with Collections button without scrolling
+const selectedUserId = ref('1')
+const presetSearch = ref('')
+const showMobileSidebar = ref(false)
+const userManuallySelected = ref(false)
+const overseerrUrl = ref('')
+
+// Collapsed categories state
+const collapsedCategories = ref<Record<string, boolean>>({})
 
 // Multi-list state
 const listsToAdd = ref<Array<{
@@ -703,114 +560,83 @@ const listsToAdd = ref<Array<{
   listType?: string
   mediaType?: string
 }>>([])
-const isAddingMultiple = ref(false)
 
-// Multi-provider selection state
-const selectedProviders = ref<string[]>([])
-const currentProvider = ref('')
+// Trakt Special state
+const selectedTraktType = ref('')
+const selectedTraktMedia = ref('')
 
-// Sources with improved icons and colors
+// Step labels
+const stepLabels = ['Provider', 'List', 'Confirm']
+
+// Computed for v-model
+const isOpen = computed({
+  get: () => props.modelValue,
+  set: (value) => emit('update:modelValue', value),
+})
+
+// Load default user and config when modal opens
+watch(() => props.modelValue, async (newValue, oldValue) => {
+  if (newValue && !oldValue) {
+    userManuallySelected.value = false
+    try {
+      const [config] = await Promise.all([
+        api.getConfig(),
+        usersStore.fetchUsers()
+      ])
+      
+      // Store Overseerr URL for avatar images
+      if (config.overseerr_url) {
+        overseerrUrl.value = config.overseerr_url
+      }
+      
+      const configuredUserId = config.overseerr_user_id || '1'
+      const userExists = usersStore.users.some(user => String(user.id) === String(configuredUserId))
+      
+      if (!userManuallySelected.value) {
+        if (userExists) {
+          selectedUserId.value = String(configuredUserId)
+        } else if (usersStore.users.length > 0) {
+          selectedUserId.value = String(usersStore.users[0].id)
+        } else {
+          selectedUserId.value = '1'
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load default user:', error)
+      if (!userManuallySelected.value) {
+        selectedUserId.value = '1'
+      }
+      usersStore.fetchUsers().catch(err => console.error('Failed to fetch users:', err))
+    }
+  }
+})
+
+// Track manual user selection
+watch(selectedUserId, (newUserId, oldUserId) => {
+  if (oldUserId && newUserId !== oldUserId && props.modelValue) {
+    userManuallySelected.value = true
+  }
+})
+
+// Sources configuration
 const sources = [
-  { 
-    label: 'IMDb', 
-    value: 'imdb', 
-    icon: StarIcon, 
-    color: 'text-yellow-400',
-    bgColor: 'bg-yellow-500/20',
-    borderColor: 'border-yellow-500/40',
-    description: 'Internet Movie Database'
-  },
-  { 
-    label: 'Trakt', 
-    value: 'trakt', 
-    icon: TrendingUpIcon, 
-    color: 'text-green-400',
-    bgColor: 'bg-green-500/20',
-    borderColor: 'border-green-500/40',
-    description: 'Track your movies & TV'
-  },
-  { 
-    label: 'Trakt Special', 
-    value: 'trakt_special', 
-    icon: ZapIcon, 
-    color: 'text-purple-400',
-    bgColor: 'bg-purple-500/20',
-    borderColor: 'border-purple-500/40',
-    description: 'Curated Trakt lists'
-  },
-  { 
-    label: 'Letterboxd', 
-    value: 'letterboxd', 
-    icon: BookOpenIcon, 
-    color: 'text-pink-400',
-    bgColor: 'bg-pink-500/20',
-    borderColor: 'border-pink-500/40',
-    description: 'Social film discovery'
-  },
-  { 
-    label: 'MDBList', 
-    value: 'mdblist', 
-    icon: DatabaseIcon, 
-    color: 'text-blue-400',
-    bgColor: 'bg-blue-500/20',
-    borderColor: 'border-blue-500/40',
-    description: 'Movie database lists'
-  },
-  { 
-    label: 'Steven Lu', 
-    value: 'stevenlu', 
-    icon: HeartIcon, 
-    color: 'text-red-400',
-    bgColor: 'bg-red-500/20',
-    borderColor: 'border-red-500/40',
-    description: 'Curated movie collection'
-  },
-  { 
-    label: 'TMDB', 
-    value: 'tmdb', 
-    icon: GlobeIcon, 
-    color: 'text-cyan-400',
-    bgColor: 'bg-cyan-500/20',
-    borderColor: 'border-cyan-500/40',
-    description: 'The Movie Database'
-  },
-  { 
-    label: 'Simkl', 
-    value: 'simkl', 
-    icon: MonitorIcon, 
-    color: 'text-orange-400',
-    bgColor: 'bg-orange-500/20',
-    borderColor: 'border-orange-500/40',
-    description: 'Track movies & shows'
-  },
-  { 
-    label: 'TVDB', 
-    value: 'tvdb', 
-    icon: CalendarIcon, 
-    color: 'text-indigo-400',
-    bgColor: 'bg-indigo-500/20',
-    borderColor: 'border-indigo-500/40',
-    description: 'TV series database'
-  },
-  { 
-    label: 'AniList', 
-    value: 'anilist', 
-    icon: SparklesIcon, 
-    color: 'text-amber-400',
-    bgColor: 'bg-amber-500/20',
-    borderColor: 'border-amber-500/40',
-    description: 'Anime tracking platform'
-  },
+  { label: 'IMDb', value: 'imdb', icon: StarIcon, color: 'text-yellow-400', bgColor: 'bg-yellow-500/20', borderColor: 'border-yellow-500/40' },
+  { label: 'Trakt', value: 'trakt', icon: TrendingUpIcon, color: 'text-green-400', bgColor: 'bg-green-500/20', borderColor: 'border-green-500/40' },
+  { label: 'Trakt Special', value: 'trakt_special', icon: ZapIcon, color: 'text-purple-400', bgColor: 'bg-purple-500/20', borderColor: 'border-purple-500/40' },
+  { label: 'Letterboxd', value: 'letterboxd', icon: BookOpenIcon, color: 'text-pink-400', bgColor: 'bg-pink-500/20', borderColor: 'border-pink-500/40' },
+  { label: 'MDBList', value: 'mdblist', icon: DatabaseIcon, color: 'text-purple-400', bgColor: 'bg-purple-500/20', borderColor: 'border-purple-500/40' },
+  { label: 'Steven Lu', value: 'stevenlu', icon: HeartIcon, color: 'text-red-400', bgColor: 'bg-red-500/20', borderColor: 'border-red-500/40' },
+  { label: 'TMDB', value: 'tmdb', icon: GlobeIcon, color: 'text-cyan-400', bgColor: 'bg-cyan-500/20', borderColor: 'border-cyan-500/40' },
+  { label: 'TVDB', value: 'tvdb', icon: CalendarIcon, color: 'text-indigo-400', bgColor: 'bg-indigo-500/20', borderColor: 'border-indigo-500/40' },
+  { label: 'AniList', value: 'anilist', icon: SparklesIcon, color: 'text-amber-400', bgColor: 'bg-amber-500/20', borderColor: 'border-amber-500/40' },
 ]
 
-// Trakt special list options
+// Trakt special options
 const traktSpecialTypes = [
   { label: 'Trending', value: 'trending' },
   { label: 'Popular', value: 'popular' },
   { label: 'Anticipated', value: 'anticipated' },
   { label: 'Watched', value: 'watched' },
-  { label: 'Collected', value: 'collected' },
-  { label: 'Recommendations', value: 'recommendations' },
   { label: 'Box Office', value: 'boxoffice' },
 ]
 
@@ -819,60 +645,373 @@ const traktMediaTypes = [
   { label: 'TV Shows', value: 'shows' },
 ]
 
-// IMDb presets (using chart names as per documentation)
-const imdbPresets = [
-  { label: 'Top 250 Movies', value: 'top' },
-  { label: 'Box Office', value: 'boxoffice' },
-  { label: 'MovieMeter (Popular Movies)', value: 'moviemeter' },
-  { label: 'TVMeter (Popular TV)', value: 'tvmeter' },
+// Trakt Special presets organized by category (Movies/TV Shows)
+const traktSpecialPresets = [
+  {
+    category: 'Movies',
+    items: [
+      { label: 'Trending Movies', type: 'trending', media: 'movies' },
+      { label: 'Popular Movies', type: 'popular', media: 'movies' },
+      { label: 'Anticipated Movies', type: 'anticipated', media: 'movies' },
+      { label: 'Most Watched Movies', type: 'watched', media: 'movies' },
+      { label: 'Box Office', type: 'boxoffice', media: 'movies' },
+    ]
+  },
+  {
+    category: 'TV Shows',
+    items: [
+      { label: 'Trending Shows', type: 'trending', media: 'shows' },
+      { label: 'Popular Shows', type: 'popular', media: 'shows' },
+      { label: 'Anticipated Shows', type: 'anticipated', media: 'shows' },
+      { label: 'Most Watched Shows', type: 'watched', media: 'shows' },
+    ]
+  },
 ]
 
-// State for Trakt Special selections
-const selectedTraktType = ref('')
-const selectedTraktMedia = ref('')
+// Presets data
+const imdbPresets = [
+  {
+    category: 'Top Lists',
+    items: [
+      { label: 'Top 250 Movies', value: 'top' },
+      { label: 'Box Office', value: 'boxoffice' },
+      { label: 'MovieMeter', value: 'moviemeter' },
+      { label: 'TVMeter', value: 'tvmeter' },
+    ]
+  },
+  {
+    category: 'Film Festivals',
+    items: [
+      { label: 'London Film Festival 2025', value: 'ls4155557236' },
+      { label: 'Sundance 2025', value: 'ls595865777' },
+    ]
+  },
+]
 
-// Computed
-const totalPages = computed(() => Math.ceil(sources.length / itemsPerPage))
+const tmdbPresets = [
+  {
+    category: 'Top Lists',
+    items: [
+      { label: 'Top 250 IMDB', value: 'https://www.themoviedb.org/list/634' },
+      { label: 'IMDB 50 Most Popular', value: 'https://www.themoviedb.org/list/6709' },
+      { label: 'Top 10 Movies', value: 'https://www.themoviedb.org/list/8285446' },
+    ]
+  },
+  {
+    category: 'Box Office',
+    items: [
+      { label: 'All Time Box Office', value: 'https://www.themoviedb.org/list/9024' },
+    ]
+  },
+]
 
-const paginatedSources = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage
-  const end = start + itemsPerPage
-  return sources.slice(start, end)
-})
+const letterboxdPresets = [
+  {
+    category: 'Top Lists',
+    items: [
+      { label: 'Top 250 Narrative Films', value: 'https://letterboxd.com/dave/list/official-top-250-narrative-feature-films/' },
+      { label: 'Top 250 Most Fans', value: 'https://letterboxd.com/jack/list/official-top-250-films-with-the-most-fans/' },
+      { label: '1001 Must See Movies', value: 'https://letterboxd.com/peterstanley/list/1001-movies-you-must-see-before-you-die/' },
+    ]
+  },
+  {
+    category: 'Curated',
+    items: [
+      { label: 'Movies to Watch Once', value: 'https://letterboxd.com/fcbarcelona/list/movies-everyone-should-watch-at-least-once/' },
+      { label: 'Feel Something', value: 'https://letterboxd.com/ellefnning/list/for-when-you-want-to-feel-something/' },
+    ]
+  },
+]
 
-const isUrlRequired = computed(() => {
-  return ['letterboxd', 'mdblist', 'tmdb', 'simkl', 'tvdb', 'anilist'].includes(selectedSource.value)
-})
+const mdblistPresets = [
+  {
+    category: 'Streaming - Movies',
+    items: [
+      { label: 'Netflix Movies', value: 'https://mdblist.com/lists/garycrawfordgc/netflix-movies' },
+      { label: 'Amazon Prime Movies', value: 'https://mdblist.com/lists/garycrawfordgc/amazon-prime-movies' },
+      { label: 'Disney+ Movies', value: 'https://mdblist.com/lists/garycrawfordgc/disney-movies' },
+    ]
+  },
+  {
+    category: 'Streaming - Shows',
+    items: [
+      { label: 'Netflix Shows', value: 'https://mdblist.com/lists/garycrawfordgc/netflix-shows' },
+      { label: 'HBO Shows', value: 'https://mdblist.com/lists/garycrawfordgc/hbo-shows' },
+    ]
+  },
+  {
+    category: 'Popular',
+    items: [
+      { label: 'Top Watched This Week', value: 'https://mdblist.com/lists/linaspurinis/top-watched-movies-of-the-week' },
+    ]
+  },
+]
 
-const isTraktSpecial = computed(() => {
-  return selectedSource.value === 'trakt_special'
-})
+const stevenluPresets = [
+  {
+    category: 'All Movies',
+    items: [
+      { label: 'All Movies (Unfiltered)', value: 'all-movies.json' },
+      { label: 'Original Collection', value: 'stevenlu' },
+    ],
+  },
+  {
+    category: 'Metacritic (Min Score)',
+    items: [
+      { label: 'Metacritic Min 50', value: 'movies-metacritic-min50.json' },
+      { label: 'Metacritic Min 60', value: 'movies-metacritic-min60.json' },
+      { label: 'Metacritic Min 70', value: 'movies-metacritic-min70.json' },
+      { label: 'Metacritic Min 80', value: 'movies-metacritic-min80.json' },
+    ],
+  },
+  {
+    category: 'IMDb (Min Score)',
+    items: [
+      { label: 'IMDb Min 5.0', value: 'movies-imdb-min5.json' },
+      { label: 'IMDb Min 6.0', value: 'movies-imdb-min6.json' },
+      { label: 'IMDb Min 7.0', value: 'movies-imdb-min7.json' },
+      { label: 'IMDb Min 8.0', value: 'movies-imdb-min8.json' },
+    ],
+  },
+  {
+    category: 'Rotten Tomatoes (Min Score)',
+    items: [
+      { label: 'RT Min 50', value: 'movies-rottentomatoes-min50.json' },
+      { label: 'RT Min 60', value: 'movies-rottentomatoes-min60.json' },
+      { label: 'RT Min 70', value: 'movies-rottentomatoes-min70.json' },
+      { label: 'RT Min 80', value: 'movies-rottentomatoes-min80.json' },
+    ],
+  },
+]
+
+const traktPresets = [
+  {
+    category: 'Streaming - Movies',
+    items: [
+      { label: 'Netflix Movies', value: 'https://trakt.tv/users/garycrawfordgc/lists/netflix-movies' },
+      { label: 'Amazon Prime Movies', value: 'https://trakt.tv/users/garycrawfordgc/lists/amazon-prime-movies' },
+      { label: 'Disney+ Movies', value: 'https://trakt.tv/users/garycrawfordgc/lists/disney-movies' },
+      { label: 'Hulu Movies', value: 'https://trakt.tv/users/garycrawfordgc/lists/hulu-movies' },
+    ]
+  },
+  {
+    category: 'Streaming - Shows',
+    items: [
+      { label: 'Netflix Shows', value: 'https://trakt.tv/users/garycrawfordgc/lists/netflix-shows' },
+      { label: 'Amazon Prime Shows', value: 'https://trakt.tv/users/garycrawfordgc/lists/amazon-prime-shows' },
+      { label: 'Disney+ Shows', value: 'https://trakt.tv/users/garycrawfordgc/lists/disney-shows' },
+      { label: 'Hulu Shows', value: 'https://trakt.tv/users/garycrawfordgc/lists/hulu-shows' },
+      { label: 'HBO Shows', value: 'https://trakt.tv/users/garycrawfordgc/lists/hbo-shows' },
+      { label: 'BBC Shows', value: 'https://trakt.tv/users/garycrawfordgc/lists/bbc-shows' },
+    ]
+  },
+  {
+    category: 'Genre - Movies',
+    items: [
+      { label: 'Action', value: 'https://trakt.tv/users/garycrawfordgc/lists/action' },
+      { label: 'Comedy', value: 'https://trakt.tv/users/garycrawfordgc/lists/comedy' },
+      { label: 'Crime', value: 'https://trakt.tv/users/garycrawfordgc/lists/crime' },
+      { label: 'Drama', value: 'https://trakt.tv/users/garycrawfordgc/lists/drama' },
+      { label: 'Horror', value: 'https://trakt.tv/users/garycrawfordgc/lists/horror' },
+      { label: 'Sci-Fi', value: 'https://trakt.tv/users/garycrawfordgc/lists/sci-fi' },
+      { label: 'Thriller', value: 'https://trakt.tv/users/garycrawfordgc/lists/thriller' },
+      { label: 'History', value: 'https://trakt.tv/users/garycrawfordgc/lists/history' },
+      { label: 'War', value: 'https://trakt.tv/users/garycrawfordgc/lists/war' },
+      { label: "80's Movies", value: 'https://trakt.tv/users/garycrawfordgc/lists/80-s-movies' },
+    ]
+  },
+  {
+    category: 'Genre - Shows',
+    items: [
+      { label: 'Comedy Shows', value: 'https://trakt.tv/users/garycrawfordgc/lists/comedy-shows' },
+      { label: 'Crime Shows', value: 'https://trakt.tv/users/garycrawfordgc/lists/crime-shows' },
+      { label: 'Drama Shows', value: 'https://trakt.tv/users/garycrawfordgc/lists/drama-shows' },
+      { label: 'Horror Shows', value: 'https://trakt.tv/users/garycrawfordgc/lists/horror-shows' },
+      { label: 'Sci-Fi Shows', value: 'https://trakt.tv/users/garycrawfordgc/lists/sci-fi-shows' },
+    ]
+  },
+  {
+    category: 'Popular & Latest',
+    items: [
+      { label: 'Top Movies', value: 'https://trakt.tv/users/garycrawfordgc/lists/top-movies' },
+      { label: 'Top Movies of the Week', value: 'https://trakt.tv/users/garycrawfordgc/lists/top-movies-of-the-week' },
+      { label: 'Latest Releases', value: 'https://trakt.tv/users/garycrawfordgc/lists/latest-releases' },
+      { label: 'Latest Blu-ray Releases', value: 'https://trakt.tv/users/garycrawfordgc/lists/latest-blu-ray-releases' },
+      { label: 'Latest TV Shows', value: 'https://trakt.tv/users/garycrawfordgc/lists/latest-tv-shows' },
+    ]
+  },
+  {
+    category: 'Recommendations',
+    items: [
+      { label: 'Gary Recommends', value: 'https://trakt.tv/users/garycrawfordgc/lists/gary-recommends' },
+      { label: 'Recommended Movies', value: 'https://trakt.tv/users/garycrawfordgc/lists/recommended-movies' },
+      { label: 'Movies from the Last Decade', value: 'https://trakt.tv/users/garycrawfordgc/lists/movies-from-the-last-decade-couchmoney-tv' },
+      { label: 'TV Recommendations', value: 'https://trakt.tv/users/garycrawfordgc/lists/tv-recommendations-couchmoney-tv' },
+    ]
+  },
+  {
+    category: 'Regional',
+    items: [
+      { label: 'UK Shows', value: 'https://trakt.tv/users/garycrawfordgc/lists/uk-shows' },
+      { label: 'Video Nasties', value: 'https://trakt.tv/users/garycrawfordgc/lists/video-nasties' },
+    ]
+  },
+  {
+    category: 'Other',
+    items: [
+      { label: 'Collaborations', value: 'https://trakt.tv/users/garycrawfordgc/lists/collaborations' },
+    ]
+  },
+]
+
+// Computed properties
+const isTraktSpecial = computed(() => selectedSource.value === 'trakt_special')
+const isLetterboxd = computed(() => selectedSource.value === 'letterboxd')
+const isMDBList = computed(() => selectedSource.value === 'mdblist')
+const isTmdb = computed(() => selectedSource.value === 'tmdb')
+const isUrlRequired = computed(() => ['tmdb', 'tvdb', 'anilist'].includes(selectedSource.value))
 
 const canProceed = computed(() => {
-  if (currentStep.value === 1) {
-    return selectedSource.value !== ''
-  }
-  
-  // For Trakt Special, require both selections
   if (isTraktSpecial.value) {
     return selectedTraktType.value !== '' && selectedTraktMedia.value !== ''
   }
-  
-  // For Steven Lu or IMDb presets, just check if listId is set
-  if (selectedSource.value === 'stevenlu' || selectedSource.value === 'imdb') {
-    return listId.value.trim() !== ''
-  }
-  
   return listId.value.trim() !== '' && !error.value
 })
 
-// Get source icon
+const allSelectedLists = computed(() => {
+  const lists = [...listsToAdd.value]
+  
+  // Add current configuration if valid AND we're still on step 2 (not yet added)
+  // Don't add if we're on step 3 (already added to listsToAdd)
+  if (currentStep.value === 2 && canProceed.value && selectedSource.value) {
+    // Check if this exact list is already in the batch to prevent duplicates
+    const currentListId = getFinalListId()
+    const currentListType = getFinalListType()
+    const alreadyExists = lists.some(l => l.listId === currentListId && (l.listType === currentListType || l.source === currentListType))
+    
+    if (!alreadyExists) {
+      const currentList = {
+        id: `current-${Date.now()}`,
+        source: selectedSource.value,
+        listId: currentListId,
+        displayName: getDisplayName(),
+        listType: currentListType,
+        mediaType: isTraktSpecial.value ? selectedTraktMedia.value : undefined,
+        isCurrent: true
+      }
+      lists.push(currentList)
+    }
+  }
+  
+  return lists
+})
+
+// Get filtered presets based on selected source
+const currentFilteredPresets = computed(() => {
+  const search = presetSearch.value.toLowerCase().trim()
+  let presets: Array<{ category: string; items: Array<{ label: string; value: string }> }> = []
+  
+  switch (selectedSource.value) {
+    case 'imdb': presets = imdbPresets; break
+    case 'trakt': presets = traktPresets; break
+    case 'tmdb': presets = tmdbPresets; break
+    case 'letterboxd': presets = letterboxdPresets; break
+    case 'mdblist': presets = mdblistPresets; break
+    case 'stevenlu': presets = stevenluPresets; break
+    default: presets = []
+  }
+  
+  if (!search) return presets
+  
+  return presets
+    .map(category => ({
+      ...category,
+      items: category.items.filter(item => 
+        item.label.toLowerCase().includes(search) ||
+        category.category.toLowerCase().includes(search)
+      )
+    }))
+    .filter(category => category.items.length > 0)
+})
+
+// Get filtered Trakt Special presets
+const filteredTraktSpecialPresets = computed(() => {
+  const search = presetSearch.value.toLowerCase().trim()
+  
+  if (!search) return traktSpecialPresets
+  
+  return traktSpecialPresets
+    .map(category => ({
+      ...category,
+      items: category.items.filter(item => 
+        item.label.toLowerCase().includes(search) ||
+        category.category.toLowerCase().includes(search)
+      )
+    }))
+    .filter(category => category.items.length > 0)
+})
+
+// Helper functions
+const hasPresets = (provider: string) => {
+  return ['imdb', 'trakt', 'trakt_special', 'letterboxd', 'mdblist', 'stevenlu', 'tmdb'].includes(provider)
+}
+
+const getPresetCount = (provider: string) => {
+  switch (provider) {
+    case 'imdb': return imdbPresets.reduce((sum, cat) => sum + cat.items.length, 0)
+    case 'trakt': return traktPresets.reduce((sum, cat) => sum + cat.items.length, 0)
+    case 'trakt_special': return traktSpecialTypes.length * traktMediaTypes.length
+    case 'letterboxd': return letterboxdPresets.reduce((sum, cat) => sum + cat.items.length, 0)
+    case 'mdblist': return mdblistPresets.reduce((sum, cat) => sum + cat.items.length, 0)
+    case 'stevenlu': return stevenluPresets.reduce((sum, cat) => sum + cat.items.length, 0)
+    case 'tmdb': return tmdbPresets.reduce((sum, cat) => sum + cat.items.length, 0)
+    default: return 0
+  }
+}
+
+const toggleCategory = (categoryKey: string) => {
+  collapsedCategories.value[categoryKey] = !isCategoryCollapsed(categoryKey)
+}
+
+const isCategoryCollapsed = (categoryKey: string) => {
+  if (collapsedCategories.value[categoryKey] === undefined) {
+    const [provider] = categoryKey.split('-')
+    const categoryName = categoryKey.substring(provider.length + 1)
+    
+    let firstCategory = ''
+    switch (provider) {
+      case 'imdb': firstCategory = imdbPresets[0]?.category || ''; break
+      case 'trakt': firstCategory = traktPresets[0]?.category || ''; break
+      case 'letterboxd': firstCategory = letterboxdPresets[0]?.category || ''; break
+      case 'mdblist': firstCategory = mdblistPresets[0]?.category || ''; break
+      case 'stevenlu': firstCategory = stevenluPresets[0]?.category || ''; break
+      case 'tmdb': firstCategory = tmdbPresets[0]?.category || ''; break
+      case 'trakt_special': firstCategory = traktSpecialPresets[0]?.category || ''; break
+    }
+    
+    return categoryName !== firstCategory
+  }
+  return collapsedCategories.value[categoryKey] === true
+}
+
+const getProviderColor = (provider: string) => {
+  const colors: Record<string, { border: string; bg: string; text: string }> = {
+    imdb: { border: 'border-yellow-500', bg: 'bg-yellow-500/20', text: 'text-yellow-300' },
+    trakt: { border: 'border-green-500', bg: 'bg-green-500/20', text: 'text-green-300' },
+    letterboxd: { border: 'border-pink-500', bg: 'bg-pink-500/20', text: 'text-pink-300' },
+    mdblist: { border: 'border-purple-500', bg: 'bg-purple-500/20', text: 'text-purple-300' },
+    stevenlu: { border: 'border-red-500', bg: 'bg-red-500/20', text: 'text-red-300' },
+    trakt_special: { border: 'border-purple-500', bg: 'bg-purple-500/20', text: 'text-purple-300' },
+    tmdb: { border: 'border-cyan-500', bg: 'bg-cyan-500/20', text: 'text-cyan-300' },
+  }
+  return colors[provider] || { border: 'border-purple-500', bg: 'bg-purple-500/20', text: 'text-purple-300' }
+}
+
 const getSourceIcon = (source: string) => {
   const sourceData = sources.find(s => s.value === source)
   return sourceData?.icon || DatabaseIcon
 }
 
-// Get source color info
 const getSourceColor = (source: string) => {
   const sourceData = sources.find(s => s.value === source)
   return {
@@ -882,142 +1021,70 @@ const getSourceColor = (source: string) => {
   }
 }
 
-// Format list source for display
 const formatListSource = (source: string) => {
   const sourceData = sources.find(s => s.value === source)
   return sourceData?.label || source
 }
 
-// Get placeholder text
 const getPlaceholder = (source: string) => {
   const placeholders: Record<string, string> = {
-    imdb: "'top' or 'ls026785255'",
-    trakt: 'https://trakt.tv/users/{user}/watchlist or /lists/{name}',
-    trakt_special: 'Select from predefined lists below',
-    letterboxd: 'https://letterboxd.com/{user}/list/{name}/ or /watchlist',
+    imdb: "'top', 'ls026785255', or 'ur12345678'",
+    trakt: 'https://trakt.tv/users/{user}/watchlist',
+    letterboxd: 'https://letterboxd.com/{user}/list/{name}/',
     mdblist: 'https://mdblist.com/lists/{user}/{name}',
-    stevenlu: "'stevenlu'",
-    tmdb: 'https://www.themoviedb.org/list/{id-name}',
-    simkl: 'https://simkl.com/{id}/list/{id}/{name}',
-    tvdb: 'https://www.thetvdb.com/lists/{idorname}',
-    anilist: 'https://anilist.co/user/{username}/animelist or {username}',
+    stevenlu: "'stevenlu' or JSON filename",
+    tmdb: 'https://www.themoviedb.org/list/{id}',
+    tvdb: 'https://www.thetvdb.com/lists/{name}',
+    anilist: 'https://anilist.co/user/{username}/animelist',
   }
   return placeholders[source] || 'Enter list ID or URL'
 }
 
-// Get helper text
 const getHelperText = (source: string) => {
   const helpers: Record<string, string> = {
-    imdb: 'Enter a chart name like "top" or a list ID like "ls026785255"',
-    trakt: 'Enter the full Trakt URL: https://trakt.tv/users/{user}/watchlist or https://app.trakt.tv/users/{user}/lists/{name}',
-    trakt_special: 'Select a list type and media type from the dropdowns below to sync curated Trakt lists',
-    letterboxd: 'Enter the full Letterboxd URL: https://letterboxd.com/{user}/list/{name}/ or https://letterboxd.com/{user}/watchlist/',
-    mdblist: 'Enter the full MDBList URL: https://mdblist.com/lists/{user}/{name}',
-    stevenlu: 'Click the button above to sync Steven Lu\'s curated movie collection (use "stevenlu")',
-    tmdb: 'Enter the full TMDB list URL: https://www.themoviedb.org/list/{id-name}',
-    simkl: 'Enter the full Simkl list URL: https://simkl.com/{id}/list/{id}/{name}',
-    tvdb: 'Enter the full TVDB list URL: https://www.thetvdb.com/lists/{idorname}',
-    anilist: 'Enter the full AniList URL: https://anilist.co/user/{username}/animelist or https://anilist.co/user/{username}/animelist/{status} (Planning, Watching, Completed, etc.) or just the username',
+    imdb: 'Enter a chart name (top, boxoffice), list ID (ls...), or user ID (ur...) for watchlists',
+    trakt: 'Enter the full Trakt URL for a watchlist or custom list',
+    letterboxd: 'Enter the full Letterboxd list URL',
+    mdblist: 'Enter the full MDBList URL',
+    stevenlu: 'Enter "stevenlu" or a JSON filename like "movies-imdb-min8.json"',
+    tmdb: 'Enter the full TMDB list URL',
+    tvdb: 'Enter the full TVDB list URL',
+    anilist: 'Enter the AniList URL or just the username',
   }
   return helpers[source] || 'Enter the list identifier'
 }
 
-// Get source button class
-const getSourceButtonClass = (source: string) => {
-  const baseClasses = [
-    'w-full p-6 rounded-xl border-2 transition-all duration-300 group',
-    'hover:scale-105 hover:shadow-lg cursor-pointer',
-    'bg-black/20 border-border text-muted-foreground',
-    'hover:bg-purple-500/5 hover:border-purple-500/40 hover:text-foreground',
-    'hover:shadow-lg hover:shadow-purple-500/10',
-  ]
-
-  return baseClasses.join(' ')
+// Get preview URL for a preset
+const getPresetUrl = (provider: string, value: string): string | null => {
+  if (provider === 'imdb') {
+    const imdbUrls: Record<string, string> = {
+      'top': 'https://www.imdb.com/chart/top/',
+      'boxoffice': 'https://www.imdb.com/chart/boxoffice/',
+      'moviemeter': 'https://www.imdb.com/chart/moviemeter/',
+      'tvmeter': 'https://www.imdb.com/chart/tvmeter/',
+    }
+    if (imdbUrls[value]) return imdbUrls[value]
+    if (value.startsWith('ls')) return `https://www.imdb.com/list/${value}/`
+    return null
+  } else if (provider === 'trakt' || provider === 'letterboxd' || provider === 'mdblist' || provider === 'tmdb') {
+    return value.startsWith('http') ? value : null
+  } else if (provider === 'stevenlu') {
+    if (value === 'stevenlu') return 'https://movies.stevenlu.com/'
+    if (value.endsWith('.json')) return `https://movies.stevenlu.com/${value}`
+    return null
+  }
+  return null
 }
 
-// Handlers
-const handleCollectionsRedirect = () => {
-  handleClose()
-  // Small delay to ensure modal closes first
-  setTimeout(() => {
-    router.push('/collections')
-  }, 150)
-}
-
-const selectSource = (source: string) => {
-  // Select single provider and immediately proceed to step 2
-  selectedSource.value = source
-  selectedProviders.value = [source] // Keep for compatibility with existing logic
-  currentProvider.value = source
-  currentStep.value = 2
-}
-
-// Start adding lists for selected providers
-const startAddingLists = () => {
-  if (selectedProviders.value.length === 0) return
-  
-  // Set the first provider as current and go to step 2
-  currentProvider.value = selectedProviders.value[0]
-  selectedSource.value = currentProvider.value
-  currentStep.value = 2
-}
-
-// Move to next provider in the list
-const nextProvider = () => {
-  const currentIndex = selectedProviders.value.indexOf(currentProvider.value)
-  if (currentIndex < selectedProviders.value.length - 1) {
-    currentProvider.value = selectedProviders.value[currentIndex + 1]
-    selectedSource.value = currentProvider.value
-    // Reset form for next provider
-    listId.value = ''
-    selectedTraktType.value = ''
-    selectedTraktMedia.value = ''
-    error.value = ''
-  } else {
-    // All providers processed, go to summary
-    currentStep.value = 4
+// Open preset URL in new tab
+const openPresetUrl = (event: Event, provider: string, value: string) => {
+  event.stopPropagation()
+  const url = getPresetUrl(provider, value)
+  if (url) {
+    window.open(url, '_blank', 'noopener,noreferrer')
   }
 }
 
-// Remove provider from selection
-const removeProvider = (source: string) => {
-  selectedProviders.value = selectedProviders.value.filter(p => p !== source)
-}
-
-// Add list to batch
-const addListToBatch = () => {
-  if (!validateInput()) {
-    console.warn('[Add List to Batch] Validation failed')
-    return
-  }
-
-  const listId = getFinalListId()
-  const listType = getFinalListType()
-  const displayName = getDisplayName()
-
-  console.log('[Add List to Batch] Adding:', {
-    listType,
-    listId,
-    displayName
-  })
-
-  const newList = {
-    id: `${listType}-${listId}-${Date.now()}`,
-    source: selectedSource.value,
-    listId: listId,
-    displayName: displayName,
-    listType: listType,
-    mediaType: isTraktSpecial.value ? selectedTraktMedia.value : undefined
-  }
-
-  listsToAdd.value.push(newList)
-  console.log('[Add List to Batch] Total in batch:', listsToAdd.value.length)
-  
-  // Move to next provider or go to summary
-  nextProvider()
-}
-
-// Get final list ID based on source
 const getFinalListId = () => {
   if (isTraktSpecial.value) {
     return `${selectedTraktType.value}:${selectedTraktMedia.value}`
@@ -1025,169 +1092,130 @@ const getFinalListId = () => {
   return listId.value.trim()
 }
 
-// Get final list type
 const getFinalListType = () => {
-  if (isTraktSpecial.value) {
-    return 'trakt_special'
-  }
+  if (isTraktSpecial.value) return 'trakt_special'
   return selectedSource.value
 }
 
-// Get display name for the list
 const getDisplayName = () => {
   if (isTraktSpecial.value) {
-    const typeFormatted = selectedTraktType.value.charAt(0).toUpperCase() + selectedTraktType.value.slice(1)
-    const mediaFormatted = selectedTraktMedia.value === 'movies' ? 'Movies' : 'TV Shows'
-    return `${typeFormatted} ${mediaFormatted}`
+    const type = selectedTraktType.value.charAt(0).toUpperCase() + selectedTraktType.value.slice(1)
+    const media = selectedTraktMedia.value === 'movies' ? 'Movies' : 'TV Shows'
+    return `${type} ${media}`
   }
   
-  if (selectedSource.value === 'imdb') {
-    const imdbCharts: Record<string, string> = {
-      'top': 'Top 250 Movies',
-      'boxoffice': 'Box Office',
-      'moviemeter': 'MovieMeter (Popular Movies)',
-      'tvmeter': 'TVMeter (Popular TV)',
-    }
-    return imdbCharts[listId.value.toLowerCase()] || listId.value
-  }
-  
-  if (selectedSource.value === 'stevenlu') {
-    return "Steven Lu's Movie Collection"
+  // Check presets (including traktPresets)
+  const allPresets = [...imdbPresets, ...traktPresets, ...tmdbPresets, ...letterboxdPresets, ...mdblistPresets, ...stevenluPresets]
+  for (const category of allPresets) {
+    const preset = category.items.find(p => p.value === listId.value)
+    if (preset) return preset.label
   }
   
   return listId.value
 }
 
-// Remove list from batch
-const removeListFromBatch = (index: number) => {
-  listsToAdd.value.splice(index, 1)
+const getSubmitButtonText = () => {
+  const count = listsToAdd.value.length
+  const syncText = selectedSyncOption.value === 'single' ? 'Sync' : selectedSyncOption.value === 'all' ? 'Sync All' : 'Schedule'
+  return `Add ${count} List${count !== 1 ? 's' : ''} & ${syncText}`
 }
 
-// Add another list - save current one first, then go back to provider selection
-const addAnotherList = async () => {
-  // First add the current list to the batch if we're in Step 3
-  if (currentStep.value === 3) {
-    // Validate before saving
-    if (!validateInput()) {
-      console.warn('[Add Another List] Validation failed, not saving current list')
-      error.value = 'Please fix errors before adding another list'
-      return
-    }
+// Handlers
+const handleCollectionsRedirect = () => {
+  handleClose()
+  setTimeout(() => router.push('/collections'), 150)
+}
 
-    const finalListId = getFinalListId()
-    const finalListType = getFinalListType()
-    const displayName = getDisplayName()
+const selectSource = (source: string) => {
+  selectedSource.value = source
+  presetSearch.value = ''
+  collapsedCategories.value = {}
+  listId.value = ''
+  selectedTraktType.value = ''
+  selectedTraktMedia.value = ''
+  error.value = ''
+  currentStep.value = 2
+}
 
-    console.log('[Add Another List] Saving current list:', {
-      listType: finalListType,
-      listId: finalListId,
-      displayName
-    })
+const handleTraktMediaSelect = (media: string) => {
+  selectedTraktMedia.value = media
+}
 
+// Handle Trakt Special preset selection (selects both type and media at once)
+const handleTraktSpecialPresetSelect = (type: string, media: string) => {
+  selectedTraktType.value = type
+  selectedTraktMedia.value = media
+  error.value = ''
+}
+
+// Open Trakt Special URL in new tab
+const openTraktSpecialUrl = (type: string, media: string) => {
+  const mediaPath = media === 'movies' ? 'movies' : 'shows'
+  const url = `https://trakt.tv/${mediaPath}/${type}`
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+const handlePresetSelect = (presetValue: string, _presetLabel: string) => {
+  listId.value = presetValue
+  error.value = ''
+}
+
+const handleAddList = () => {
+  if (!validateInput()) return
+  
+  const finalListId = getFinalListId()
+  const finalListType = getFinalListType()
+  
+  // Check if already exists to prevent duplicates
+  const alreadyExists = listsToAdd.value.some(
+    l => l.listId === finalListId && (l.listType === finalListType || l.source === finalListType)
+  )
+  
+  if (!alreadyExists) {
+    // Add current list to batch
     const newList = {
       id: `${finalListType}-${finalListId}-${Date.now()}`,
       source: selectedSource.value,
       listId: finalListId,
-      displayName: displayName,
+      displayName: getDisplayName(),
       listType: finalListType,
       mediaType: isTraktSpecial.value ? selectedTraktMedia.value : undefined
     }
-
+    
     listsToAdd.value.push(newList)
-    console.log('[Add Another List] Lists in batch:', listsToAdd.value.length)
   }
   
-  // Reset to step 1 for adding another list
-  currentStep.value = 1
+  // Clear current selection state to prevent showing as "current" in sidebar
+  listId.value = ''
+  selectedTraktType.value = ''
+  selectedTraktMedia.value = ''
+  
+  // Go to confirm step
+  currentStep.value = 3
+}
+
+const addAnotherList = () => {
+  // Reset for new list selection
   selectedSource.value = ''
   listId.value = ''
   selectedTraktType.value = ''
   selectedTraktMedia.value = ''
   error.value = ''
-  currentPage.value = 1
-  selectedProviders.value = []
-  currentProvider.value = ''
+  presetSearch.value = ''
+  currentStep.value = 1
 }
 
-// Proceed to schedule (single list)
-const proceedToSchedule = () => {
-  // Skip current provider and move to next or finish
-  nextProvider()
-}
-
-// Handler for Trakt Special selections
-const handleTraktTypeSelect = (type: string) => {
-  selectedTraktType.value = type
-  // Don't auto-proceed yet, wait for media type selection
-}
-
-const handleTraktMediaSelect = (media: string) => {
-  selectedTraktMedia.value = media
-  // Auto-proceed once both are selected
-  if (selectedTraktType.value && selectedTraktMedia.value) {
-    // Check if we're in multi-provider mode
-    if (selectedProviders.value.length > 1) {
-      // In multi-provider mode, add to batch and continue
-      nextTick(() => {
-        addListToBatch()
-      })
-    } else {
-      // Single provider mode, proceed to step 3 (sync options)
-      nextTick(() => {
-        currentStep.value = 3
-      })
-    }
-  }
-}
-
-// Handler for IMDb Preset selection
-const handleImdbPresetSelect = (presetValue: string) => {
-  listId.value = presetValue
-  error.value = ''
-  // Check if we're in multi-provider mode
-  if (selectedProviders.value.length > 1) {
-    // In multi-provider mode, add to batch and continue
-    nextTick(() => {
-      if (validateInput()) {
-        addListToBatch()
-      }
-    })
-  } else {
-    // Single provider mode, proceed to step 3 (sync options)
-    nextTick(() => {
-      if (validateInput()) {
-        currentStep.value = 3
-      }
-    })
-  }
-}
-
-// Handler for Steven Lu selection
-const handleStevenLuSelect = () => {
-  listId.value = 'stevenlu'
-  error.value = ''
-  // Check if we're in multi-provider mode
-  if (selectedProviders.value.length > 1) {
-    // In multi-provider mode, add to batch and continue
-    nextTick(() => {
-      if (validateInput()) {
-        addListToBatch()
-      }
-    })
-  } else {
-    // Single provider mode, proceed to step 3 (sync options)
-    nextTick(() => {
-      if (validateInput()) {
-        currentStep.value = 3
-      }
-    })
+const removeListFromBatch = (index: number) => {
+  // Filter out current list marker
+  const actualLists = listsToAdd.value
+  if (index < actualLists.length) {
+    actualLists.splice(index, 1)
   }
 }
 
 const validateInput = () => {
   error.value = ''
   
-  // For Trakt Special, validate selections instead of text input
   if (isTraktSpecial.value) {
     if (!selectedTraktType.value || !selectedTraktMedia.value) {
       error.value = 'Please select both list type and media type'
@@ -1197,79 +1225,60 @@ const validateInput = () => {
   }
   
   const value = listId.value.trim()
-
   if (!value) {
     error.value = 'This field is required'
     return false
   }
 
-  // Basic validation based on source
+  // Source-specific validation
   if (selectedSource.value === 'imdb') {
-    // Accept chart names (top, boxoffice, moviemeter, tvmeter), list IDs (ls...), or URLs
     const validCharts = ['top', 'boxoffice', 'moviemeter', 'tvmeter']
-    const isChartName = validCharts.includes(value.toLowerCase())
-    const isListId = value.match(/^ls\d+$/) // More specific: ls followed by digits only
-    const isUrl = value.includes('imdb.com')
-    
-    if (!isChartName && !isListId && !isUrl) {
-      error.value = 'Enter "top" or a list ID like "ls026785255"'
-      return false
-    }
-  } else if (selectedSource.value === 'stevenlu') {
-    // Steven Lu: accept "stevenlu" or the URL
-    if (value !== 'stevenlu' && !value.includes('stevenlu.com')) {
-      error.value = 'Enter "stevenlu" or the Steven Lu URL'
+    const isValid = validCharts.includes(value.toLowerCase()) || 
+                    value.match(/^ls\d+$/) || 
+                    value.match(/^ur\d+$/) || 
+                    value.includes('imdb.com')
+    if (!isValid) {
+      error.value = 'Enter "top", a list ID (ls...), or user ID (ur...)'
       return false
     }
   } else if (selectedSource.value === 'trakt') {
-    // Trakt: validate URL format (accept both custom lists and watchlists)
-    const isTraktUrl = value.includes('trakt.tv/users/')
-    const hasValidEndpoint = value.includes('/lists/') || value.includes('/watchlist')
-    
-    if (!isTraktUrl || !hasValidEndpoint) {
-      error.value = 'Enter a valid Trakt URL: https://trakt.tv/users/{user}/watchlist or /lists/{name}'
+    if (!value.includes('trakt.tv/users/') || (!value.includes('/lists/') && !value.includes('/watchlist'))) {
+      error.value = 'Enter a valid Trakt URL'
       return false
     }
   } else if (selectedSource.value === 'letterboxd') {
-    // Letterboxd: validate URL format (accept both custom lists and watchlists)
-    const isLetterboxdUrl = value.startsWith('https://letterboxd.com/')
-    const hasValidEndpoint = value.includes('/list/') || value.includes('/watchlist')
-    
-    if (!isLetterboxdUrl || !hasValidEndpoint) {
-      error.value = 'Enter a valid Letterboxd URL: https://letterboxd.com/{user}/list/{name}/ or /watchlist/'
+    if (!value.startsWith('https://letterboxd.com/') || (!value.includes('/list/') && !value.includes('/watchlist'))) {
+      error.value = 'Enter a valid Letterboxd URL'
       return false
     }
   } else if (selectedSource.value === 'mdblist') {
-    // MDBList: validate URL format
     if (!value.startsWith('https://mdblist.com/lists/')) {
-      error.value = 'Enter a valid MDBList URL: https://mdblist.com/lists/{user}/{name}'
+      error.value = 'Enter a valid MDBList URL'
       return false
     }
   } else if (selectedSource.value === 'tmdb') {
-    // TMDB: validate URL format
     if (!value.startsWith('https://www.themoviedb.org/list/')) {
-      error.value = 'Enter a valid TMDB URL: https://www.themoviedb.org/list/{id-name}'
-      return false
-    }
-  } else if (selectedSource.value === 'simkl') {
-    // Simkl: validate URL format
-    if (!value.startsWith('https://simkl.com/') || !value.includes('/list/')) {
-      error.value = 'Enter a valid Simkl URL: https://simkl.com/{id}/list/{id}/{name}'
+      error.value = 'Enter a valid TMDB URL'
       return false
     }
   } else if (selectedSource.value === 'tvdb') {
-    // TVDB: validate URL format
     if (!value.startsWith('https://www.thetvdb.com/lists/')) {
-      error.value = 'Enter a valid TVDB URL: https://www.thetvdb.com/lists/{idorname}'
+      error.value = 'Enter a valid TVDB URL'
+      return false
+    }
+  } else if (selectedSource.value === 'stevenlu') {
+    const isValid = value === 'stevenlu' || 
+                    (value.endsWith('.json') && value.startsWith('movies-')) ||
+                    value.includes('stevenlu.com')
+    if (!isValid) {
+      error.value = 'Enter "stevenlu" or a valid JSON filename'
       return false
     }
   } else if (selectedSource.value === 'anilist') {
-    // AniList: validate URL format or username
-    const isAniListUrl = value.startsWith('https://anilist.co/user/') && value.includes('/animelist')
-    const isUsername = /^[a-zA-Z0-9_-]+$/.test(value)
-    
-    if (!isAniListUrl && !isUsername) {
-      error.value = 'Enter a valid AniList URL or username: https://anilist.co/user/{username}/animelist or just username'
+    const isValid = (value.startsWith('https://anilist.co/user/') && value.includes('/animelist')) ||
+                    /^[a-zA-Z0-9_-]+$/.test(value)
+    if (!isValid) {
+      error.value = 'Enter a valid AniList URL or username'
       return false
     }
   }
@@ -1277,178 +1286,34 @@ const validateInput = () => {
   return true
 }
 
-const getSyncButtonText = () => {
-  const options = {
-    schedule: 'Schedule',
-    single: 'Sync This',
-    all: 'Sync All'
-  }
-  return options[selectedSyncOption.value]
-}
-
-const handleNext = () => {
-  if (currentStep.value === 1) {
-    currentStep.value = 2
-  } else if (currentStep.value === 2) {
-    if (validateInput()) {
-      currentStep.value = 3
-    }
-  } else {
-    handleSubmit()
-  }
-}
-
-// Handle Step 3 submit - check if we have batched lists
-const handleStep3Submit = async () => {
-  if (!validateInput()) return
-
-  // If we have batched lists, add current list to batch and use multi-submit
-  if (listsToAdd.value.length > 0) {
-    console.log('[Step 3 Submit] Found batched lists, adding current and submitting all')
-    
-    // Add current list to batch
+const handleSubmitAll = async () => {
+  // Collect all lists from the batch
+  const allLists = [...listsToAdd.value]
+  
+  // If we're still on step 2 with a valid selection that hasn't been added yet, add it
+  if (currentStep.value === 2 && canProceed.value && selectedSource.value) {
     const finalListId = getFinalListId()
     const finalListType = getFinalListType()
-    const displayName = getDisplayName()
-
-    const newList = {
-      id: `${finalListType}-${finalListId}-${Date.now()}`,
-      source: selectedSource.value,
-      listId: finalListId,
-      displayName: displayName,
-      listType: finalListType,
-      mediaType: isTraktSpecial.value ? selectedTraktMedia.value : undefined
+    const alreadyExists = allLists.some(
+      l => l.listId === finalListId && (l.listType === finalListType || l.source === finalListType)
+    )
+    
+    if (!alreadyExists) {
+      allLists.push({
+        id: `${finalListType}-${finalListId}-${Date.now()}`,
+        source: selectedSource.value,
+        listId: finalListId,
+        displayName: getDisplayName(),
+        listType: finalListType,
+        mediaType: isTraktSpecial.value ? selectedTraktMedia.value : undefined
+      })
     }
-
-    listsToAdd.value.push(newList)
-    console.log('[Step 3 Submit] Total lists to add:', listsToAdd.value.length)
-
-    // Use multi-submit logic
-    await handleSubmitMultiple()
-  } else {
-    // No batched lists, use single submit
-    console.log('[Step 3 Submit] No batched lists, submitting single list')
-    await handleSubmit()
   }
-}
-
-const handleSubmit = async () => {
-  if (!validateInput()) return
-
-  loading.value = true
-  error.value = ''
-
-  try {
-    const listsStore = useListsStore()
-    const syncStore = useSyncStore()
-    
-    // For Trakt Special, construct the list_id from selections
-    let finalListId = listId.value.trim()
-    let finalListType = selectedSource.value
-    
-    if (isTraktSpecial.value) {
-      finalListId = `${selectedTraktType.value}:${selectedTraktMedia.value}`
-      finalListType = 'trakt_special'
-    }
-    
-    // Step 1: Add the list
-    await listsStore.addList({
-      list_type: finalListType,
-      list_id: finalListId,
-    })
-
-    showSuccess('List Added', `Successfully added ${finalListType} list`)
-    
-    // Refresh lists store to ensure backend has the list loaded
-    await listsStore.fetchLists(true)
-    
-    // Small delay to ensure backend has fully processed the list addition
-    await new Promise(resolve => setTimeout(resolve, 300))
-    
-    // Step 2: Handle sync option
-    if (selectedSyncOption.value === 'single') {
-      // Sync just this list
-      showSuccess('Syncing List', 'Starting sync for this list...')
-      const api = useApiService()
-      await api.syncSingleList(finalListType, finalListId)
-      // Emit event and close modal
-      emit('list-added')
-      handleClose()
-      // Navigate to logs - use setTimeout to ensure modal closes first
-      if (process.client) {
-        setTimeout(() => {
-          try {
-            router.push('/logs')
-          } catch (err) {
-            console.error('Navigation error:', err)
-            // Fallback to window.location if router fails
-            window.location.href = '/logs'
-          }
-        }, 150)
-      }
-      return // Exit early to prevent further execution
-    } else if (selectedSyncOption.value === 'all') {
-      // Sync all lists
-      showSuccess('Syncing All', 'Starting sync for all lists...')
-      await syncStore.triggerSync()
-      // Emit event and close modal
-      emit('list-added')
-      handleClose()
-      // Navigate to logs - use setTimeout to ensure modal closes first
-      if (process.client) {
-        setTimeout(() => {
-          try {
-            router.push('/logs')
-          } catch (err) {
-            console.error('Navigation error:', err)
-            // Fallback to window.location if router fails
-            window.location.href = '/logs'
-          }
-        }, 150)
-      }
-      return // Exit early to prevent further execution
-    } else {
-      // Just schedule for next sync
-      showSuccess('Scheduled', 'List will sync during the next scheduled interval')
-      // Emit event and close modal
-      emit('list-added')
-      handleClose()
-      // Navigate to logs - use setTimeout to ensure modal closes first
-      if (process.client) {
-        setTimeout(() => {
-          try {
-            router.push('/logs')
-          } catch (err) {
-            console.error('Navigation error:', err)
-            // Fallback to window.location if router fails
-            window.location.href = '/logs'
-          }
-        }, 150)
-      }
-      return // Exit early to prevent further execution
-    }
-
-    emit('list-added')
-    handleClose()
-  } catch (err: any) {
-    error.value = err.message || 'Failed to add list'
-    showError('Failed to add list', err.message)
-  } finally {
-    loading.value = false
-  }
-}
-
-const handleSubmitMultiple = async () => {
-  if (listsToAdd.value.length === 0) {
-    console.warn('[Submit Multiple] No lists in batch!')
+  
+  if (allLists.length === 0) {
+    showError('No Lists', 'Please add at least one list')
     return
   }
-
-  console.log('[Submit Multiple] Submitting lists:', listsToAdd.value.map(l => ({
-    type: l.listType,
-    id: l.listId,
-    name: l.displayName
-  })))
 
   loading.value = true
   error.value = ''
@@ -1458,115 +1323,41 @@ const handleSubmitMultiple = async () => {
     const syncStore = useSyncStore()
     
     // Add all lists
-    for (const list of listsToAdd.value) {
-      console.log('[Submit Multiple] Adding list:', list.listType, list.listId)
+    for (const list of allLists) {
       await listsStore.addList({
-        list_type: list.listType,
+        list_type: list.listType || list.source,
         list_id: list.listId,
+        user_id: String(selectedUserId.value),
       })
     }
 
-    showSuccess('Lists Added', `Successfully added ${listsToAdd.value.length} lists`)
+    showSuccess('Lists Added', `Successfully added ${allLists.length} list${allLists.length !== 1 ? 's' : ''}`)
     
-    // Refresh lists store to ensure backend has all lists loaded
     await listsStore.fetchLists(true)
-    
-    // Small delay to ensure backend has fully processed all list additions
-    await new Promise(resolve => setTimeout(resolve, 500))
+    await new Promise(resolve => setTimeout(resolve, 300))
     
     // Handle sync option
     if (selectedSyncOption.value === 'single') {
-      // Sync just these lists
-      showSuccess('Syncing Lists', `Starting sync for ${listsToAdd.value.length} lists...`)
-      const api = useApiService()
-      
-      // Track sync results
-      let successCount = 0
-      let failCount = 0
-      const errors: string[] = []
-      
-      // Sync each list with individual error handling
-      for (const list of listsToAdd.value) {
-        try {
-          console.log(`[Add List Modal] Starting sync for ${list.listType}:${list.listId}`)
-          await api.syncSingleList(list.listType, list.listId)
-          successCount++
-          console.log(`[Add List Modal] Successfully triggered sync for ${list.listType}:${list.listId}`)
-        } catch (error: any) {
-          failCount++
-          const errorMsg = `${list.displayName}: ${error.message || 'Failed to sync'}`
-          errors.push(errorMsg)
-          console.error(`[Add List Modal] Failed to sync ${list.listType}:${list.listId}:`, error)
-        }
+      if (allLists.length > 1) {
+        showSuccess('Syncing Lists', `Starting sync for ${allLists.length} lists...`)
+        await syncStore.triggerSync()
+      } else {
+        showSuccess('Syncing List', 'Starting sync...')
+        await api.syncSingleList(allLists[0].listType || allLists[0].source, allLists[0].listId)
       }
-      
-      // Show summary of sync results
-      if (successCount > 0) {
-        showSuccess('Syncs Started', `Started ${successCount} of ${listsToAdd.value.length} list syncs`)
-      }
-      if (failCount > 0) {
-        showError('Some Syncs Failed', `${failCount} list(s) failed to start: ${errors.join(', ')}`)
-      }
-      
-      // Emit event and close modal
-      emit('list-added')
-      handleClose()
-      // Navigate to logs - use setTimeout to ensure modal closes first
-      if (process.client) {
-        setTimeout(() => {
-          try {
-            router.push('/logs')
-          } catch (err) {
-            console.error('Navigation error:', err)
-            // Fallback to window.location if router fails
-            window.location.href = '/logs'
-          }
-        }, 150)
-      }
-      return // Exit early to prevent further execution
     } else if (selectedSyncOption.value === 'all') {
-      // Sync all lists
       showSuccess('Syncing All', 'Starting sync for all lists...')
       await syncStore.triggerSync()
-      // Emit event and close modal
-      emit('list-added')
-      handleClose()
-      // Navigate to logs - use setTimeout to ensure modal closes first
-      if (process.client) {
-        setTimeout(() => {
-          try {
-            router.push('/logs')
-          } catch (err) {
-            console.error('Navigation error:', err)
-            // Fallback to window.location if router fails
-            window.location.href = '/logs'
-          }
-        }, 150)
-      }
-      return // Exit early to prevent further execution
     } else {
-      // Just schedule for next sync
-      showSuccess('Scheduled', `${listsToAdd.value.length} lists will sync during the next scheduled interval`)
-      // Emit event and close modal
-      emit('list-added')
-      handleClose()
-      // Navigate to logs - use setTimeout to ensure modal closes first
-      if (process.client) {
-        setTimeout(() => {
-          try {
-            router.push('/logs')
-          } catch (err) {
-            console.error('Navigation error:', err)
-            // Fallback to window.location if router fails
-            window.location.href = '/logs'
-          }
-        }, 150)
-      }
-      return // Exit early to prevent further execution
+      showSuccess('Scheduled', `${allLists.length} list${allLists.length !== 1 ? 's' : ''} will sync on next schedule`)
     }
 
     emit('list-added')
     handleClose()
+    
+    if (process.client && selectedSyncOption.value !== 'schedule') {
+      setTimeout(() => router.push('/logs'), 150)
+    }
   } catch (err: any) {
     error.value = err.message || 'Failed to add lists'
     showError('Failed to add lists', err.message)
@@ -1577,7 +1368,6 @@ const handleSubmitMultiple = async () => {
 
 const handleClose = () => {
   isOpen.value = false
-  // Reset form after a delay
   setTimeout(() => {
     currentStep.value = 1
     selectedSource.value = ''
@@ -1586,12 +1376,44 @@ const handleClose = () => {
     selectedTraktMedia.value = ''
     selectedSyncOption.value = 'single'
     error.value = ''
-    currentPage.value = 1
     listsToAdd.value = []
-    isAddingMultiple.value = false
-    selectedProviders.value = []
-    currentProvider.value = ''
+    presetSearch.value = ''
+    showMobileSidebar.value = false
   }, 300)
 }
 </script>
+
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.3);
+  border-radius: 2px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.5);
+}
+
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-up-enter-from,
+.slide-up-leave-to {
+  opacity: 0;
+}
+
+.slide-up-enter-from > div:last-child,
+.slide-up-leave-to > div:last-child {
+  transform: translateY(100%);
+}
+</style>
 

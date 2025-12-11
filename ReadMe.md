@@ -26,15 +26,7 @@ ListSync automatically syncs your watchlists from IMDb, Trakt and many more with
 
 ---
 
-## 🍿 Modern Web Dashboard
-
-ListSync includes a **web dashboard** built with Nuxt 3 and Vue 3, providing an interface to manage all your sync operations.
-
-![ListSync Web Dashboard](https://s.2ya.me/api/shares/Ou6EHcqD/files/71739c2e-b47d-447f-9a5a-e10d64fbebb9)
-
----
-
-### Currently in Development for v0.7.0
+## 🍿 Currently in Development for v0.7.0
 
 For the most stable experience, use the source code from the latest release [here](https://github.com/Woahai321/list-sync/releases).
 
@@ -50,14 +42,26 @@ docker run -d --name listsync-full -p 3222:3222 -p 4222:4222 -v listsync-data:/u
 
 Access the dashboard at `http://localhost:3222` and complete the setup wizard to connect your media server and watchlists.
 
-![Dashboard Setup Wizard](https://s.2ya.me/api/shares/hoRY5Two/files/4dfcd66b-59bc-4805-bad2-be4158e81e5e)
+![Dashboard Setup Wizard](https://s.2ya.me/api/shares/7efcbyD3/files/2e49f9cb-0d3c-4c3d-90d5-0af1107a7a77)
+---
+
+## 🍿 Modern Web Dashboard
+
+ListSync includes a **web dashboard** built with Nuxt 3 and Vue 3, providing an interface to manage all your sync operations.
+
+![ListSync Web Dashboard](https://s.2ya.me/api/shares/7efcbyD3/files/312d01e4-ff3d-4a96-839d-dfd4f5d40797)
+
+---
+
+## 🍿 Collections
+
+ListSync now supports browsing and syncing entire movie franchises.
+
+![Collections Sync Feature](https://s.2ya.me/api/shares/7efcbyD3/files/86e4a372-ddc2-4a13-8d22-b55f587f803c)
 
 ---
 
 ## 🍿 Getting Started
-
-ListSync offers **flexible deployment options** to suit different use cases, from quick testing to full production deployments with web dashboard.
-
 
 ## 🍿 Docker Deployment
 
@@ -253,7 +257,7 @@ ListSync supports a shortcut format of `list-type:media-type`. Examples:
 - `anticipated:movies` - Most anticipated movies
 
 **Available Types**:
-- **List types**: trending, popular, anticipated, watched, collected, boxoffice, streaming, recommendations, favorited 
+- **List types**: trending, popular, anticipated, watched, boxoffice, streaming, favorited 
 - **Media types**: movies, shows
 
 Note: The boxoffice list type is only available for movies.
@@ -410,25 +414,19 @@ STEVENLU_LISTS=stevenlu   # Steven Lu popular movies
 </details>
 
 <details>
-<summary>🍿 <strong>Pre-configured Lists Template</strong></summary>
+<summary>🍿 <strong>Built-in Provider Presets</strong></summary>
 
-### **Jump-Start with Curated Lists**
+### **One-Click Presets**
 
-Want instant content? Use our plug-and-play configuration with curated lists:
+The **Add List** wizard in the dashboard comes with dozens of built-in presets. Just select and sync!
 
-```bash
-cp .env.plugnplay .env
-# Then edit your Overseerr URL and API key
-```
-
-Includes these pre-configured lists:
-
-| Provider | List Type | Description |
-|----------|-----------|-------------|
-| **IMDb** | Chart & Lists | [Top 250 Movies](https://www.imdb.com/chart/top), [Disney Movies](https://www.imdb.com/list/ls026785255) |
-| **Trakt** | Trending & Popular | [Trending Movies](https://trakt.tv/movies/trending), [Popular Movies](https://trakt.tv/movies/popular), [Trending Shows](https://trakt.tv/shows/trending), [Popular Shows](https://trakt.tv/shows/popular) |
-| **MDBList** | Curated Collections | [Top Weekly Movies](https://mdblist.com/lists/garycrawfordgc/top-movies-of-the-week), [Pixar Movies](https://mdblist.com/lists/linaspurinis/pixar-movies), [Pirated Movies Charts](https://mdblist.com/lists/hdlists/top-ten-pirated-movies-of-the-week-torrent-freak-com) |
-| **Steven Lu** | Popular Collection | [Popular Movies Collection](https://movies.stevenlu.com/) |
+| Provider | Category | Popular Examples (Click to Preview) |
+|----------|----------|-------------------------------------|
+| **IMDb** | Charts | [Top 250](https://www.imdb.com/chart/top), [Box Office](https://www.imdb.com/chart/boxoffice) |
+| **Trakt** | Trending | [Trending Movies](https://trakt.tv/movies/trending), [Anticipated Shows](https://trakt.tv/shows/anticipated) |
+| **Letterboxd** | Top Rated | [Top 250 Narrative](https://letterboxd.com/dave/list/official-top-250-narrative-feature-films/) |
+| **MDBList** | Streaming | [Netflix Movies](https://mdblist.com/lists/garycrawfordgc/netflix-movies), [Disney+](https://mdblist.com/lists/garycrawfordgc/disney-movies) |
+| **Steven Lu** | Popular | [Popular Movies](https://movies.stevenlu.com/) |
 
 </details>
 

@@ -101,13 +101,24 @@ export const useListsStore = defineStore('lists', {
     },
 
     /**
-     * Check if data is stale (older than 30 seconds)
+     * Count of active filters
+     */
+    activeFilterCount: (state) => {
+      let count = 0
+      if (state.searchTerm) count++
+      if (state.sourceFilter !== 'all') count++
+      return count
+    },
+
+    /**
+     * Check if data is stale (older than 10 seconds)
+     * Reduced from 30s to 10s for more responsive UI updates
      */
     isStale: (state) => {
       if (!state.lastFetched) return true
       const now = new Date()
       const diff = now.getTime() - state.lastFetched.getTime()
-      return diff > 30000 // 30 seconds
+      return diff > 10000 // 10 seconds - more aggressive refresh for better UX
     },
   },
 

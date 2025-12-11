@@ -9,6 +9,7 @@
       @sync="$emit('sync-list', list.list_type, list.list_id)"
       @delete="$emit('delete-list', list.list_type, list.list_id)"
       @toggle-select="$emit('toggle-select', list)"
+      @open-details="$emit('open-details', list)"
     />
   </div>
 </template>
@@ -31,6 +32,7 @@ defineEmits<{
   'sync-list': [listType: string, listId: string]
   'delete-list': [listType: string, listId: string]
   'toggle-select': [list: List]
+  'open-details': [list: List]
 }>()
 
 // Check if a list is selected

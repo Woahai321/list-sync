@@ -27,6 +27,17 @@ class OverseerrClient:
         self.requester_user_id = requester_user_id
         self.headers = {"X-Api-Key": api_key, "Content-Type": "application/json"}
         self.request_headers = {"X-Api-Key": api_key, "X-Api-User": requester_user_id, "Content-Type": "application/json"}
+
+    def _headers_for_user(self, requester_user_id: Optional[str] = None) -> Dict[str, str]:
+        """
+        Build request headers for a specific Overseerr user without mutating defaults.
+        """
+        user_id = requester_user_id or self.requester_user_id or "1"
+        return {
+            "X-Api-Key": self.api_key,
+            "X-Api-User": str(user_id),
+            "Content-Type": "application/json"
+        }
     
     def test_connection(self):
         """
@@ -337,7 +348,7 @@ class OverseerrClient:
         logging.debug(f"Extracted number of seasons: {number_of_seasons}")
         return number_of_seasons if number_of_seasons is not None else 1
     
-    def request_media(self, media_id: int, media_type: str, is_4k: bool = False) -> str:
+    def request_media(self, media_id: int, media_type: str, is_4k: bool = False, requester_user_id: Optional[str] = None) -> str:
         """
         Request media in Overseerr.
         
@@ -364,7 +375,7 @@ class OverseerrClient:
         }
         
         try:
-            response = requests.post(request_url, headers=self.request_headers, json=payload)
+            response = requests.post(request_url, headers=self._headers_for_user(requester_user_id), json=payload)
             response.raise_for_status()
             # Log only success/error instead of full response to reduce log size
             logging.debug(f"Request successful for {media_type} ID {media_id}")
@@ -389,7 +400,7 @@ class OverseerrClient:
             logging.error(f"Error requesting {media_type} ID {media_id}: {str(e)}")
             return "error"
     
-    def request_tv_series(self, tv_id: int, number_of_seasons: int, is_4k: bool = False) -> str:
+    def request_tv_series(self, tv_id: int, number_of_seasons: int, is_4k: bool = False, requester_user_id: Optional[str] = None) -> str:
         """
         Request TV series in Overseerr with specific seasons.
         
@@ -423,7 +434,7 @@ class OverseerrClient:
         logging.debug(f"Requesting TV series ID {tv_id}: {number_of_seasons} seasons")
 
         try:
-            response = requests.post(request_url, headers=self.request_headers, json=payload)
+            response = requests.post(request_url, headers=self._headers_for_user(requester_user_id), json=payload)
             response.raise_for_status()
             logging.debug(f"TV series request successful for ID {tv_id}")
             return "success"
@@ -447,7 +458,7 @@ class OverseerrClient:
             logging.error(f"Error requesting TV series ID {tv_id}: {str(e)}")
             return "error"
     
-    def request_specific_season(self, tv_id: int, season_number: int, is_4k: bool = False) -> str:
+    def request_specific_season(self, tv_id: int, season_number: int, is_4k: bool = False, requester_user_id: Optional[str] = None) -> str:
         """
         Request a specific season of a TV series in Overseerr.
         
@@ -478,7 +489,7 @@ class OverseerrClient:
         logging.info(f"📺 Requesting Season {season_number} for TV series TMDB ID {tv_id}")
 
         try:
-            response = requests.post(request_url, headers=self.request_headers, json=payload)
+            response = requests.post(request_url, headers=self._headers_for_user(requester_user_id), json=payload)
             response.raise_for_status()
             logging.info(f"✅ Successfully requested Season {season_number} for TV series ID {tv_id}")
             return "success"

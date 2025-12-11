@@ -2,7 +2,41 @@
 List provider registration and management.
 """
 
+import logging
 from typing import Dict, Callable, List, Any
+
+
+class SyncCancelledException(Exception):
+    """Exception raised when sync cancellation is requested."""
+    pass
+
+
+def check_cancellation() -> bool:
+    """
+    Check if sync cancellation has been requested.
+    
+    Returns:
+        bool: True if cancellation was requested, False otherwise
+    """
+    try:
+        from ..utils.sync_status import get_sync_tracker
+        sync_tracker = get_sync_tracker()
+        return sync_tracker.is_cancellation_requested()
+    except Exception as e:
+        logging.warning(f"Error checking cancellation status in provider: {e}")
+        return False
+
+
+def check_and_raise_if_cancelled():
+    """
+    Check if cancellation was requested and raise SyncCancelledException if so.
+    
+    Raises:
+        SyncCancelledException: If cancellation was requested
+    """
+    if check_cancellation():
+        logging.warning("⚠️ Sync cancellation detected in provider - stopping fetch operation")
+        raise SyncCancelledException("Sync cancelled by user")
 
 
 # Registry to store provider functions by type

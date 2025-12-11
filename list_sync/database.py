@@ -193,7 +193,9 @@ def init_database():
                 status TEXT,
                 last_synced TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 poster_url TEXT,
-                poster_cached_at TIMESTAMP
+                poster_cached_at TIMESTAMP,
+                source_list_type TEXT,
+                source_list_id TEXT
             )
         ''')
         
@@ -226,6 +228,19 @@ def init_database():
         except sqlite3.OperationalError:
             pass
 
+        # Add source list columns to synced_items for easier filtering
+        try:
+            cursor.execute('ALTER TABLE synced_items ADD COLUMN source_list_type TEXT')
+            logging.info("Added source_list_type column to synced_items table")
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            cursor.execute('ALTER TABLE synced_items ADD COLUMN source_list_id TEXT')
+            logging.info("Added source_list_id column to synced_items table")
+        except sqlite3.OperationalError:
+            pass
+
         # Add poster columns to lists if they don't exist
         try:
             cursor.execute('ALTER TABLE lists ADD COLUMN poster_url TEXT')
@@ -236,6 +251,13 @@ def init_database():
         try:
             cursor.execute('ALTER TABLE lists ADD COLUMN poster_cached_at TIMESTAMP')
             logging.info("Added poster_cached_at column to lists table")
+        except sqlite3.OperationalError:
+            pass
+        
+        # Add user_id column to lists if it doesn't exist (for per-list user assignment)
+        try:
+            cursor.execute('ALTER TABLE lists ADD COLUMN user_id TEXT DEFAULT "1"')
+            logging.info("Added user_id column to lists table")
         except sqlite3.OperationalError:
             pass
         
@@ -269,6 +291,46 @@ def init_database():
         except sqlite3.OperationalError:
             # Indexes might already exist
             pass
+        
+        # Backfill source_list columns from item_lists table for existing items
+        # This migration runs AFTER item_lists table is created
+        try:
+            # Check if we need to backfill (if there are NULL values)
+            cursor.execute('''
+                SELECT COUNT(*) FROM synced_items 
+                WHERE source_list_type IS NULL AND id IN (SELECT DISTINCT item_id FROM item_lists)
+            ''')
+            null_count = cursor.fetchone()[0]
+            
+            if null_count > 0:
+                logging.info(f"🔄 Backfilling source_list columns for {null_count} items from item_lists table...")
+                
+                # Update items with their primary source list (most recent sync)
+                cursor.execute('''
+                    UPDATE synced_items
+                    SET source_list_type = (
+                        SELECT list_type FROM item_lists
+                        WHERE item_lists.item_id = synced_items.id
+                        ORDER BY synced_at DESC
+                        LIMIT 1
+                    ),
+                    source_list_id = (
+                        SELECT list_id FROM item_lists
+                        WHERE item_lists.item_id = synced_items.id
+                        ORDER BY synced_at DESC
+                        LIMIT 1
+                    )
+                    WHERE source_list_type IS NULL 
+                    AND id IN (SELECT DISTINCT item_id FROM item_lists)
+                ''')
+                
+                updated = cursor.rowcount
+                conn.commit()
+                logging.info(f"✅ Backfilled source_list columns for {updated} items")
+            else:
+                logging.info("✅ source_list columns already populated, no backfill needed")
+        except Exception as e:
+            logging.warning(f"Could not backfill source_list columns: {e}")
         
         # Sync history table - tracks all sync operations
         cursor.execute('''
@@ -323,6 +385,18 @@ def init_database():
             # Indexes might already exist
             pass
 
+        # Overseerr users table - stores synced Overseerr users
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS overseerr_users (
+                id TEXT PRIMARY KEY,
+                display_name TEXT NOT NULL,
+                email TEXT,
+                avatar TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_synced TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
         # Image cache table - stores downloaded images locally
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS cached_images (
@@ -380,8 +454,8 @@ def init_database():
         logging.warning(f"Image migration check failed: {e}")
 
 
-def save_list_id(list_id: str, list_type: str, list_url: Optional[str] = None, item_count: Optional[int] = None):
-    """Save list ID, URL, and item count to database, converting URLs to IDs if needed."""
+def save_list_id(list_id: str, list_type: str, list_url: Optional[str] = None, item_count: Optional[int] = None, user_id: str = "1"):
+    """Save list ID, URL, item count, and user_id to database, converting URLs to IDs if needed."""
     from .utils.helpers import construct_list_url
     
     with sqlite3.connect(DB_FILE) as conn:
@@ -413,8 +487,8 @@ def save_list_id(list_id: str, list_type: str, list_url: Optional[str] = None, i
             item_count = 0
             
         cursor.execute(
-            "INSERT OR REPLACE INTO lists (list_type, list_id, list_url, item_count) VALUES (?, ?, ?, ?)",
-            (list_type, id_to_save, list_url, item_count)
+            "INSERT OR REPLACE INTO lists (list_type, list_id, list_url, item_count, user_id) VALUES (?, ?, ?, ?, ?)",
+            (list_type, id_to_save, list_url, item_count, user_id)
         )
         conn.commit()
 
@@ -456,7 +530,7 @@ def load_list_ids() -> List[Dict[str, str]]:
     """Load all saved list IDs from database."""
     with sqlite3.connect(DB_FILE) as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT list_type, list_id, list_url, item_count, last_synced FROM lists")
+        cursor.execute("SELECT list_type, list_id, list_url, item_count, last_synced, user_id FROM lists")
         results = []
         for row in cursor.fetchall():
             list_item = {"type": row[0], "id": row[1]}
@@ -479,6 +553,12 @@ def load_list_ids() -> List[Dict[str, str]]:
                 list_item["last_synced"] = row[4]
             else:
                 list_item["last_synced"] = None
+            
+            # Add user_id (default to "1" if None for existing lists)
+            if len(row) > 5 and row[5] is not None:
+                list_item["user_id"] = row[5]
+            else:
+                list_item["user_id"] = "1"
                 
             results.append(list_item)
         return results
@@ -580,16 +660,17 @@ def save_sync_result(title: str, media_type: str, imdb_id: Optional[str], overse
                 # Item already exists, just update status if needed
                 cursor.execute('''
                     UPDATE synced_items 
-                    SET status = ?, title = ?, media_type = ?, year = ?, imdb_id = ?, tmdb_id = ?
+                    SET status = ?, title = ?, media_type = ?, year = ?, imdb_id = ?, tmdb_id = ?,
+                        source_list_type = ?, source_list_id = ?
                     WHERE id = ?
-                ''', (status, title, media_type, year, imdb_id, tmdb_id, item_db_id))
+                ''', (status, title, media_type, year, imdb_id, tmdb_id, list_type, list_id, item_db_id))
             else:
                 # Insert new item
                 cursor.execute('''
                     INSERT INTO synced_items 
-                    (title, media_type, year, imdb_id, tmdb_id, overseerr_id, status, last_synced)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                ''', (title, media_type, year, imdb_id, tmdb_id, overseerr_id, status))
+                    (title, media_type, year, imdb_id, tmdb_id, overseerr_id, status, last_synced, source_list_type, source_list_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)
+                ''', (title, media_type, year, imdb_id, tmdb_id, overseerr_id, status, list_type, list_id))
                 item_db_id = cursor.lastrowid
         else:
             # For non-skipped items, update last_synced timestamp
@@ -598,16 +679,17 @@ def save_sync_result(title: str, media_type: str, imdb_id: Optional[str], overse
                 cursor.execute('''
                     UPDATE synced_items 
                     SET title = ?, media_type = ?, year = ?, imdb_id = ?, tmdb_id = ?, 
-                        overseerr_id = ?, status = ?, last_synced = CURRENT_TIMESTAMP
+                        overseerr_id = ?, status = ?, last_synced = CURRENT_TIMESTAMP,
+                        source_list_type = ?, source_list_id = ?
                     WHERE id = ?
-                ''', (title, media_type, year, imdb_id, tmdb_id, overseerr_id, status, item_db_id))
+                ''', (title, media_type, year, imdb_id, tmdb_id, overseerr_id, status, list_type, list_id, item_db_id))
             else:
                 # Insert new item
                 cursor.execute('''
                     INSERT INTO synced_items 
-                    (title, media_type, year, imdb_id, tmdb_id, overseerr_id, status, last_synced)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                ''', (title, media_type, year, imdb_id, tmdb_id, overseerr_id, status))
+                    (title, media_type, year, imdb_id, tmdb_id, overseerr_id, status, last_synced, source_list_type, source_list_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)
+                ''', (title, media_type, year, imdb_id, tmdb_id, overseerr_id, status, list_type, list_id))
                 item_db_id = cursor.lastrowid
         
         # Link item to list(s) if list information provided
@@ -741,6 +823,53 @@ def start_sync_in_db(
         conn.commit()
         logging.info(f"Started sync in database: session_id={session_id}, sync_id={sync_id}")
         return sync_id
+
+
+def update_sync_lists_in_db(
+    session_id: str,
+    synced_lists: List[Dict[str, str]]
+) -> bool:
+    """
+    Update sync_history record with list information for full syncs.
+    
+    Args:
+        session_id: Session identifier
+        synced_lists: List of dictionaries with 'type' and 'id' keys
+    
+    Returns:
+        bool: True if updated successfully
+    """
+    if not synced_lists:
+        return False
+    
+    with sqlite3.connect(DB_FILE) as conn:
+        cursor = conn.cursor()
+        
+        # For full syncs, store a summary of all lists synced
+        # Format: "list_type1:list_id1,list_type2:list_id2,..." or summary if too many
+        # Store all list identifiers (comma-separated) - SQLite TEXT can handle long strings
+        list_summaries = [f"{lst['type']}:{lst['id']}" for lst in synced_lists]
+        list_id_value = ','.join(list_summaries)
+        
+        # Use the first list type as the primary type, or "multiple" if different types
+        list_types = set(lst['type'] for lst in synced_lists)
+        if len(list_types) == 1:
+            list_type_value = list_types.pop()
+        else:
+            # Multiple types - store as "multiple" with count
+            list_type_value = f"multiple({len(list_types)} types)"
+        
+        cursor.execute('''
+            UPDATE sync_history
+            SET list_type = ?,
+                list_id = ?
+            WHERE session_id = ?
+        ''', (list_type_value, list_id_value, session_id))
+        updated = cursor.rowcount > 0
+        conn.commit()
+        if updated:
+            logging.info(f"Updated sync lists in database: session_id={session_id}, lists={len(synced_lists)}")
+        return updated
 
 
 def end_sync_in_db(
@@ -1073,6 +1202,107 @@ def count_settings() -> int:
         cursor.execute('SELECT COUNT(*) FROM app_settings')
         result = cursor.fetchone()
         return result[0] if result else 0
+
+
+# ============================================================================
+# Overseerr Users Management
+# ============================================================================
+
+def save_overseerr_users(users: List[Dict[str, Any]]):
+    """
+    Save Overseerr users to database, replacing existing users.
+    
+    Args:
+        users: List of user dictionaries with keys: id, display_name, email, avatar
+    """
+    with sqlite3.connect(DB_FILE) as conn:
+        cursor = conn.cursor()
+        
+        # Clear existing users
+        cursor.execute("DELETE FROM overseerr_users")
+        
+        # Insert new users
+        for user in users:
+            cursor.execute('''
+                INSERT INTO overseerr_users (id, display_name, email, avatar, last_synced)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ''', (
+                str(user.get('id')),
+                user.get('display_name', user.get('displayName', 'Unknown')),
+                user.get('email', ''),
+                user.get('avatar', '')
+            ))
+        
+        conn.commit()
+        logging.info(f"Saved {len(users)} Overseerr users to database")
+
+
+def get_overseerr_users() -> List[Dict[str, Any]]:
+    """
+    Get all Overseerr users from database.
+    
+    Returns:
+        List of user dictionaries with keys: id, display_name, email, avatar, last_synced
+    """
+    with sqlite3.connect(DB_FILE) as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT id, display_name, email, avatar, last_synced
+            FROM overseerr_users
+            ORDER BY CAST(id AS INTEGER)
+        ''')
+        
+        users = []
+        for row in cursor.fetchall():
+            users.append({
+                'id': row[0],
+                'display_name': row[1],
+                'email': row[2],
+                'avatar': row[3],
+                'last_synced': row[4]
+            })
+        
+        return users
+
+
+def get_overseerr_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Get a specific Overseerr user by ID.
+    
+    Args:
+        user_id: User ID to lookup
+        
+    Returns:
+        User dictionary or None if not found
+    """
+    with sqlite3.connect(DB_FILE) as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT id, display_name, email, avatar, last_synced
+            FROM overseerr_users
+            WHERE id = ?
+        ''', (user_id,))
+        
+        row = cursor.fetchone()
+        if row:
+            return {
+                'id': row[0],
+                'display_name': row[1],
+                'email': row[2],
+                'avatar': row[3],
+                'last_synced': row[4]
+            }
+        
+        return None
+
+
+def clear_overseerr_users():
+    """Clear all Overseerr users from database."""
+    with sqlite3.connect(DB_FILE) as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM overseerr_users")
+        conn.commit()
+        logging.info("Cleared all Overseerr users from database")
 
 
 def save_collection_sync_result(franchise_name: str, item_count: Optional[int] = None):

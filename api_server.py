@@ -19,6 +19,7 @@ import time
 import requests
 import signal
 import asyncio
+import multiprocessing
 from fastapi.responses import StreamingResponse
 from typing import AsyncGenerator
 import statistics
@@ -126,6 +127,7 @@ class SyncIntervalUpdate(BaseModel):
 class ListAdd(BaseModel):
     list_type: str
     list_id: str
+    user_id: str = "1"
 
 class ProcessInfo(BaseModel):
     pid: int
@@ -344,6 +346,83 @@ def parse_log_for_sync_info(log_path: str = 'data/list_sync.log', max_lines: int
     
     return log_info
 
+def normalize_list_id(list_type: str, list_id: str) -> str:
+    """
+    Normalize list_id to match what's stored in item_lists table.
+    Extracts the actual ID from URLs if needed.
+    
+    Args:
+        list_type: Type of list (e.g., 'mdblist', 'trakt', 'imdb')
+        list_id: List ID (may be a URL or just an ID)
+        
+    Returns:
+        Normalized list_id that matches what's in item_lists table
+    """
+    if not list_id:
+        return list_id
+    
+    # If it's already not a URL, return as-is
+    if not list_id.startswith(('http://', 'https://')):
+        return list_id
+    
+    # Extract ID from URL based on list type
+    list_type_lower = list_type.lower()
+    
+    if list_type_lower == 'mdblist':
+        # MDBList URLs: https://mdblist.com/lists/username/listname
+        # Extract: username/listname
+        match = re.search(r'mdblist\.com/lists/([^/?]+)', list_id)
+        if match:
+            return match.group(1)
+    
+    elif list_type_lower in ('trakt', 'trakt_special'):
+        # Trakt URLs can be various formats:
+        # - https://trakt.tv/users/username/lists/list-slug
+        # - https://trakt.tv/lists/123
+        # Extract the list identifier
+        match = re.search(r'trakt\.tv/(?:users/[^/]+/)?lists/([^/?]+)', list_id)
+        if match:
+            return match.group(1)
+        # For special Trakt lists like trending:movies, they might be in the URL path
+        match = re.search(r'trakt\.tv/(?:movies|shows)/([^/?]+)', list_id)
+        if match:
+            return match.group(1)
+    
+    elif list_type_lower == 'imdb':
+        # IMDb URLs: https://www.imdb.com/list/ls123456789
+        # Extract: ls123456789
+        match = re.search(r'imdb\.com/list/([^/?]+)', list_id)
+        if match:
+            return match.group(1)
+    
+    elif list_type_lower == 'letterboxd':
+        # Letterboxd URLs: https://letterboxd.com/username/list/listname/
+        # NOTE: Letterboxd stores the full URL in the database, so return as-is
+        return list_id
+    
+    elif list_type_lower == 'tmdb':
+        # TMDB URLs: https://www.themoviedb.org/list/12345
+        # Extract: 12345
+        match = re.search(r'themoviedb\.org/list/([^/?]+)', list_id)
+        if match:
+            return match.group(1)
+    
+    # For other types or if extraction fails, try to get the last meaningful segment
+    # This is a fallback that should work for most cases
+    from urllib.parse import urlparse
+    try:
+        parsed = urlparse(list_id.rstrip('/'))
+        path_parts = [p for p in parsed.path.split('/') if p]
+        if path_parts:
+            return path_parts[-1]
+    except Exception:
+        pass
+    
+    # If all else fails, return the original (though this might not match)
+    logging.warning(f"Could not normalize list_id for {list_type}: {list_id}, using as-is")
+    return list_id
+
+
 def get_deduplicated_items():
     """Get unique items with deduplication logic"""
     if not os.path.exists(DB_FILE):
@@ -353,8 +432,8 @@ def get_deduplicated_items():
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
         
-        # Get all synced items including year
-        cursor.execute("SELECT id, title, media_type, year, imdb_id, overseerr_id, status, last_synced FROM synced_items")
+        # Get all synced items including year and source list info
+        cursor.execute("SELECT id, title, media_type, year, imdb_id, overseerr_id, status, last_synced, source_list_type, source_list_id FROM synced_items")
         items = cursor.fetchall()
         
         unique_items = {}
@@ -371,7 +450,7 @@ def get_deduplicated_items():
         }
         
         for item in items:
-            item_id, title, media_type, year, imdb_id, overseerr_id, status, last_synced = item
+            item_id, title, media_type, year, imdb_id, overseerr_id, status, last_synced, source_list_type, source_list_id = item
             
             # Create unique key based on title and media type
             key = f"{title}_{media_type}".lower().strip()
@@ -1828,10 +1907,12 @@ async def test_overseerr_connection(data: dict):
     Expected data:
         - overseerr_url: str
         - overseerr_api_key: str
+        - overseerr_user_id: str (optional, defaults to "1")
     """
     try:
         overseerr_url = data.get('overseerr_url', '').strip().rstrip('/')
         overseerr_api_key = data.get('overseerr_api_key', '').strip()
+        overseerr_user_id = data.get('overseerr_user_id', '1').strip()
         
         # Basic validation
         if not overseerr_url:
@@ -1852,15 +1933,14 @@ async def test_overseerr_connection(data: dict):
                 "error": "URL must start with http:// or https://"
             }
         
-        # Test connection with an endpoint that REQUIRES authentication
-        # Use /api/v1/user which requires a valid API key
+        # Test connection by fetching user list and finding the default user
         try:
             headers = {"X-Api-Key": overseerr_api_key}
             
             logging.info(f"Testing Overseerr API key validation with endpoint: {overseerr_url}/api/v1/user")
             
-            # First test with /api/v1/user to validate API key (requires auth)
-            user_response = requests.get(f"{overseerr_url}/api/v1/user", headers=headers, timeout=10)
+            # Fetch all users to validate API key and get user info
+            user_response = requests.get(f"{overseerr_url}/api/v1/user", headers=headers, timeout=10, params={"take": 100})
             
             logging.info(f"Overseerr API key test response status: {user_response.status_code}")
             
@@ -1881,20 +1961,76 @@ async def test_overseerr_connection(data: dict):
             # Raise for other HTTP errors
             user_response.raise_for_status()
             
-            # Also test /api/v1/status to get version info (optional, but good to verify)
+            # Parse response to get user info
+            user_data = user_response.json()
+            users = user_data.get('results', [])
+            
+            # Save all users to database for future use
+            if users:
+                try:
+                    from list_sync.database import save_overseerr_users
+                    formatted_users = []
+                    for user in users:
+                        formatted_users.append({
+                            'id': str(user.get('id')),
+                            'display_name': user.get('displayName', user.get('username', 'Unknown')),
+                            'email': user.get('email', ''),
+                            'avatar': user.get('avatar', '')
+                        })
+                    save_overseerr_users(formatted_users)
+                    logging.info(f"Pre-populated {len(formatted_users)} Overseerr users to database during setup")
+                except Exception as e:
+                    # Don't fail the test if user save fails
+                    logging.warning(f"Failed to save users to database during setup: {e}")
+            
+            # Find the specified user (default is user ID 1)
+            default_user = None
+            for user in users:
+                if str(user.get('id')) == str(overseerr_user_id):
+                    default_user = user
+                    break
+            
+            if not default_user and users:
+                # If specified user not found, return error
+                logging.warning(f"User ID {overseerr_user_id} not found in Overseerr")
+                return {
+                    "valid": False,
+                    "error": f"User ID {overseerr_user_id} not found. Please check the User ID."
+                }
+            elif not users:
+                # No users found at all
+                logging.warning("No users found in Overseerr")
+                return {
+                    "valid": False,
+                    "error": "No users found in Overseerr. Please check your instance."
+                }
+            
+            # Also test /api/v1/status to get version info
             try:
                 status_response = requests.get(f"{overseerr_url}/api/v1/status", headers=headers, timeout=5)
                 status_data = status_response.json() if status_response.status_code == 200 else {}
             except:
                 status_data = {}
             
-            logging.info("Overseerr connection test successful - API key validated")
+            logging.info(f"Overseerr connection test successful - API key validated, found user: {default_user.get('displayName') or default_user.get('username')}")
+            
+            # Prepare user info for response
+            user_info = {
+                "id": default_user.get('id'),
+                "email": default_user.get('email', ''),
+                "username": default_user.get('username', ''),
+                "displayName": default_user.get('displayName', ''),
+                "plexUsername": default_user.get('plexUsername', ''),
+                "avatar": default_user.get('avatar', ''),
+                "requestCount": default_user.get('requestCount', 0),
+            }
             
             return {
                 "valid": True,
                 "message": "Overseerr connection successful",
                 "version": status_data.get("version", "Unknown"),
-                "updateAvailable": status_data.get("updateAvailable", False)
+                "updateAvailable": status_data.get("updateAvailable", False),
+                "user": user_info
             }
         except requests.exceptions.Timeout:
             return {
@@ -1927,6 +2063,119 @@ async def test_overseerr_connection(data: dict):
             "valid": False,
             "error": f"Unexpected error: {str(e)}"
         }
+
+
+@app.get("/api/overseerr/users")
+async def get_overseerr_users_endpoint():
+    """Get all Overseerr users from database"""
+    try:
+        from list_sync.database import get_overseerr_users
+        
+        users = get_overseerr_users()
+        
+        return {
+            "success": True,
+            "users": users,
+            "count": len(users)
+        }
+    except Exception as e:
+        logging.error(f"Error fetching Overseerr users: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/overseerr/users/sync")
+async def sync_overseerr_users_endpoint():
+    """Sync Overseerr users from Overseerr API to database"""
+    try:
+        from list_sync.config import ConfigManager
+        from list_sync.database import save_overseerr_users
+        from urllib.parse import quote
+        
+        # Get Overseerr credentials from config
+        config = ConfigManager()
+        overseerr_url = config.get_setting('overseerr_url')
+        overseerr_api_key = config.get_setting('overseerr_api_key')
+        
+        if not overseerr_url or not overseerr_api_key:
+            raise HTTPException(
+                status_code=400,
+                detail="Overseerr URL and API key must be configured"
+            )
+        
+        # Fetch users from Overseerr API
+        headers = {"X-Api-Key": overseerr_api_key}
+        
+        # Get all users (paginated)
+        all_users = []
+        page = 1
+        take = 100  # Max per page
+        
+        while True:
+            response = requests.get(
+                f"{overseerr_url.rstrip('/')}/api/v1/user",
+                headers=headers,
+                params={"take": take, "skip": (page - 1) * take},
+                timeout=10
+            )
+            
+            if response.status_code == 401:
+                raise HTTPException(status_code=401, detail="Invalid Overseerr API key")
+            
+            if response.status_code == 403:
+                raise HTTPException(status_code=403, detail="Overseerr API key lacks permissions")
+            
+            response.raise_for_status()
+            data = response.json()
+            
+            users = data.get('results', [])
+            if not users:
+                break
+            
+            all_users.extend(users)
+            
+            # Check if there are more pages
+            page_info = data.get('pageInfo', {})
+            if page_info.get('pages', 1) <= page:
+                break
+            
+            page += 1
+        
+        # Transform users to our format
+        formatted_users = []
+        for user in all_users:
+            avatar = user.get('avatar', '')
+            full_avatar = avatar
+            if avatar and overseerr_url and avatar.startswith('/'):
+                full_avatar = f"{overseerr_url.rstrip('/')}{avatar}"
+            
+            # Use proxy endpoint to enable caching on first use
+            proxied_avatar = None
+            if full_avatar and full_avatar.startswith(('http://', 'https://')):
+                proxied_avatar = f"/api/images/proxy?url={quote(full_avatar, safe='')}"
+            
+            formatted_users.append({
+                'id': str(user.get('id')),
+                'display_name': user.get('displayName', user.get('username', 'Unknown')),
+                'email': user.get('email', ''),
+                'avatar': proxied_avatar or full_avatar or ''
+            })
+        
+        # Save to database
+        save_overseerr_users(formatted_users)
+        
+        logging.info(f"Synced {len(formatted_users)} Overseerr users to database")
+        
+        return {
+            "success": True,
+            "message": f"Successfully synced {len(formatted_users)} users",
+            "users": formatted_users,
+            "count": len(formatted_users)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error syncing Overseerr users: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/setup/test/trakt")
@@ -2064,14 +2313,13 @@ async def test_trakt_client_id(data: dict):
 @app.post("/api/setup/step1/essential")
 async def save_step1_essential(data: dict):
     """
-    Save and validate Step 1: Essential configuration (Overseerr + Trakt).
+    Save and validate Step 1: Essential configuration (Overseerr).
     
     Expected data:
         - overseerr_url: str
         - overseerr_api_key: str
         - overseerr_user_id: str
         - overseerr_4k: bool
-        - trakt_client_id: str
     """
     try:
         from list_sync.config import ConfigManager
@@ -2091,19 +2339,15 @@ async def save_step1_essential(data: dict):
         if not overseerr_api_key:
             errors['overseerr_api_key'] = 'Overseerr API Key is required'
         
-        # Validate Trakt Client ID
-        trakt_client_id = data.get('trakt_client_id', '').strip()
-        if not trakt_client_id:
-            errors['trakt_client_id'] = 'Trakt Client ID is required'
-        
         # Test Overseerr connection if no errors so far
         # Use /api/v1/user endpoint which REQUIRES authentication to properly validate API key
         if not errors and overseerr_url and overseerr_api_key:
             try:
                 headers = {"X-Api-Key": overseerr_api_key}
+                overseerr_user_id = data.get('overseerr_user_id', '1').strip()
                 
-                # Test with /api/v1/user to validate API key (requires auth)
-                response = requests.get(f"{overseerr_url}/api/v1/user", headers=headers, timeout=10)
+                # Test with /api/v1/user to validate API key and get user info
+                response = requests.get(f"{overseerr_url}/api/v1/user", headers=headers, timeout=10, params={"take": 100})
                 
                 # If we get 401, the API key is invalid
                 if response.status_code == 401:
@@ -2116,7 +2360,17 @@ async def save_step1_essential(data: dict):
                 else:
                     # Raise for other HTTP errors
                     response.raise_for_status()
-                    logging.info("Overseerr connection test successful - API key validated")
+                    
+                    # Verify the specified user exists
+                    user_data = response.json()
+                    users = user_data.get('results', [])
+                    user_found = any(str(user.get('id')) == str(overseerr_user_id) for user in users)
+                    
+                    if not user_found and users:
+                        errors['overseerr_user_id'] = f'User ID {overseerr_user_id} not found in Overseerr.'
+                        logging.error(f"Overseerr user validation failed: User ID {overseerr_user_id} not found")
+                    else:
+                        logging.info("Overseerr connection test successful - API key validated")
             except requests.exceptions.Timeout:
                 errors['overseerr_url'] = 'Connection timeout. Check your Overseerr URL.'
             except requests.exceptions.ConnectionError:
@@ -2132,6 +2386,63 @@ async def save_step1_essential(data: dict):
             except requests.exceptions.RequestException as e:
                 errors['overseerr_url'] = f'Connection test failed: {str(e)}'
                 logging.error(f"Overseerr connection test failed: {e}")
+        
+        # If validation failed, return errors
+        if errors:
+            return {
+                "valid": False,
+                "errors": errors
+            }
+        
+        # Save settings to database
+        config.save_setting('overseerr_url', overseerr_url)
+        config.save_setting('overseerr_api_key', overseerr_api_key)
+        config.save_setting('overseerr_user_id', data.get('overseerr_user_id', '1'))
+        config.save_setting('overseerr_4k', data.get('overseerr_4k', False))
+        
+        logging.info("Step 1 (Essential) configuration saved")
+        
+        return {
+            "valid": True,
+            "message": "Essential configuration saved successfully"
+        }
+    except Exception as e:
+        logging.error(f"Error in step 1: {e}")
+        import traceback
+        logging.error(f"Traceback: {traceback.format_exc()}")
+        # Return error in same format as validation errors
+        return {
+            "valid": False,
+            "errors": {
+                "_general": f"An unexpected error occurred: {str(e)}"
+            }
+        }
+
+
+@app.post("/api/setup/step2/configuration")
+async def save_step2_configuration(data: dict):
+    """
+    Save and validate Step 2: Configuration (Trakt + Sync settings + Notifications).
+    
+    Expected data:
+        - trakt_client_id: str
+        - sync_interval: int
+        - auto_sync: bool
+        - timezone: str
+        - discord_webhook: str (optional)
+        - discord_enabled: bool
+    """
+    try:
+        from list_sync.config import ConfigManager
+        from list_sync.utils.timezone_utils import normalize_timezone_input
+        
+        config = ConfigManager()
+        errors = {}
+        
+        # Validate Trakt Client ID
+        trakt_client_id = data.get('trakt_client_id', '').strip()
+        if not trakt_client_id:
+            errors['trakt_client_id'] = 'Trakt Client ID is required'
         
         # Test Trakt Client ID if no errors so far
         if not errors and trakt_client_id:
@@ -2199,58 +2510,6 @@ async def save_step1_essential(data: dict):
                     errors['trakt_client_id'] = f'Validation failed: {str(e)}'
                     logging.error(f"Trakt Client ID validation failed: {e}")
         
-        # If validation failed, return errors
-        if errors:
-            return {
-                "valid": False,
-                "errors": errors
-            }
-        
-        # Save settings to database
-        config.save_setting('overseerr_url', overseerr_url)
-        config.save_setting('overseerr_api_key', overseerr_api_key)
-        config.save_setting('overseerr_user_id', data.get('overseerr_user_id', '1'))
-        config.save_setting('overseerr_4k', data.get('overseerr_4k', False))
-        config.save_setting('trakt_client_id', trakt_client_id)
-        
-        logging.info("Step 1 (Essential) configuration saved")
-        
-        return {
-            "valid": True,
-            "message": "Essential configuration saved successfully"
-        }
-    except Exception as e:
-        logging.error(f"Error in step 1: {e}")
-        import traceback
-        logging.error(f"Traceback: {traceback.format_exc()}")
-        # Return error in same format as validation errors
-        return {
-            "valid": False,
-            "errors": {
-                "_general": f"An unexpected error occurred: {str(e)}"
-            }
-        }
-
-
-@app.post("/api/setup/step2/configuration")
-async def save_step2_configuration(data: dict):
-    """
-    Save and validate Step 2: Configuration (Sync settings + Notifications).
-    
-    Expected data:
-        - sync_interval: int
-        - auto_sync: bool
-        - timezone: str
-        - discord_webhook: str (optional)
-        - discord_enabled: bool
-    """
-    try:
-        from list_sync.config import ConfigManager
-        from list_sync.utils.timezone_utils import normalize_timezone_input
-        
-        config = ConfigManager()
-        errors = {}
-        
         # Validate sync interval
         sync_interval = data.get('sync_interval', 24)
         try:
@@ -2286,6 +2545,7 @@ async def save_step2_configuration(data: dict):
             }
         
         # Save settings to database
+        config.save_setting('trakt_client_id', trakt_client_id)
         config.save_setting('sync_interval', sync_interval)
         config.save_setting('auto_sync', data.get('auto_sync', True))
         config.save_setting('timezone', timezone)
@@ -2789,7 +3049,7 @@ async def get_lists():
     try:
         lists = load_list_ids()
         
-        # Add display names and include item counts and last_synced with proper timezone conversion
+        # Add display names and include item counts, last_synced, and user_id with proper timezone conversion
         formatted_lists = []
         for i, list_item in enumerate(lists):
             # Extract clean display name from list ID (URL)
@@ -2852,7 +3112,8 @@ async def get_lists():
                 "list_url": list_item.get('url'),  # Include the stored URL
                 "display_name": display_name,
                 "item_count": list_item.get('item_count', 0),  # Include item count from database
-                "last_synced": last_synced  # Include converted last_synced timestamp
+                "last_synced": last_synced,  # Include converted last_synced timestamp
+                "user_id": list_item.get('user_id', '1')  # Include user_id for per-list user assignment
             })
         
         return {"lists": formatted_lists}
@@ -2899,6 +3160,7 @@ async def add_list(list_add: ListAdd):
         
         list_type = list_add.list_type
         list_id = list_add.list_id
+        user_id = list_add.user_id
         
         # Auto-detect special Trakt lists (trending:movies, popular:shows, etc.)
         if list_type == "trakt" and ':' in list_id:
@@ -2912,16 +3174,60 @@ async def add_list(list_add: ListAdd):
         # Generate the URL for the list
         list_url = construct_list_url(list_type, list_id)
         
-        # Save with the generated URL and default item count of 0
-        save_list_id(list_id, list_type, list_url, item_count=0)
+        # Save with the generated URL, default item count of 0, and user_id
+        save_list_id(list_id, list_type, list_url, item_count=0, user_id=user_id)
         
         return {
             "success": True,
             "message": f"Added {list_type} list: {list_id}",
             "list_url": list_url,
-            "item_count": 0
+            "item_count": 0,
+            "user_id": user_id
         }
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/lists/{list_type}/{list_id:path}/items")
+async def get_list_items_endpoint(list_type: str, list_id: str, limit: int = Query(20, ge=1, le=100)):
+    """Get items from a specific list with enriched metadata"""
+    try:
+        from list_sync.database import get_list_items, DB_FILE
+        import sqlite3
+        
+        items = get_list_items(list_type, list_id)
+        
+        # Get poster URLs from database
+        item_ids = [item['id'] for item in items[:limit]]
+        poster_url_map = {}
+        
+        if item_ids:
+            try:
+                with sqlite3.connect(DB_FILE) as conn:
+                    cursor = conn.cursor()
+                    placeholders = ','.join('?' * len(item_ids))
+                    cursor.execute(f"SELECT id, poster_url FROM synced_items WHERE id IN ({placeholders})", item_ids)
+                    for row in cursor.fetchall():
+                        poster_url_map[row[0]] = row[1]
+            except Exception as e:
+                logging.warning(f"Failed to fetch poster URLs: {e}")
+        
+        # Enrich items with poster URLs
+        limited_items = []
+        for item in items[:limit]:
+            enriched_item = {
+                **item,
+                "poster_url": poster_url_map.get(item['id'])
+            }
+            limited_items.append(enriched_item)
+        
+        return {
+            "items": limited_items,
+            "total": len(items),
+            "limit": limit,
+            "has_more": len(items) > limit
+        }
+    except Exception as e:
+        logging.error(f"Error fetching list items: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/api/lists/{list_type}/{list_id:path}")
@@ -2977,7 +3283,17 @@ async def get_items(page: int = Query(1, ge=1), limit: int = Query(50, ge=1, le=
         
         items = []
         for item in page_items:
-            item_id, title, media_type, year, imdb_id, overseerr_id, status, last_synced = item
+            item_id, title, media_type, year, imdb_id, overseerr_id, status, last_synced, source_list_type, source_list_id = item
+            
+            # Build list_sources from source columns
+            list_sources = []
+            if source_list_type and source_list_id:
+                list_sources.append({
+                    'list_type': source_list_type,
+                    'list_id': source_list_id,
+                    'display_name': None
+                })
+            
             items.append({
                 "id": item_id,
                 "title": title,
@@ -2987,7 +3303,7 @@ async def get_items(page: int = Query(1, ge=1), limit: int = Query(50, ge=1, le=
                 "overseerr_id": overseerr_id,
                 "status": status,
                 "last_synced": last_synced,
-                "list_sources": []  # Could be populated if needed
+                "list_sources": list_sources
             })
         
         return {
@@ -3014,19 +3330,58 @@ async def clear_enriched_cache():
     return {"message": f"Cleared {cache_size} cached entries", "success": True}
 
 @app.get("/api/items/enriched")
-async def get_enriched_items(page: int = Query(1, ge=1), limit: int = Query(50, ge=1, le=100)):
+async def get_enriched_items(
+    page: int = Query(1, ge=1), 
+    limit: int = Query(50, ge=1, le=100),
+    list_source: str = Query("", description="Filter by list source in format 'list_type:list_id'")
+):
     """Get synced items enriched with Trakt metadata (poster, rating, etc.)"""
     try:
         from list_sync.providers.trakt import get_trakt_metadata
         from list_sync.database import DB_FILE
         import time
         
+        # Debug: Check item_lists table
+        try:
+            with sqlite3.connect(DB_FILE) as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT COUNT(*) FROM item_lists")
+                item_lists_count = cursor.fetchone()[0]
+                logging.info(f"📊 item_lists table has {item_lists_count} entries")
+        except Exception as e:
+            logging.warning(f"Could not check item_lists table: {e}")
+        
         # Get base items (deduplicated)
         unique_items = get_deduplicated_items()
         
-        # Calculate pagination
+        # Filter by list source if specified (before pagination)
+        # Filter directly using source_list_type and source_list_id columns from synced_items
+        if list_source and list_source.strip():
+            try:
+                filter_list_type, filter_list_id = list_source.split(':', 1)
+                
+                # Normalize the list_id to match what's stored in database
+                normalized_list_id = normalize_list_id(filter_list_type, filter_list_id)
+                
+                logging.info(f"📋 Filtering by list {filter_list_type}:{filter_list_id} (normalized: {normalized_list_id})")
+                
+                # Filter items where source_list_type and source_list_id match
+                # Item tuple: (id, title, media_type, year, imdb_id, overseerr_id, status, last_synced, source_list_type, source_list_id)
+                before_count = len(unique_items)
+                unique_items = [
+                    item for item in unique_items 
+                    if (item[8] == filter_list_type and 
+                        (item[9] == normalized_list_id or item[9] == filter_list_id))
+                ]
+                
+                logging.info(f"📋 Filtered {before_count} items → {len(unique_items)} items match list {filter_list_type}:{filter_list_id}")
+            except ValueError:
+                # Invalid list_source format, ignore filter
+                logging.warning(f"Invalid list_source format: {list_source}, ignoring filter")
+        
+        # Calculate pagination on filtered items
         total = len(unique_items)
-        total_pages = (total + limit - 1) // limit
+        total_pages = (total + limit - 1) // limit if total > 0 else 0
         start = (page - 1) * limit
         end = start + limit
         
@@ -3043,15 +3398,18 @@ async def get_enriched_items(page: int = Query(1, ge=1), limit: int = Query(50, 
         config_tuple = load_env_config()
         overseerr_url = config_tuple[0] if config_tuple else None
         
-        # Batch fetch tmdb_ids and poster URLs from database (more efficient)
+        # Batch fetch tmdb_ids, poster URLs, and list sources from database (more efficient)
         item_ids = [item[0] for item in page_items]
         tmdb_id_map = {}
         poster_url_map = {}
+        item_lists_map = {}  # Map item_id to list of lists it belongs to
 
         try:
             with sqlite3.connect(DB_FILE) as conn:
                 cursor = conn.cursor()
                 placeholders = ','.join('?' * len(item_ids))
+                
+                # Fetch tmdb_ids and poster URLs
                 cursor.execute(f"SELECT id, tmdb_id, poster_url FROM synced_items WHERE id IN ({placeholders})", item_ids)
                 for row in cursor.fetchall():
                     item_db_id, tmdb_id, poster_url = row
@@ -3062,19 +3420,71 @@ async def get_enriched_items(page: int = Query(1, ge=1), limit: int = Query(50, 
                         except (ValueError, TypeError):
                             logging.warning(f"Invalid tmdb_id format for item {item_db_id}: {tmdb_id}")
                     poster_url_map[item_db_id] = poster_url
+                
+                # Batch fetch list sources for all items
+                # Check if display_name column exists in lists table
+                cursor.execute("PRAGMA table_info(lists)")
+                list_columns = [col[1] for col in cursor.fetchall()]
+                has_display_name = 'display_name' in list_columns
+                
+                if has_display_name:
+                    cursor.execute(f'''
+                        SELECT il.item_id, il.list_type, il.list_id, l.display_name
+                        FROM item_lists il
+                        LEFT JOIN lists l ON il.list_type = l.list_type AND il.list_id = l.list_id
+                        WHERE il.item_id IN ({placeholders})
+                        ORDER BY il.synced_at DESC
+                    ''', item_ids)
+                else:
+                    # Fallback: Don't join lists table, just get list_type and list_id
+                    cursor.execute(f'''
+                        SELECT il.item_id, il.list_type, il.list_id, NULL as display_name
+                        FROM item_lists il
+                        WHERE il.item_id IN ({placeholders})
+                        ORDER BY il.synced_at DESC
+                    ''', item_ids)
+                
+                for row in cursor.fetchall():
+                    item_db_id, list_type, list_id, display_name = row
+                    if item_db_id not in item_lists_map:
+                        item_lists_map[item_db_id] = []
+                    item_lists_map[item_db_id].append({
+                        'list_type': list_type,
+                        'list_id': list_id,
+                        'display_name': display_name
+                    })
+                
+                # Debug: Log how many items have list sources
+                items_with_sources = len([k for k, v in item_lists_map.items() if v])
+                logging.info(f"📦 Fetched list_sources for {items_with_sources}/{len(item_ids)} items")
+                if items_with_sources > 0:
+                    sample_item = next((k for k, v in item_lists_map.items() if v), None)
+                    if sample_item:
+                        logging.info(f"📋 Sample: Item {sample_item} has {len(item_lists_map[sample_item])} list(s): {item_lists_map[sample_item]}")
         except Exception as e:
-            logging.warning(f"Failed to batch fetch tmdb_ids and poster URLs: {e}")
+            logging.warning(f"Failed to batch fetch tmdb_ids, poster URLs, and list sources: {e}")
         
         enriched_items = []
         current_time = time.time()
         
         for item in page_items:
-            item_id, title, media_type, year, imdb_id, overseerr_id, status, last_synced = item
+            item_id, title, media_type, year, imdb_id, overseerr_id, status, last_synced, source_list_type, source_list_id = item
             
             # Get tmdb_id and poster_url from batch fetch
             tmdb_id = tmdb_id_map.get(item_id)
             cached_poster_url = poster_url_map.get(item_id)
 
+            # Get list sources for this item (from item_lists join table for multi-list support)
+            list_sources = item_lists_map.get(item_id, [])
+            
+            # If no list sources from item_lists, use the source_list columns as fallback
+            if not list_sources and source_list_type and source_list_id:
+                list_sources = [{
+                    'list_type': source_list_type,
+                    'list_id': source_list_id,
+                    'display_name': None
+                }]
+            
             # Create base enriched item
             enriched_item = {
                 "id": item_id,
@@ -3090,7 +3500,8 @@ async def get_enriched_items(page: int = Query(1, ge=1), limit: int = Query(50, 
                 "rating": None,
                 "overview": None,
                 "genres": [],
-                "overseerr_url": None
+                "overseerr_url": None,
+                "list_sources": list_sources  # Add list sources
             }
             
             # Construct Overseerr URL if available
@@ -3286,23 +3697,40 @@ async def get_current_time():
 async def trigger_manual_sync(sync_request: dict = None):
     """Trigger a manual sync by sending SIGUSR1 signal to ListSync process"""
     try:
+        from list_sync.utils.sync_status import clear_pause_until
         # Parse request body if provided
         sync_type = "all"  # default
         target_list = None
         
         if sync_request:
-            sync_type = sync_request.get("type", "all")  # "all", "single"
-            target_list = sync_request.get("list", None)  # {list_type: "imdb", list_id: "top"}
-            
-            # Also check for direct list_type/list_id (from our web UI)
-            if not target_list and sync_request.get("list_type") and sync_request.get("list_id"):
+            # CRITICAL: Check for direct list_type/list_id FIRST (from our web UI)
+            # This ensures single list sync requests are detected correctly
+            if sync_request.get("list_type") and sync_request.get("list_id"):
                 target_list = {
                     "list_type": sync_request["list_type"],
                     "list_id": sync_request["list_id"]
                 }
                 sync_type = "single"
+                print(f"DEBUG - Detected single list sync request: {target_list}")
+            else:
+                # Check for explicit type field or nested list object
+                sync_type = sync_request.get("type", "all")  # "all", "single"
+                target_list = sync_request.get("list", None)  # {list_type: "imdb", list_id: "top"}
+                
+                # If type is "single" but target_list is not set, try to extract from list object
+                if sync_type == "single" and target_list:
+                    if isinstance(target_list, dict) and "list_type" in target_list and "list_id" in target_list:
+                        # Already in correct format
+                        pass
+                    else:
+                        print(f"WARNING - Single sync type specified but target_list format is invalid: {target_list}")
         
-        print(f"DEBUG - Sync request: type={sync_type}, target={target_list}")
+        # Validation: If we have target_list but sync_type is not "single", correct it
+        if target_list and sync_type != "single":
+            print(f"WARNING - target_list detected but sync_type is '{sync_type}', correcting to 'single'")
+            sync_type = "single"
+        
+        print(f"DEBUG - Sync request parsed: type={sync_type}, target={target_list}, raw_request={sync_request}")
         
         # Find ListSync processes
         processes = find_listsync_processes()
@@ -3367,6 +3795,12 @@ async def trigger_manual_sync(sync_request: dict = None):
             os.environ.pop("SINGLE_LIST_ID", None)
             print(f"DEBUG - Cleared single list environment variables for full sync")
         
+        # Clear any pause (e.g., set after cancellation) so manual trigger runs immediately
+        try:
+            clear_pause_until()
+        except Exception as e:
+            print(f"WARNING - Could not clear pause before manual sync: {e}")
+        
         # Send SIGUSR1 signal to trigger sync (works for both single and full)
         signals_sent = []
         errors = []
@@ -3423,11 +3857,38 @@ async def trigger_manual_sync(sync_request: dict = None):
         print(f"Error triggering manual sync: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+def _run_sync_in_subprocess(list_type: str, list_id: str, overseerr_url: str, 
+                            overseerr_api_key: str, is_4k: bool, result_queue: multiprocessing.Queue):
+    """
+    Worker function to run sync in a subprocess.
+    This function is called by multiprocessing.Process.
+    """
+    try:
+        # Import inside subprocess to avoid issues
+        from list_sync.main import sync_single_list
+        from list_sync.utils.sync_status import get_sync_tracker
+        
+        # Set the subprocess PID in the tracker
+        sync_tracker = get_sync_tracker()
+        sync_tracker.set_subprocess_pid(os.getpid())
+        
+        result = sync_single_list(
+            list_type,
+            list_id,
+            overseerr_url,
+            overseerr_api_key,
+            None,  # Let sync_single_list fetch user_id from list's database record
+            is_4k
+        )
+        result_queue.put({"success": True, "result": result})
+    except Exception as e:
+        result_queue.put({"success": False, "error": str(e)})
+
+
 async def trigger_single_list_sync(target_list: dict, processes: list):
-    """Trigger sync for a single specific list"""
+    """Trigger sync for a single specific list using a terminable subprocess"""
     try:
         import tempfile
-        import shutil
         
         list_type = target_list.get("list_type")
         list_id = target_list.get("list_id")
@@ -3454,57 +3915,125 @@ async def trigger_single_list_sync(target_list: dict, processes: list):
             temp_file_path = temp_file.name
         
         try:
-            print(f"DEBUG - Attempting to import sync_single_list function...")
+            print(f"DEBUG - Attempting to import sync functions...")
             
-            # Import the main sync functions
-            from list_sync.main import sync_single_list
+            # Import the config loader
             from list_sync.config import load_env_config
+            from list_sync.utils.sync_status import get_sync_tracker
             
             print(f"DEBUG - Import successful, loading environment config...")
             
             # Load environment configuration
-            overseerr_url, overseerr_api_key, user_id, sync_interval, automated_mode, is_4k = load_env_config()
+            overseerr_url, overseerr_api_key, _, sync_interval, automated_mode, is_4k = load_env_config()
             
             print(f"DEBUG - Environment loaded. URL: {overseerr_url[:20] if overseerr_url else 'None'}...")
-            print(f"DEBUG - Starting sync execution with 60 second timeout...")
+            print(f"DEBUG - Starting sync in subprocess for immediate termination support...")
             
-            # Execute single list sync directly with timeout
-            try:
-                result = await asyncio.wait_for(
-                    asyncio.to_thread(
-                        sync_single_list,
-                        list_type,
-                        list_id,
-                        overseerr_url,
-                        overseerr_api_key,
-                        user_id,
-                        is_4k
-                    ),
-                    timeout=60.0  # 60 second timeout
-                )
+            # Create a queue to receive results from subprocess
+            result_queue = multiprocessing.Queue()
+            
+            # Create and start subprocess
+            sync_process = multiprocessing.Process(
+                target=_run_sync_in_subprocess,
+                args=(list_type, list_id, overseerr_url, overseerr_api_key, is_4k, result_queue)
+            )
+            sync_process.start()
+            subprocess_pid = sync_process.pid
+            
+            print(f"DEBUG - Sync subprocess started with PID {subprocess_pid}")
+            
+            # Register the subprocess PID in the tracker for immediate cancellation
+            sync_tracker = get_sync_tracker()
+            sync_tracker.set_subprocess_pid(subprocess_pid)
+            
+            # Wait for the subprocess with polling to allow for cancellation
+            timeout_seconds = 3600  # 1 hour timeout for long syncs
+            poll_interval = 0.5  # Check every 0.5 seconds
+            elapsed = 0
+            
+            while sync_process.is_alive() and elapsed < timeout_seconds:
+                await asyncio.sleep(poll_interval)
+                elapsed += poll_interval
                 
-                print(f"DEBUG - Sync completed successfully: {result}")
-                
-                return {
-                    "success": True,
-                    "sync_type": "single",
-                    "target_list": target_list,
-                    "message": f"Single list sync completed for {list_type}:{list_id}",
-                    "result": result,
-                    "timestamp": datetime.now().isoformat()
-                }
-                
-            except asyncio.TimeoutError:
-                print(f"ERROR - Sync timed out after 60 seconds")
+                # Check if cancellation was requested
+                if sync_tracker.is_cancellation_requested():
+                    print(f"DEBUG - Cancellation requested, terminating subprocess {subprocess_pid}")
+                    sync_process.terminate()
+                    sync_process.join(timeout=2)
+                    if sync_process.is_alive():
+                        sync_process.kill()
+                    sync_tracker.end_sync()
+                    return {
+                        "success": False,
+                        "sync_type": "single",
+                        "target_list": target_list,
+                        "message": f"Sync cancelled by user for {list_type}:{list_id}",
+                        "cancelled": True,
+                        "timestamp": datetime.now().isoformat()
+                    }
+            
+            # Check if process timed out
+            if sync_process.is_alive():
+                print(f"ERROR - Sync timed out after {timeout_seconds} seconds, terminating...")
+                sync_process.terminate()
+                sync_process.join(timeout=2)
+                if sync_process.is_alive():
+                    sync_process.kill()
+                sync_tracker.end_sync()
                 return {
                     "success": False,
                     "sync_type": "single",
                     "target_list": target_list,
                     "message": f"Single list sync timed out for {list_type}:{list_id}",
-                    "error": "Sync operation timed out after 60 seconds",
+                    "error": f"Sync operation timed out after {timeout_seconds} seconds",
                     "fallback_suggestion": "Try using 'Sync All Lists' or check if the list URL is accessible",
                     "timestamp": datetime.now().isoformat()
                 }
+            
+            # Process completed, get result
+            try:
+                result_data = result_queue.get_nowait()
+                if result_data.get("success"):
+                    print(f"DEBUG - Sync completed successfully: {result_data.get('result')}")
+                    return {
+                        "success": True,
+                        "sync_type": "single",
+                        "target_list": target_list,
+                        "message": f"Single list sync completed for {list_type}:{list_id}",
+                        "result": result_data.get("result"),
+                        "timestamp": datetime.now().isoformat()
+                    }
+                else:
+                    print(f"ERROR - Sync failed: {result_data.get('error')}")
+                    return {
+                        "success": False,
+                        "sync_type": "single",
+                        "target_list": target_list,
+                        "message": f"Single list sync failed for {list_type}:{list_id}",
+                        "error": result_data.get("error"),
+                        "timestamp": datetime.now().isoformat()
+                    }
+            except Exception as queue_error:
+                print(f"ERROR - Could not get result from queue: {queue_error}")
+                # Process exited but no result - check exit code
+                exit_code = sync_process.exitcode
+                if exit_code == 0:
+                    return {
+                        "success": True,
+                        "sync_type": "single",
+                        "target_list": target_list,
+                        "message": f"Single list sync completed for {list_type}:{list_id}",
+                        "timestamp": datetime.now().isoformat()
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "sync_type": "single",
+                        "target_list": target_list,
+                        "message": f"Single list sync failed for {list_type}:{list_id}",
+                        "error": f"Process exited with code {exit_code}",
+                        "timestamp": datetime.now().isoformat()
+                    }
             
         except ImportError as e:
             print(f"ERROR - Import failed: {e}")
@@ -3616,17 +4145,26 @@ async def get_sync_status():
 
 @app.post("/api/sync/{job_id}/cancel")
 async def cancel_sync(job_id: str):
-    """Cancel a running sync by sending SIGTERM signal to ListSync process"""
+    """Cancel a running sync - first gracefully via cancellation flag, then forcefully if needed"""
     try:
-        # Check if sync is running - use get_live_sync_status logic
-        # Call the endpoint function directly to avoid circular import
-        try:
-            live_status_response = await get_live_sync_status()
-            is_running = live_status_response.get("is_running", False)
-        except Exception as e:
-            logging.warning(f"Could not check live sync status: {e}")
-            # If we can't check status, still allow cancel attempt if process exists
-            is_running = True  # Assume running if we can't determine
+        from list_sync.utils.sync_status import (
+            get_sync_tracker,
+            set_cancel_request,
+            clear_cancel_request,
+            set_pause_until
+        )
+        from list_sync.database import DB_FILE, get_current_sync_status, end_sync_in_db, load_sync_interval
+        import asyncio
+        import psutil
+        import signal
+        from datetime import datetime, timedelta
+        
+        sync_tracker = get_sync_tracker()
+        
+        # Get current sync state from DATABASE (same source as /api/sync/status/live)
+        # This ensures cancel endpoint uses the same logic as the live status endpoint
+        db_sync_status = get_current_sync_status()
+        is_running = db_sync_status and db_sync_status.get('in_progress') == 1
         
         if not is_running:
             return {
@@ -3636,67 +4174,109 @@ async def cancel_sync(job_id: str):
                 "timestamp": datetime.now().isoformat()
             }
         
-        # Find ListSync processes
-        processes = find_listsync_processes()
+        # Extract sync info from database
+        session_id = db_sync_status.get('session_id')
         
-        if not processes:
-            return {
-                "success": False,
-                "message": "No ListSync process found",
-                "job_id": job_id,
-                "timestamp": datetime.now().isoformat()
-            }
+        # Prefer subprocess PID (actual worker); avoid killing parent to prevent restarts
+        tracker_state = sync_tracker.get_state()
+        target_pid = tracker_state.get("sync_subprocess_pid")
+        if not target_pid:
+            # Fallback to DB pid only if tracker not set
+            target_pid = db_sync_status.get('pid')
         
-        # Send SIGTERM signal to cancel sync (graceful shutdown)
-        signals_sent = []
-        errors = []
+        termination_method = None
+        terminated = False
         
-        for process in processes:
+        # Set cross-process cancel flag
+        if session_id:
+            set_cancel_request(session_id)
+        
+        # Resolve target PID; fallback to detected worker processes if needed
+        if not target_pid or not psutil.pid_exists(target_pid):
+            processes = find_listsync_processes()
+            for proc in processes:
+                if psutil.pid_exists(proc.pid):
+                    target_pid = proc.pid
+                    break
+        
+        # Always try to send SIGTERM immediately to the running sync process (different process than API)
+        if target_pid:
             try:
-                # Send SIGTERM for graceful shutdown
-                os.kill(process.pid, signal.SIGTERM)
-                signals_sent.append({
-                    "pid": process.pid,
-                    "status": "signal_sent",
-                    "signal": "SIGTERM"
-                })
-                logging.info(f"Sent SIGTERM signal to cancel sync for process PID {process.pid}")
-            except (psutil.NoSuchProcess, ProcessLookupError) as e:
-                errors.append({
-                    "pid": process.pid,
-                    "error": f"Process not found: {str(e)}"
-                })
-                logging.warning(f"Could not send signal to process {process.pid}: {e}")
-            except PermissionError as e:
-                errors.append({
-                    "pid": process.pid,
-                    "error": f"Permission denied: {str(e)}"
-                })
-                logging.error(f"Permission denied sending signal to process {process.pid}: {e}")
+                import os
+                import signal as sig
+                os.kill(target_pid, sig.SIGTERM)
+                termination_method = "SIGTERM"
+                logging.info(f"Sent SIGTERM to sync process PID {target_pid}")
             except Exception as e:
-                errors.append({
-                    "pid": process.pid,
-                    "error": f"Unexpected error: {str(e)}"
-                })
-                logging.error(f"Unexpected error canceling sync for process {process.pid}: {e}")
+                logging.error(f"Failed to send SIGTERM to PID {target_pid}: {e}")
         
-        if signals_sent:
-            return {
-                "success": True,
-                "message": f"Cancel signal sent to {len(signals_sent)} process(es)",
-                "job_id": job_id,
-                "processes": signals_sent,
-                "errors": errors if errors else None,
-                "timestamp": datetime.now().isoformat()
-            }
+            # Poll for exit, escalate if needed
+            for i in range(10):  # up to ~5s
+                await asyncio.sleep(0.5)
+                if not psutil.pid_exists(target_pid):
+                    terminated = True
+                    break
+            if not terminated and hasattr(signal, "SIGKILL"):
+                try:
+                    os.kill(target_pid, signal.SIGKILL)
+                    termination_method = "SIGKILL"
+                    logging.warning(f"Sent SIGKILL to sync process PID {target_pid}")
+                except Exception as e:
+                    logging.error(f"Failed to send SIGKILL to PID {target_pid}: {e}")
+                # Final short wait
+                for i in range(6):
+                    await asyncio.sleep(0.5)
+                    if not psutil.pid_exists(target_pid):
+                        terminated = True
+                        break
+            elif not terminated:
+                termination_method = termination_method or "SIGTERM"
         else:
-            return {
-                "success": False,
-                "message": "Failed to send cancel signal to any process",
-                "job_id": job_id,
-                "errors": errors,
-                "timestamp": datetime.now().isoformat()
-            }
+            logging.error("No valid target PID found for cancellation")
+        
+        # Mark cancellation in DB only if we have session_id
+        if session_id:
+            try:
+                end_sync_in_db(
+                    session_id=session_id,
+                    status='cancelled',
+                    total_items=db_sync_status.get('total_items', 0) or 0,
+                    items_requested=db_sync_status.get('items_requested', 0) or 0,
+                    items_skipped=db_sync_status.get('items_skipped', 0) or 0,
+                    items_errors=db_sync_status.get('items_errors', 0) or 0,
+                    error_message="Cancelled via /cancel endpoint"
+                )
+                clear_cancel_request(session_id)
+                logging.info(f"Marked sync session {session_id} as cancelled in database")
+            except Exception as e:
+                logging.error(f"Error updating database for cancelled sync: {e}")
+            
+            # Set pause-until based on current interval to avoid immediate restart
+            pause_until = None
+            try:
+                interval_hours = load_sync_interval()
+                if interval_hours <= 0:
+                    interval_hours = 1  # safe minimum
+                pause_until = datetime.utcnow() + timedelta(hours=interval_hours)
+                set_pause_until(pause_until.isoformat())
+                logging.info(f"⏸️  Pausing automated syncs until {pause_until.isoformat()} after cancellation")
+            except Exception as e:
+                logging.warning(f"Could not set pause after cancellation: {e}")
+        
+        # Clear tracker state locally
+        sync_tracker.end_sync()
+        
+        return {
+            "success": terminated,
+            "message": "Sync cancelled" if terminated else "Cancellation requested; process may still be shutting down",
+            "job_id": job_id,
+            "terminated": terminated,
+            "termination_method": termination_method,
+            "target_pid": target_pid,
+            "session_id": session_id,
+            "pause_until": pause_until.isoformat() if session_id and 'pause_until' in locals() and pause_until else None,
+            "timestamp": datetime.now().isoformat()
+        }
         
     except Exception as e:
         logging.error(f"Error canceling sync: {e}")
@@ -3836,7 +4416,8 @@ async def get_processed_items(
     limit: int = Query(50, ge=1, le=100),
     search: str = Query("", description="Search term to filter items by title"),
     status_filter: str = Query("", description="Filter by status"),
-    media_type_filter: str = Query("", description="Filter by media type (movie/tv)")
+    media_type_filter: str = Query("", description="Filter by media type (movie/tv)"),
+    list_source: str = Query("", description="Filter by list source in format 'list_type:list_id'")
 ):
     """Get all processed items from historic log data with search/filter and pagination"""
     try:
@@ -3853,12 +4434,69 @@ async def get_processed_items(
         except:
             overseerr_base_url = None
         
-        # Add overseerr_url to items
+        # Batch fetch list sources for all items (before filtering)
+        item_ids = [item.get('id') for item in all_items if item.get('id')]
+        item_lists_map = {}  # Map item_id to list of lists it belongs to
+        
+        if item_ids:
+            try:
+                with sqlite3.connect(DB_FILE) as conn:
+                    cursor = conn.cursor()
+                    placeholders = ','.join('?' * len(item_ids))
+                    
+                    # Batch fetch list sources for all items
+                    # Check if display_name column exists in lists table
+                    cursor.execute("PRAGMA table_info(lists)")
+                    list_columns = [col[1] for col in cursor.fetchall()]
+                    has_display_name = 'display_name' in list_columns
+                    
+                    if has_display_name:
+                        cursor.execute(f'''
+                            SELECT il.item_id, il.list_type, il.list_id, l.display_name
+                            FROM item_lists il
+                            LEFT JOIN lists l ON il.list_type = l.list_type AND il.list_id = l.list_id
+                            WHERE il.item_id IN ({placeholders})
+                            ORDER BY il.synced_at DESC
+                        ''', item_ids)
+                    else:
+                        # Fallback: Don't join lists table, just get list_type and list_id
+                        cursor.execute(f'''
+                            SELECT il.item_id, il.list_type, il.list_id, NULL as display_name
+                            FROM item_lists il
+                            WHERE il.item_id IN ({placeholders})
+                            ORDER BY il.synced_at DESC
+                        ''', item_ids)
+                    
+                    for row in cursor.fetchall():
+                        item_db_id, list_type, list_id, display_name = row
+                        if item_db_id not in item_lists_map:
+                            item_lists_map[item_db_id] = []
+                        item_lists_map[item_db_id].append({
+                            'list_type': list_type,
+                            'list_id': list_id,
+                            'display_name': display_name
+                        })
+            except Exception as e:
+                logging.warning(f"Failed to batch fetch list sources: {e}")
+        
+        # Add overseerr_url and list_sources to items
         for item in all_items:
             if overseerr_base_url and item.get('overseerr_id'):
                 item['overseerr_url'] = f"{overseerr_base_url}/{item['media_type']}/{item['overseerr_id']}"
             else:
                 item['overseerr_url'] = None
+            
+            # Add list sources from item_lists table
+            item_id = item.get('id')
+            item['list_sources'] = item_lists_map.get(item_id, [])
+            
+            # If no list sources from item_lists, use the source_list columns as fallback
+            if not item['list_sources'] and item.get('source_list_type') and item.get('source_list_id'):
+                item['list_sources'] = [{
+                    'list_type': item['source_list_type'],
+                    'list_id': item['source_list_id'],
+                    'display_name': None
+                }]
         
         # Apply filters BEFORE pagination
         filtered_items = all_items
@@ -3885,6 +4523,30 @@ async def get_processed_items(
                 if item["media_type"] == media_type_filter
             ]
         
+        # List source filter
+        if list_source and list_source.strip():
+            try:
+                filter_list_type, filter_list_id = list_source.split(':', 1)
+                
+                # Normalize the list_id to match what's stored in item_lists table
+                normalized_list_id = normalize_list_id(filter_list_type, filter_list_id)
+                
+                logging.info(f"📋 Filtering processed items by list {filter_list_type}:{filter_list_id} (normalized: {normalized_list_id})")
+                
+                # Filter items that have this list in their list_sources
+                filtered_items = [
+                    item for item in filtered_items
+                    if any(
+                        source['list_type'] == filter_list_type and 
+                        (source['list_id'] == normalized_list_id or source['list_id'] == filter_list_id)
+                        for source in item.get('list_sources', [])
+                    )
+                ]
+                
+                logging.info(f"📊 After list filtering: {len(filtered_items)} items match")
+            except ValueError:
+                logging.warning(f"Invalid list_source format: {list_source}, expected 'list_type:list_id'")
+        
         # Calculate pagination on filtered results
         total_items = len(filtered_items)
         total_pages = (total_items + limit - 1) // limit if total_items > 0 else 0
@@ -3903,7 +4565,8 @@ async def get_processed_items(
             "filters": {
                 "search": search,
                 "status_filter": status_filter,
-                "media_type_filter": media_type_filter
+                "media_type_filter": media_type_filter,
+                "list_source": list_source
             },
             "pagination": {
                 "page": page,
@@ -4216,26 +4879,27 @@ async def get_collections(
 
 @app.get("/api/collections/random")
 async def get_random_collections(count: int = Query(5, ge=1, le=20, description="Number of random collections to return")):
-    """Get random collections from the full database (only collections with 3+ movies)"""
+    """Get random collections from the full database (only collections with 3+ movies) - cached for performance"""
     try:
         import random
         from list_sync.providers.collections import get_all_collections
         
+        # Use cached collections data (already cached in collections.py)
         collections = get_all_collections()
-        logging.info(f"Found {len(collections)} total collections for random selection")
         
-        # Filter to only collections with 3 or more movies
-        filtered_collections = [
-            c for c in collections 
-            if c and c.get("franchise") and c.get("totalMovies", 0) >= 3
-        ]
-        logging.info(f"Filtered to {len(filtered_collections)} collections with 3+ movies")
+        # Filter to only collections with 3 or more movies (do this once, cache the result)
+        if not hasattr(get_random_collections, '_filtered_cache'):
+            get_random_collections._filtered_cache = [
+                c for c in collections 
+                if c and c.get("franchise") and c.get("totalMovies", 0) >= 3
+            ]
+            logging.info(f"Cached {len(get_random_collections._filtered_cache)} collections with 3+ movies for random selection")
+        
+        filtered_collections = get_random_collections._filtered_cache
         
         if len(filtered_collections) == 0:
             logging.warning("No collections with 3+ movies available for random selection")
-            return {
-                "collections": []
-            }
+            return {"collections": []}
         
         # Get random sample from filtered collections
         if len(filtered_collections) <= count:
@@ -4258,10 +4922,7 @@ async def get_random_collections(count: int = Query(5, ge=1, le=20, description=
                 }
                 validated_collections.append(validated_collection)
         
-        logging.info(f"Returning {len(validated_collections)} random collections")
-        return {
-            "collections": validated_collections
-        }
+        return {"collections": validated_collections}
     except Exception as e:
         logging.error(f"Error getting random collections: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -4580,7 +5241,7 @@ async def request_single_media(request: Request):
             }
         
         # Request the media
-        request_status = overseerr_client.request_media(overseerr_id, media_type, is_4k)
+        request_status = overseerr_client.request_media(overseerr_id, media_type, is_4k, requester_user_id=None)
         
         if request_status == "success":
             return {
@@ -4611,13 +5272,43 @@ async def request_single_media(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _run_collection_sync_in_subprocess(list_type: str, list_id: str, overseerr_url: str, 
+                                       overseerr_api_key: str, user_id: str, is_4k: bool, 
+                                       result_queue: multiprocessing.Queue):
+    """
+    Worker function to run collection sync in a subprocess.
+    This function is called by multiprocessing.Process.
+    """
+    try:
+        # Import inside subprocess to avoid issues
+        from list_sync.main import sync_single_list
+        from list_sync.utils.sync_status import get_sync_tracker
+        
+        # Set the subprocess PID in the tracker
+        sync_tracker = get_sync_tracker()
+        sync_tracker.set_subprocess_pid(os.getpid())
+        
+        result = sync_single_list(
+            list_type,
+            list_id,
+            overseerr_url,
+            overseerr_api_key,
+            user_id,
+            is_4k,
+            False  # dry_run
+        )
+        result_queue.put({"success": True, "result": result})
+    except Exception as e:
+        result_queue.put({"success": False, "error": str(e)})
+
+
 @app.post("/api/collections/{franchise_name}/sync")
 async def sync_collection(franchise_name: str):
-    """Sync a collection to Overseerr using the same flow as single list sync"""
+    """Sync a collection to Overseerr using a terminable subprocess"""
     try:
         from urllib.parse import unquote
         from list_sync.config import load_env_config
-        from list_sync.main import sync_single_list
+        from list_sync.utils.sync_status import get_sync_tracker
         
         # URL decode the franchise name
         decoded_name = unquote(franchise_name)
@@ -4630,41 +5321,96 @@ async def sync_collection(franchise_name: str):
         overseerr_url, api_key, requester_user_id = config_tuple[0], config_tuple[1], config_tuple[2] or "1"
         is_4k = config_tuple[5] if len(config_tuple) > 5 else False
         
-        # Use sync_single_list which handles:
-        # - Session ID generation
-        # - Database tracking (start_sync_in_db, end_sync_in_db)
-        # - Proper logging with boundaries
-        # - Batching via sync_media_to_overseerr
-        # - All the same flow as regular list syncs
-        result = await asyncio.to_thread(
-            sync_single_list,
-            "collections",  # list_type
-            decoded_name,   # list_id (franchise name)
-            overseerr_url,
-            api_key,
-            requester_user_id,
-            is_4k,
-            False  # dry_run
-        )
+        # Create a queue to receive results from subprocess
+        result_queue = multiprocessing.Queue()
         
-        if result.get("success", False):
-            return {
-                "success": True,
-                "franchise": decoded_name,
-                "items_processed": result.get("items_processed", 0),
-                "items_requested": result.get("items_requested", 0),
-                "items_already_available": result.get("items_already_available", 0),
-                "items_already_requested": result.get("items_already_requested", 0),
-                "items_skipped": result.get("items_skipped", 0),
-                "items_not_found": result.get("items_not_found", 0),
-                "errors": result.get("errors", 0),
-                "message": result.get("message", "Collection synced successfully")
-            }
-        else:
-            raise HTTPException(
-                status_code=500,
-                detail=result.get("message", "Collection sync failed")
-            )
+        # Create and start subprocess for immediate termination support
+        sync_process = multiprocessing.Process(
+            target=_run_collection_sync_in_subprocess,
+            args=("collections", decoded_name, overseerr_url, api_key, requester_user_id, is_4k, result_queue)
+        )
+        sync_process.start()
+        subprocess_pid = sync_process.pid
+        
+        logging.info(f"Collection sync subprocess started with PID {subprocess_pid}")
+        
+        # Register the subprocess PID in the tracker for immediate cancellation
+        sync_tracker = get_sync_tracker()
+        sync_tracker.set_subprocess_pid(subprocess_pid)
+        
+        # Wait for the subprocess with polling to allow for cancellation
+        timeout_seconds = 3600  # 1 hour timeout
+        poll_interval = 0.5
+        elapsed = 0
+        
+        while sync_process.is_alive() and elapsed < timeout_seconds:
+            await asyncio.sleep(poll_interval)
+            elapsed += poll_interval
+            
+            # Check if cancellation was requested
+            if sync_tracker.is_cancellation_requested():
+                logging.info(f"Cancellation requested, terminating collection sync subprocess {subprocess_pid}")
+                sync_process.terminate()
+                sync_process.join(timeout=2)
+                if sync_process.is_alive():
+                    sync_process.kill()
+                sync_tracker.end_sync()
+                return {
+                    "success": False,
+                    "franchise": decoded_name,
+                    "message": "Collection sync cancelled by user",
+                    "cancelled": True
+                }
+        
+        # Check if process timed out
+        if sync_process.is_alive():
+            logging.error(f"Collection sync timed out after {timeout_seconds} seconds")
+            sync_process.terminate()
+            sync_process.join(timeout=2)
+            if sync_process.is_alive():
+                sync_process.kill()
+            sync_tracker.end_sync()
+            raise HTTPException(status_code=500, detail="Collection sync timed out")
+        
+        # Get result from queue
+        try:
+            result_data = result_queue.get_nowait()
+            if result_data.get("success"):
+                result = result_data.get("result", {})
+                if result.get("success", False):
+                    return {
+                        "success": True,
+                        "franchise": decoded_name,
+                        "items_processed": result.get("items_processed", 0),
+                        "items_requested": result.get("items_requested", 0),
+                        "items_already_available": result.get("items_already_available", 0),
+                        "items_already_requested": result.get("items_already_requested", 0),
+                        "items_skipped": result.get("items_skipped", 0),
+                        "items_not_found": result.get("items_not_found", 0),
+                        "errors": result.get("errors", 0),
+                        "message": result.get("message", "Collection synced successfully")
+                    }
+                else:
+                    raise HTTPException(
+                        status_code=500,
+                        detail=result.get("message", "Collection sync failed")
+                    )
+            else:
+                raise HTTPException(status_code=500, detail=result_data.get("error", "Collection sync failed"))
+        except HTTPException:
+            raise
+        except Exception as queue_error:
+            logging.warning(f"Could not get result from queue: {queue_error}")
+            exit_code = sync_process.exitcode
+            if exit_code == 0:
+                return {
+                    "success": True,
+                    "franchise": decoded_name,
+                    "message": "Collection synced"
+                }
+            else:
+                raise HTTPException(status_code=500, detail=f"Collection sync process exited with code {exit_code}")
+                
     except HTTPException:
         raise
     except Exception as e:
@@ -5781,7 +6527,9 @@ async def get_live_sync_status():
     """Get real-time sync status by checking database"""
     try:
         # Import database function
-        from list_sync.database import get_current_sync_status
+        from list_sync.database import get_current_sync_status, end_sync_in_db
+        import psutil
+        from list_sync.utils.sync_status import get_sync_tracker
         
         # Get current sync status from database
         sync_status = get_current_sync_status()
@@ -5790,6 +6538,50 @@ async def get_live_sync_status():
             # Sync is currently running
             sync_type = sync_status.get('sync_type', 'unknown')
             status = f"running_{sync_type}" if sync_type != 'unknown' else "running"
+            session_id = sync_status.get('session_id')
+            pid = sync_status.get('pid')
+
+            # Detect stale "in progress" records (no running process and tracker says idle)
+            tracker_running = False
+            try:
+                tracker_running = get_sync_tracker().is_sync_running()
+            except Exception:
+                tracker_running = False
+
+            pid_running = False
+            if pid:
+                try:
+                    pid_running = psutil.pid_exists(pid)
+                except Exception:
+                    pid_running = False
+
+            if not pid_running and not tracker_running:
+                # Auto-clear stale state so UI doesn't remain stuck
+                try:
+                    end_sync_in_db(
+                        session_id=session_id,
+                        status='completed',
+                        total_items=sync_status.get('total_items', 0) or 0,
+                        items_requested=sync_status.get('items_requested', 0) or 0,
+                        items_skipped=sync_status.get('items_skipped', 0) or 0,
+                        items_errors=sync_status.get('items_errors', 0) or 0,
+                        error_message="Auto-cleared stale in_progress flag (no running process detected)"
+                    )
+                except Exception as e:
+                    logging.warning(f"Failed to auto-clear stale sync state for {session_id}: {e}")
+
+                return {
+                    "is_running": False,
+                    "status": "idle",
+                    "sync_type": None,
+                    "session_id": None,
+                    "start_time": None,
+                    "duration_seconds": None,
+                    "list_type": None,
+                    "list_id": None,
+                    "pid": None,
+                    "timestamp": datetime.now().isoformat()
+                }
             
             # Calculate duration if start time is available
             duration = None
@@ -6026,13 +6818,20 @@ async def update_settings(settings: dict):
     """
     Update application settings - saves to database with encryption for sensitive fields.
     Changes take effect immediately (no restart required).
+    
+    Note: Masked values (****...) from sensitive fields are automatically detected
+    and skipped to preserve existing encrypted values in the database.
     """
     try:
         from list_sync.config import ConfigManager
         
         config = ConfigManager()
         
+        logging.info(f"Saving {len(settings)} settings to database")
+        
         # Save all settings to database
+        # The save_setting method will automatically skip masked placeholders
+        # for sensitive fields to prevent overwriting real API keys
         for key, value in settings.items():
             config.save_setting(key, value)
         
@@ -6044,7 +6843,7 @@ async def update_settings(settings: dict):
             except:
                 pass
         
-        logging.info(f"Settings updated: {len(settings)} fields saved to database")
+        logging.info(f"Settings update complete: {len(settings)} fields processed")
         
         return {
             "success": True,
@@ -6177,18 +6976,26 @@ def enrich_historic_data_with_database(historic_items):
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
         
-        # Get all database items with their IDs and year
+        # Get all database items with their IDs, year, and source list info
         try:
-            cursor.execute("SELECT title, media_type, imdb_id, overseerr_id, status, year FROM synced_items")
+            cursor.execute("SELECT title, media_type, imdb_id, overseerr_id, status, year, source_list_type, source_list_id FROM synced_items")
             db_items = cursor.fetchall()
         except sqlite3.OperationalError as e:
-            # If year column doesn't exist, try without it
-            print(f"Warning: Could not fetch year from database: {e}")
-            cursor.execute("SELECT title, media_type, imdb_id, overseerr_id, status FROM synced_items")
-            db_items_without_year = cursor.fetchall()
-            # Convert to format with year=None
-            db_items = [(title, media_type, imdb_id, overseerr_id, status, None) 
-                       for title, media_type, imdb_id, overseerr_id, status in db_items_without_year]
+            # If year or source list columns don't exist, try without them
+            print(f"Warning: Could not fetch all columns from database: {e}")
+            try:
+                cursor.execute("SELECT title, media_type, imdb_id, overseerr_id, status, year FROM synced_items")
+                db_items_without_source = cursor.fetchall()
+                # Convert to format with source_list_type and source_list_id as None
+                db_items = [(title, media_type, imdb_id, overseerr_id, status, year, None, None) 
+                           for title, media_type, imdb_id, overseerr_id, status, year in db_items_without_source]
+            except sqlite3.OperationalError:
+                # If year column also doesn't exist
+                cursor.execute("SELECT title, media_type, imdb_id, overseerr_id, status FROM synced_items")
+                db_items_minimal = cursor.fetchall()
+                # Convert to format with year, source_list_type and source_list_id as None
+                db_items = [(title, media_type, imdb_id, overseerr_id, status, None, None, None) 
+                           for title, media_type, imdb_id, overseerr_id, status in db_items_minimal]
         
         conn.close()
         
@@ -6197,7 +7004,7 @@ def enrich_historic_data_with_database(historic_items):
         db_lookup = {}
         db_lookup_by_title = {}  # Fallback lookup by title only
         
-        for title, media_type, imdb_id, overseerr_id, status, year in db_items:
+        for title, media_type, imdb_id, overseerr_id, status, year, source_list_type, source_list_id in db_items:
             key = f"{title.lower().strip()}_{media_type}"
             title_key = title.lower().strip()
             
@@ -6207,7 +7014,9 @@ def enrich_historic_data_with_database(historic_items):
                     "imdb_id": imdb_id,
                     "overseerr_id": overseerr_id,
                     "db_status": status,
-                    "year": year
+                    "year": year,
+                    "source_list_type": source_list_type,
+                    "source_list_id": source_list_id
                 }
             
             # Store by title only as fallback (prefer more recent entries)
@@ -6217,7 +7026,9 @@ def enrich_historic_data_with_database(historic_items):
                     "imdb_id": imdb_id,
                     "overseerr_id": overseerr_id,
                     "db_status": status,
-                    "year": year
+                    "year": year,
+                    "source_list_type": source_list_type,
+                    "source_list_id": source_list_id
                 }
         
         print(f"DEBUG: Loaded {len(db_lookup)} items from database, sample years: {[v['year'] for v in list(db_lookup.values())[:5]]}")
@@ -6243,6 +7054,8 @@ def enrich_historic_data_with_database(historic_items):
                 item['imdb_id'] = db_data['imdb_id']
                 item['overseerr_id'] = db_data['overseerr_id']
                 item['db_status'] = db_data['db_status']
+                item['source_list_type'] = db_data.get('source_list_type')
+                item['source_list_id'] = db_data.get('source_list_id')
                 # Use database year if available (it's more reliable than log parsing)
                 if db_data['year']:
                     item['year'] = db_data['year']
@@ -6250,6 +7063,8 @@ def enrich_historic_data_with_database(historic_items):
                 item['imdb_id'] = None
                 item['overseerr_id'] = None
                 item['db_status'] = None
+                item['source_list_type'] = None
+                item['source_list_id'] = None
                 # Keep the media_type and year from log parsing if no database match
         
         return historic_items
@@ -6266,6 +7081,10 @@ def enrich_historic_data_with_database(historic_items):
                 item['overseerr_id'] = None
             if not item.get('db_status'):
                 item['db_status'] = None
+            if not item.get('source_list_type'):
+                item['source_list_type'] = None
+            if not item.get('source_list_id'):
+                item['source_list_id'] = None
         return historic_items
 
 
@@ -6357,11 +7176,14 @@ class SyncLogParser:
     SINGLE_SYNC_START_ALT = r'Starting single list sync for\s+(.+)'
     SYNC_SUMMARY_START = r'(Soluify - List Sync Summary|={50,})'
     SYNC_SUMMARY_DASHES = r'^[-─═]{50,}$'
+    # Sync complete markers (new format)
+    SYNC_COMPLETE_PATTERN = r'==========\s+SYNC COMPLETE\s+\[(FULL|SINGLE)\]\s+- Session:\s+([^\s]+)\s+(?:- List:\s+[^\s]+\s+)?- Status:\s+(\w+)\s+=========='
     # Pattern to detect "Not Found Items" section header (optional - only if there are failures)
     NOT_FOUND_SECTION = r'Not Found Items \((\d+)\)'
     
     # List fetching
-    LIST_FETCH_START = r'🔍\s+Fetching items from (\w+) list:\s+(.+?)\.\.\.?$'
+    # Updated to handle the new message format with "(check backend logs...)" suffix
+    LIST_FETCH_START = r'🔍\s+Fetching items from (\w+) list:\s+(.+?)(?:\.\.\.|\.\.\.?\s+\(check backend logs|$)'
     LIST_FETCH_SUCCESS = r'✅\s+Found (\d+) items in (\w+) list:\s+(.+?)$'
     
     # Processing
@@ -6465,16 +7287,24 @@ class SyncLogParser:
     
     def detect_session_end(self, line: str, session_type: SyncType) -> bool:
         """Detect if line marks end of a sync session."""
-        # Both full and single syncs end with the same summary pattern
-        # "Soluify - List Sync Summary" or the dashed line separator
+        # Check for new SYNC COMPLETE marker first (most reliable)
+        if re.search(self.SYNC_COMPLETE_PATTERN, line):
+            return True
+        # Fallback to old patterns: "Soluify - List Sync Summary" or the dashed line separator
         return bool(re.search(self.SYNC_SUMMARY_START, line) or 
                    re.search(self.SYNC_SUMMARY_DASHES, line))
     
     def parse_list_fetch(self, line: str) -> Optional[tuple]:
         """Parse list fetching line."""
+        # Try the updated pattern first (handles new message format)
         fetch_match = re.search(self.LIST_FETCH_START, line)
         if fetch_match:
-            return (fetch_match.group(1), fetch_match.group(2), None)
+            list_type = fetch_match.group(1)
+            list_id = fetch_match.group(2).strip()
+            # Clean up list_id - remove trailing dots and any parenthetical text
+            list_id = re.sub(r'\.\.\.+.*$', '', list_id).strip()
+            list_id = re.sub(r'\s*\(.*$', '', list_id).strip()
+            return (list_type, list_id, None)
         
         success_match = re.search(self.LIST_FETCH_SUCCESS, line)
         if success_match:
@@ -6692,8 +7522,15 @@ class SyncLogParser:
             # Detect session end
             if self.detect_session_end(line_content, current_session.type):
                 # Session end detected
-                # Set end timestamp to the current line's timestamp or last seen
-                current_session.end_timestamp = timestamp or last_timestamp_in_session or datetime.now().isoformat()
+                # Set end timestamp to the current line's timestamp (preferred) or last seen
+                # The SYNC COMPLETE marker should have a timestamp, so use it if available
+                if timestamp:
+                    current_session.end_timestamp = timestamp
+                elif last_timestamp_in_session:
+                    current_session.end_timestamp = last_timestamp_in_session
+                else:
+                    # Fallback to current time if no timestamp found
+                    current_session.end_timestamp = datetime.now().isoformat()
                 
                 # Calculate duration if both timestamps exist
                 if current_session.start_timestamp and current_session.end_timestamp:
@@ -6701,7 +7538,8 @@ class SyncLogParser:
                         start = datetime.fromisoformat(current_session.start_timestamp)
                         end = datetime.fromisoformat(current_session.end_timestamp)
                         current_session.duration = (end - start).total_seconds()
-                    except:
+                    except Exception as e:
+                        logging.warning(f"Failed to calculate duration: {e}")
                         pass
                 
                 current_session.status = "completed"
@@ -6709,6 +7547,7 @@ class SyncLogParser:
                 sessions.append(current_session)
                 current_session = None
                 in_summary = False
+                last_timestamp_in_session = None
         
         # Handle unclosed session
         if current_session:
@@ -6785,7 +7624,7 @@ async def get_sync_history(
     """
     parser = SyncLogParser()
     
-    # Try different log locations
+    # Try different log locations (check most recent first)
     log_paths = [
         "/var/log/supervisor/listsync-core.log",
         "logs/listsync-core.log",
@@ -6796,8 +7635,14 @@ async def get_sync_history(
     sessions = []
     for log_path in log_paths:
         if os.path.exists(log_path):
-            sessions = parser.parse_log_file(log_path)
-            break
+            try:
+                # Force fresh read by checking file modification time
+                # This ensures we get the latest sync data
+                sessions = parser.parse_log_file(log_path)
+                break
+            except Exception as e:
+                logging.error(f"Error parsing log file {log_path}: {e}")
+                continue
     
     # Filter by type
     if type:
@@ -6817,6 +7662,24 @@ async def get_sync_history(
             sessions = [s for s in sessions if datetime.fromisoformat(s.start_timestamp) <= end_dt]
         except:
             pass
+    
+    # Don't filter out sessions - show all syncs even if lists weren't parsed correctly
+    # The stats endpoint counts all sessions, so we should too for consistency
+    # If a session doesn't have lists but has items/results, it's still a valid sync
+    # Only filter out completely empty sessions (no items, no results, no lists)
+    def is_valid_session(session):
+        # Session is valid if it has lists, items, or results
+        has_lists = session.lists and len(session.lists) > 0
+        has_items = len(session.items) > 0
+        has_results = (session.results.requested > 0 or 
+                      session.results.already_available > 0 or
+                      session.results.already_requested > 0 or
+                      session.results.skipped > 0 or
+                      session.results.not_found > 0 or
+                      session.results.error > 0)
+        return has_lists or has_items or has_results
+    
+    sessions = [s for s in sessions if is_valid_session(s)]
     
     # Sort by most recent first
     sessions.sort(key=lambda x: x.start_timestamp, reverse=True)
@@ -6848,11 +7711,32 @@ async def get_sync_history_stats():
     sessions = []
     for log_path in log_paths:
         if os.path.exists(log_path):
-            sessions = parser.parse_log_file(log_path)
-            break
+            try:
+                sessions = parser.parse_log_file(log_path)
+                break
+            except Exception as e:
+                logging.error(f"Error parsing log file {log_path} for stats: {e}")
+                continue
     
     if not sessions:
         return {"error": "No sync sessions found"}
+    
+    # Apply same filtering as main endpoint for consistency
+    def is_valid_session(session):
+        has_lists = session.lists and len(session.lists) > 0
+        has_items = len(session.items) > 0
+        has_results = (session.results.requested > 0 or 
+                      session.results.already_available > 0 or
+                      session.results.already_requested > 0 or
+                      session.results.skipped > 0 or
+                      session.results.not_found > 0 or
+                      session.results.error > 0)
+        return has_lists or has_items or has_results
+    
+    sessions = [s for s in sessions if is_valid_session(s)]
+    
+    if not sessions:
+        return {"error": "No valid sync sessions found"}
     
     # Calculate statistics
     total_sessions = len(sessions)
@@ -6869,18 +7753,20 @@ async def get_sync_history_stats():
     # Average per sync
     avg_items = total_items / total_sessions if total_sessions > 0 else 0
     
-    # Recent syncs (last 24h, 7d, 30d)
+    # Recent syncs (last 24h, 7d, 30d) - use timedelta for accurate time comparison
+    from datetime import timedelta
     now = datetime.now()
-    last_24h = [s for s in sessions if (now - datetime.fromisoformat(s.start_timestamp)).days < 1]
-    last_7d = [s for s in sessions if (now - datetime.fromisoformat(s.start_timestamp)).days < 7]
-    last_30d = [s for s in sessions if (now - datetime.fromisoformat(s.start_timestamp)).days < 30]
+    last_24h = [s for s in sessions if (now - datetime.fromisoformat(s.start_timestamp)) < timedelta(days=1)]
+    last_7d = [s for s in sessions if (now - datetime.fromisoformat(s.start_timestamp)) < timedelta(days=7)]
+    last_30d = [s for s in sessions if (now - datetime.fromisoformat(s.start_timestamp)) < timedelta(days=30)]
     
     # Most synced lists
     list_counts = {}
     for session in sessions:
-        for lst in session.lists:
-            key = f"{lst.type}:{lst.id}"
-            list_counts[key] = list_counts.get(key, 0) + 1
+        if session.lists:  # Only iterate if lists exist
+            for lst in session.lists:
+                key = f"{lst.type}:{lst.id}"
+                list_counts[key] = list_counts.get(key, 0) + 1
     
     most_synced = sorted(list_counts.items(), key=lambda x: x[1], reverse=True)[:10]
     

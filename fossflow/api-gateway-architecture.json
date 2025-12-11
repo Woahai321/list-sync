@@ -1,0 +1,22 @@
+{
+  "t": "API Gateway Architecture",
+  "i": [
+    ["API Client", "user", "External request source"],
+    ["FastAPI Gateway", "api", "Request router and validator"],
+    ["Auth Middleware", "security", "API key validation"],
+    ["System Routes", "server", "Health and status endpoints"],
+    ["List Routes", "storage", "List CRUD operations"],
+    ["Sync Routes", "function", "Sync trigger endpoints"],
+    ["Analytics Routes", "monitor", "Stats and metrics"],
+    ["SQLite Database", "storage", "Data persistence layer"],
+    ["Core Sync Engine", "server", "Python sync service"]
+  ],
+  "v": [
+    [
+      [[0, -14, 0], [1, -6, 0], [2, 0, 0], [3, 6, -6], [4, 6, -2], [5, 6, 2], [6, 6, 6], [7, 14, 0], [8, 14, 6]],
+      [[0, 1], [1, 2], [2, 3], [2, 4], [2, 5], [2, 6], [3, 7], [4, 7], [5, 8], [6, 7]]
+    ]
+  ],
+  "_": { "f": "compact", "v": "1.0" }
+}
+

@@ -95,22 +95,6 @@
           </p>
         </div>
       </div>
-
-      <!-- Help Box -->
-      <div class="bg-info/10 border border-info/20 rounded-lg p-4">
-        <div class="flex items-start gap-2">
-          <InfoIcon class="w-5 h-5 text-info flex-shrink-0" />
-          <div class="text-sm">
-            <p class="font-medium text-info mb-1">How to get a Discord Webhook</p>
-            <ol class="text-muted-foreground space-y-1 list-decimal list-inside">
-              <li>Go to your Discord server settings</li>
-              <li>Navigate to Integrations → Webhooks</li>
-              <li>Click "New Webhook" and copy the URL</li>
-              <li>Paste the URL above and click "Send Test"</li>
-            </ol>
-          </div>
-        </div>
-      </div>
     </div>
   </Card>
 </template>

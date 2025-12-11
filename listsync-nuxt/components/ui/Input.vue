@@ -109,7 +109,8 @@ const inputClasses = computed(() => {
     'text-base sm:text-sm',  // Larger text on mobile for better readability
     'text-foreground placeholder:text-muted-foreground/60',
     'focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:ring-offset-0',
-    'hover:border-purple-500/40',  // Hover state
+    'focus:scale-[1.01]',  // Subtle scale on focus
+    'hover:border-purple-500/40 hover:shadow-sm hover:shadow-purple-500/10',  // Hover state with glow
     'disabled:opacity-50 disabled:cursor-not-allowed',
     'px-4 py-2.5 sm:py-2',  // More padding on mobile
     'touch-manipulation',  // Better touch handling

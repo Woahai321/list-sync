@@ -257,23 +257,19 @@ def construct_list_url(list_type: str, list_id: str) -> str:
                 'popular:movies': 'https://trakt.tv/movies/popular',
                 'anticipated:movies': 'https://trakt.tv/movies/anticipated',
                 'watched:movies': 'https://trakt.tv/movies/watched',
-                'collected:movies': 'https://trakt.tv/movies/collected',
-                'recommendations:movies': 'https://trakt.tv/movies/recommendations',
                 'boxoffice:movies': 'https://trakt.tv/movies/boxoffice',
                 # TV Shows
                 'trending:shows': 'https://trakt.tv/shows/trending',
                 'popular:shows': 'https://trakt.tv/shows/popular',
                 'anticipated:shows': 'https://trakt.tv/shows/anticipated',
-                'watched:shows': 'https://trakt.tv/shows/watched',
-                'collected:shows': 'https://trakt.tv/shows/collected',
-                'recommendations:shows': 'https://trakt.tv/shows/recommendations'
+                'watched:shows': 'https://trakt.tv/shows/watched'
             }
             
             if list_id in special_mappings:
                 return special_mappings[list_id]
             
             # If not in mappings, try to construct from the list_id format
-            if list_id.startswith(('trending', 'popular', 'anticipated', 'watched', 'collected', 'recommendations', 'boxoffice')):
+            if list_id.startswith(('trending', 'popular', 'anticipated', 'watched', 'boxoffice')):
                 parts = list_id.split(':') if ':' in list_id else [list_id, 'movies']  # Default to movies
                 if len(parts) == 2:
                     list_name, media_type = parts

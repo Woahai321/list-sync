@@ -120,12 +120,12 @@ def add_list_to_sync():
                 elif 'trakt.tv' in list_id:
                     # Check if this is a special Trakt list
                     special_patterns = [
-                        '/movies/trending', '/movies/recommendations', '/movies/streaming',
+                        '/movies/trending', '/movies/streaming',
                         '/movies/anticipated', '/movies/popular', '/movies/favorited',
-                        '/movies/watched', '/movies/collected', '/movies/boxoffice',
-                        '/shows/trending', '/shows/recommendations', '/shows/streaming',
+                        '/movies/watched', '/movies/boxoffice',
+                        '/shows/trending', '/shows/streaming',
                         '/shows/anticipated', '/shows/popular', '/shows/favorited',
-                        '/shows/watched', '/shows/collected'
+                        '/shows/watched'
                     ]
                     
                     is_special_list = False
@@ -246,12 +246,12 @@ def one_time_list_sync(overseerr_client, run_sync_func):
                 elif 'trakt.tv' in list_id:
                     # Check if this is a special Trakt list
                     special_patterns = [
-                        '/movies/trending', '/movies/recommendations', '/movies/streaming',
+                        '/movies/trending', '/movies/streaming',
                         '/movies/anticipated', '/movies/popular', '/movies/favorited',
-                        '/movies/watched', '/movies/collected', '/movies/boxoffice',
-                        '/shows/trending', '/shows/recommendations', '/shows/streaming',
+                        '/movies/watched', '/movies/boxoffice',
+                        '/shows/trending', '/shows/streaming',
                         '/shows/anticipated', '/shows/popular', '/shows/favorited',
-                        '/shows/watched', '/shows/collected'
+                        '/shows/watched'
                     ]
                     
                     is_special_list = False

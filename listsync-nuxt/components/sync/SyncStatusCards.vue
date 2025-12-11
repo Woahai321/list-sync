@@ -1,9 +1,9 @@
 <template>
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-    <!-- Current Status Card -->
-    <Card class="glass-card border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
-      <div class="flex items-start gap-2.5">
-        <div class="p-2 rounded-lg bg-gradient-to-br from-purple-600/20 to-purple-500/10 border border-purple-500/30">
+  <Card class="glass-card border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
+    <div class="grid grid-cols-1 gap-4 p-4 sm:p-6">
+      <!-- Current Status -->
+      <div class="flex items-start gap-3">
+        <div class="p-2 rounded-lg bg-gradient-to-br from-purple-600/20 to-purple-500/10 border border-purple-500/30 group-hover:border-purple-400/50 transition-colors flex-shrink-0">
           <component
             :is="statusIcon"
             :class="[
@@ -13,11 +13,11 @@
           />
         </div>
 
-        <div class="flex-1">
+        <div class="flex-1 min-w-0">
           <div class="text-[10px] text-muted-foreground mb-1 font-medium uppercase tracking-wide">
             Current Status
           </div>
-          <div class="text-base font-bold mb-1 titillium-web-bold leading-none">
+          <div class="text-base font-bold mb-1.5 titillium-web-bold leading-none">
             {{ statusText }}
           </div>
           <Badge :variant="statusBadgeVariant" class="text-[10px]">
@@ -25,16 +25,17 @@
           </Badge>
         </div>
       </div>
-    </Card>
 
-    <!-- Last Sync Card -->
-    <Card class="glass-card border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
-      <div class="flex items-start gap-2.5">
-        <div class="p-2 rounded-lg bg-gradient-to-br from-purple-500/18 to-purple-400/9 border border-purple-400/28">
+      <!-- Divider -->
+      <div class="border-t border-purple-500/20"></div>
+
+      <!-- Last Sync -->
+      <div class="flex items-start gap-3">
+        <div class="p-2 rounded-lg bg-gradient-to-br from-purple-500/18 to-purple-400/9 border border-purple-400/28 group-hover:border-purple-300/45 transition-colors flex-shrink-0">
           <ClockIcon class="w-4 h-4 text-purple-300" />
         </div>
 
-        <div class="flex-1">
+        <div class="flex-1 min-w-0">
           <div class="text-[10px] text-muted-foreground mb-1 font-medium uppercase tracking-wide">
             Last Sync
           </div>
@@ -46,16 +47,17 @@
           </div>
         </div>
       </div>
-    </Card>
 
-    <!-- Next Sync Card -->
-    <Card class="glass-card border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
-      <div class="flex items-start gap-2.5">
-        <div class="p-2 rounded-lg bg-gradient-to-br from-purple-400/20 to-purple-300/10 border border-purple-300/30">
+      <!-- Divider -->
+      <div class="border-t border-purple-500/20"></div>
+
+      <!-- Next Sync -->
+      <div class="flex items-start gap-3">
+        <div class="p-2 rounded-lg bg-gradient-to-br from-purple-400/20 to-purple-300/10 border border-purple-300/30 group-hover:border-purple-200/45 transition-colors flex-shrink-0">
           <CalendarIcon class="w-4 h-4 text-purple-200" />
         </div>
 
-        <div class="flex-1">
+        <div class="flex-1 min-w-0">
           <div class="text-[10px] text-muted-foreground mb-1 font-medium uppercase tracking-wide">
             Next Sync
           </div>
@@ -67,8 +69,8 @@
           </div>
         </div>
       </div>
-    </Card>
-  </div>
+    </div>
+  </Card>
 </template>
 
 <script setup lang="ts">

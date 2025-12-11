@@ -1,0 +1,22 @@
+{
+  "t": "List Processing Pipeline",
+  "i": [
+    ["Fetch Media", "function", "Initiate list collection"],
+    ["IMDb Provider", "cloud", "Scrape IMDb lists and charts"],
+    ["Trakt Provider", "cloud", "Fetch Trakt watchlists"],
+    ["Letterboxd Provider", "cloud", "Parse Letterboxd pages"],
+    ["MDBList Provider", "cloud", "Query MDBList collections"],
+    ["Steven Lu Provider", "api", "JSON API for popular movies"],
+    ["Collect All Media", "queue", "Aggregate results"],
+    ["Deduplicate", "function", "Filter by IMDb ID"],
+    ["Return Unique Media", "storage", "Final processed list"]
+  ],
+  "v": [
+    [
+      [[0, -12, 0], [1, -4, -8], [2, -4, -4], [3, -4, 0], [4, -4, 4], [5, -4, 8], [6, 6, 0], [7, 14, 0], [8, 22, 0]],
+      [[0, 1], [0, 2], [0, 3], [0, 4], [0, 5], [1, 6], [2, 6], [3, 6], [4, 6], [5, 6], [6, 7], [7, 8]]
+    ]
+  ],
+  "_": { "f": "compact", "v": "1.0" }
+}
+

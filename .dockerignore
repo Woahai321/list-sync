@@ -39,6 +39,13 @@ yarn-error.log*
 out/
 build/
 
+# Nuxt.js build artifacts
+.nuxt/
+.output/
+listsync-nuxt/.nuxt/
+listsync-nuxt/.output/
+listsync-nuxt/node_modules/
+
 # Environment files (will be mounted)
 .env.local
 .env.development.local

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "list-sync"
-version = "0.6.5"
+version = "0.6.6"
 description = "Sync your watchlists from IMDb, Trakt, and Letterboxd with Overseerr/Jellyseerr"
 authors = ["Soluify"]
 readme = "README.md"

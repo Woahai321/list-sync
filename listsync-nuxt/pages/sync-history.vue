@@ -24,13 +24,13 @@
     </div>
 
     <!-- Quick Stats -->
-    <div v-if="stats" class="grid grid-cols-1 md:grid-cols-4 gap-3">
+    <div v-if="stats && stats.recent_stats" class="grid grid-cols-1 md:grid-cols-4 gap-3">
       <Card variant="hover" class="group/stat cursor-default border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
         <div class="flex items-center justify-between">
           <div class="flex-1">
             <p class="text-[10px] text-muted-foreground mb-1 font-medium">Total Syncs (7d)</p>
             <p class="text-2xl font-bold text-foreground tabular-nums leading-none">
-              <AnimatedCounter :value="stats.recent_stats.last_7d" />
+              <AnimatedCounter :value="stats.recent_stats?.last_7d || 0" />
             </p>
           </div>
           <div class="p-2 rounded-lg bg-gradient-to-br from-purple-600/20 to-purple-500/10 border border-purple-500/30 group-hover/stat:border-purple-400/50 transition-all duration-300">
@@ -44,7 +44,7 @@
           <div class="flex-1">
             <p class="text-[10px] text-muted-foreground mb-1 font-medium">Items Processed</p>
             <p class="text-2xl font-bold text-foreground tabular-nums leading-none">
-              <AnimatedCounter :value="stats.total_items_processed" />
+              <AnimatedCounter :value="stats.total_items_processed || 0" />
             </p>
           </div>
           <div class="p-2 rounded-lg bg-gradient-to-br from-purple-500/18 to-purple-400/9 border border-purple-400/28 group-hover/stat:border-purple-300/45 transition-all duration-300">
@@ -58,7 +58,7 @@
           <div class="flex-1">
             <p class="text-[10px] text-muted-foreground mb-1 font-medium">Success Rate</p>
             <p class="text-2xl font-bold text-foreground tabular-nums leading-none">
-              {{ stats.success_rate.toFixed(1) }}<span class="text-lg">%</span>
+              {{ (stats.success_rate || 0).toFixed(1) }}<span class="text-lg">%</span>
             </p>
           </div>
           <div class="p-2 rounded-lg bg-gradient-to-br from-purple-400/20 to-purple-300/10 border border-purple-300/30 group-hover/stat:border-purple-200/45 transition-all duration-300">
@@ -72,7 +72,7 @@
           <div class="flex-1">
             <p class="text-[10px] text-muted-foreground mb-1 font-medium">Avg Duration</p>
             <p class="text-2xl font-bold text-foreground tabular-nums leading-none">
-              {{ formatDuration(stats.avg_duration_seconds) }}
+              {{ formatDuration(stats.avg_duration_seconds || null) }}
             </p>
           </div>
           <div class="p-2 rounded-lg bg-gradient-to-br from-purple-300/20 to-purple-200/10 border border-purple-200/30 group-hover/stat:border-purple-100/45 transition-all duration-300">
@@ -147,6 +147,7 @@
           v-for="session in sessions"
           :key="session.id"
           :session="session"
+          @click="openSessionDetails(session)"
         />
       </div>
 
@@ -171,6 +172,12 @@
         </Button>
       </div>
     </template>
+
+    <!-- Sync Details Modal -->
+    <SyncDetailsModal
+      v-model="showDetailsModal"
+      :session="selectedSession"
+    />
 
   </div>
 </template>
@@ -200,6 +207,10 @@ const stats = ref<SyncHistoryStats | null>(null)
 const totalSessions = ref(0)
 const currentOffset = ref(0)
 const limit = 20
+
+// Modal state
+const showDetailsModal = ref(false)
+const selectedSession = ref<SyncHistorySession | null>(null)
 
 // Filters
 const filters = ref({
@@ -266,9 +277,17 @@ const loadSyncHistory = async (append: boolean = false) => {
 
 const loadStats = async () => {
   try {
-    stats.value = await api.getSyncHistoryStats()
+    const response = await api.getSyncHistoryStats()
+    // Handle error response from API
+    if (response && 'error' in response) {
+      console.warn('Sync history stats error:', response.error)
+      stats.value = null
+    } else {
+      stats.value = response
+    }
   } catch (error: any) {
     console.error('Error loading sync history stats:', error)
+    stats.value = null
   }
 }
 
@@ -302,6 +321,10 @@ const clearFilters = () => {
   loadSyncHistory()
 }
 
+const openSessionDetails = (session: SyncHistorySession) => {
+  selectedSession.value = session
+  showDetailsModal.value = true
+}
 
 // Utilities
 const formatDuration = (seconds: number | null): string => {

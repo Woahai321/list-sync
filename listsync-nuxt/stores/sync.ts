@@ -211,11 +211,56 @@ export const useSyncStore = defineStore('sync', {
     },
 
     /**
-     * Stop sync (if supported by API)
+     * Stop/cancel a running sync
      */
     async stopSync() {
-      this.isRunning = false
-      this.status = 'stopped'
+      if (!this.isRunning && !this.liveSyncStatus?.is_running) {
+        throw new Error('No sync is currently running')
+      }
+
+      this.loading = true
+      this.error = null
+
+      try {
+        const api = useApiService()
+        
+        // Update state immediately for instant UI feedback
+        this.status = 'stopping'
+        this.isRunning = false
+        
+        // Use 'current' as job_id for the currently running sync
+        await api.cancelSync('current')
+        
+        // Aggressive polling to detect cancellation quickly
+        // Poll every 500ms for up to 5 seconds
+        let pollAttempts = 0
+        const maxPollAttempts = 10 // 10 attempts * 500ms = 5 seconds
+        
+        const pollForCancellation = async () => {
+          if (pollAttempts >= maxPollAttempts) {
+            console.warn('Max poll attempts reached while waiting for cancellation')
+            return
+          }
+          
+          await this.fetchLiveSyncStatus()
+          pollAttempts++
+          
+          // If still running, poll again
+          if (this.liveSyncStatus?.is_running && pollAttempts < maxPollAttempts) {
+            setTimeout(pollForCancellation, 500)
+          }
+        }
+        
+        // Start polling
+        setTimeout(pollForCancellation, 500)
+        
+      } catch (err: any) {
+        this.error = err.message || 'Failed to stop sync'
+        console.error('Error stopping sync:', err)
+        throw err
+      } finally {
+        this.loading = false
+      }
     },
 
     /**

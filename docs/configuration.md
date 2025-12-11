@@ -109,9 +109,7 @@ TRAKT_SPECIAL_ITEMS_LIMIT=50
 | **Trending** | `trending:movies` | `trending:shows` |
 | **Popular** | `popular:movies` | `popular:shows` |
 | **Anticipated** | `anticipated:movies` | `anticipated:shows` |
-| **Recommendations** | `recommendations:movies` | `recommendations:shows` |
 | **Watched** | `watched:movies` | `watched:shows` |
-| **Collected** | `collected:movies` | `collected:shows` |
 | **Favorited** | `favorited:movies` | `favorited:shows` |
 
 **Special List Settings:**

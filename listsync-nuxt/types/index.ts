@@ -26,6 +26,7 @@ export interface List {
   item_count: number
   status?: string
   last_synced?: string
+  user_id?: string
 }
 
 export interface MediaItem {
@@ -68,6 +69,15 @@ export interface ConnectionStatus {
 export interface CreateListRequest {
   list_type: 'imdb' | 'trakt' | 'trakt_special' | 'letterboxd' | 'mdblist' | 'stevenlu' | 'tmdb' | 'simkl' | 'tvdb'
   list_id: string
+  user_id?: string
+}
+
+export interface OverseerrUser {
+  id: string
+  display_name: string
+  email: string
+  avatar: string
+  last_synced?: string
 }
 
 export interface UpdateConfigRequest {
@@ -326,6 +336,11 @@ export interface EnrichedMediaItem {
   tmdb_id?: number
   list_name?: string
   last_synced?: string
+  list_sources?: Array<{
+    list_type: string
+    list_id: string
+    display_name?: string
+  }>
 }
 
 export interface FailedItem {

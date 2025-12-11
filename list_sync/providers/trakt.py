@@ -10,7 +10,7 @@ from typing import List, Dict, Any, Optional
 import requests
 from dotenv import load_dotenv
 
-from . import register_provider
+from . import register_provider, check_and_raise_if_cancelled, SyncCancelledException
 
 # Load environment variables
 if os.path.exists('.env'):
@@ -338,8 +338,15 @@ def fetch_trakt_list(list_id: str) -> List[Dict[str, Any]]:
         
         logging.info(f"Found {len(items)} items in list")
         
+        # Check for cancellation before processing items
+        check_and_raise_if_cancelled()
+        
         # Parse each item
-        for item in items:
+        for idx, item in enumerate(items):
+            # Check for cancellation every 20 items
+            if idx > 0 and idx % 20 == 0:
+                check_and_raise_if_cancelled()
+            
             media = extract_media_from_list_item(item)
             if media:
                 media_items.append({
@@ -358,6 +365,10 @@ def fetch_trakt_list(list_id: str) -> List[Dict[str, Any]]:
         
         logging.info(f"Trakt list {list_id} fetched successfully. Found {len(media_items)} items.")
         return media_items
+    
+    except SyncCancelledException:
+        logging.warning(f"⚠️ Trakt list fetch cancelled by user - returning {len(media_items)} items fetched so far")
+        raise
         
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == 404:
@@ -406,6 +417,9 @@ def fetch_trakt_special_list(url_or_shortcut: str) -> List[Dict[str, Any]]:
         total_items_fetched = 0
         
         while total_items_fetched < items_limit:
+            # Check for cancellation at the start of each page
+            check_and_raise_if_cancelled()
+            
             # Calculate how many items we need for this page
             items_needed = items_limit - total_items_fetched
             page_limit = min(items_needed, 100)  # API max is typically 100 per page
@@ -464,6 +478,10 @@ def fetch_trakt_special_list(url_or_shortcut: str) -> List[Dict[str, Any]]:
             f"(target: {items_limit})."
         )
         return media_items
+    
+    except SyncCancelledException:
+        logging.warning(f"⚠️ Trakt special list fetch cancelled by user - returning {len(media_items)} items fetched so far")
+        raise
         
     except requests.exceptions.HTTPError as e:
         request_url = f"{TRAKT_BASE_URL}{endpoint}"
@@ -516,9 +534,9 @@ def parse_special_list_url(url_or_shortcut: str) -> str:
         # Valid patterns for special lists
         valid_patterns = [
             # Movies
-            (r'trakt\.tv/movies/(trending|recommendations|streaming|anticipated|popular|favorited|watched|collected|boxoffice)', r'/movies/\1'),
+            (r'trakt\.tv/movies/(trending|streaming|anticipated|popular|favorited|watched|boxoffice)', r'/movies/\1'),
             # Shows
-            (r'trakt\.tv/shows/(trending|recommendations|streaming|anticipated|popular|favorited|watched|collected)', r'/shows/\1'),
+            (r'trakt\.tv/shows/(trending|streaming|anticipated|popular|favorited|watched)', r'/shows/\1'),
         ]
         
         for pattern, replacement in valid_patterns:

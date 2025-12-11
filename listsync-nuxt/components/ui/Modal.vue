@@ -3,7 +3,7 @@
     <Transition name="modal">
       <div
         v-if="modelValue"
-        class="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4"
         @click.self="handleBackdropClick"
       >
         <!-- Backdrop -->
@@ -12,7 +12,7 @@
         <!-- Modal Content -->
         <div
           :class="modalClasses"
-          class="relative z-10 w-full rounded-t-3xl sm:rounded-2xl glass-card shadow-2xl"
+          class="relative z-10 w-full rounded-2xl glass-card shadow-2xl max-h-[90vh] overflow-hidden"
           role="dialog"
           aria-modal="true"
         >
@@ -57,7 +57,7 @@ import { X as XIcon } from 'lucide-vue-next'
 interface Props {
   modelValue: boolean
   title?: string
-  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full'
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | 'full'
   closable?: boolean
   closeOnBackdrop?: boolean
 }
@@ -91,7 +91,8 @@ const modalClasses = computed(() => {
     lg: 'max-w-lg',
     xl: 'max-w-xl',
     '2xl': 'max-w-2xl',
-    full: 'sm:max-w-7xl',
+    '3xl': 'max-w-[95vw] sm:max-w-4xl',
+    full: 'max-w-[95vw] sm:max-w-5xl lg:max-w-6xl',
   }
 
   return sizeClasses[props.size]
@@ -100,9 +101,17 @@ const modalClasses = computed(() => {
 const bodyClasses = computed(() => {
   // For full-size modals, use more height
   if (props.size === 'full') {
-    return 'px-4 sm:px-6 py-3 sm:py-4 max-h-[75vh] sm:max-h-[80vh] overflow-y-auto custom-scrollbar'
+    return 'px-4 sm:px-6 py-3 sm:py-4 max-h-[80vh] sm:max-h-[80vh] overflow-y-auto custom-scrollbar'
   }
-  return 'px-4 sm:px-6 py-3 sm:py-4 max-h-[70vh] overflow-y-auto custom-scrollbar'
+  // For 3xl modals, let content control its own layout (for split-panel layouts like AddListModal)
+  if (props.size === '3xl') {
+    return 'px-4 sm:px-6 py-3 sm:py-4'
+  }
+  // For 2xl modals, let content control its own height/overflow (for split-panel layouts)
+  if (props.size === '2xl') {
+    return 'px-4 sm:px-6 py-3 sm:py-4'
+  }
+  return 'px-4 sm:px-6 py-3 sm:py-4 max-h-[75vh] sm:max-h-[70vh] overflow-y-auto custom-scrollbar'
 })
 
 // Lock body scroll when modal is open

@@ -6,6 +6,7 @@
  * - Tracks load state for animations and placeholders
  * - Automatically cleans up observers
  * - Handles errors gracefully
+ * - Watches for URL changes (handles async poster loading)
  */
 
 export function useLazyImage(imageUrl: Ref<string | null | undefined>) {
@@ -16,9 +17,27 @@ export function useLazyImage(imageUrl: Ref<string | null | undefined>) {
 
   let observer: IntersectionObserver | null = null
 
-  onMounted(() => {
+  // Setup or re-setup the intersection observer
+  const setupObserver = () => {
     if (!process.client || !imageRef.value || !imageUrl.value) return
+    if (actualSrc.value) return // Already loaded, no need to observe
 
+    // Check if element is already in or near the viewport
+    const rect = imageRef.value.getBoundingClientRect()
+    const isInViewport = rect.top < window.innerHeight + 400 && rect.bottom > -400
+
+    if (isInViewport) {
+      // Element is already visible or near viewport - load immediately
+      actualSrc.value = imageUrl.value
+      return
+    }
+
+    // Clean up existing observer before creating new one
+    if (observer) {
+      observer.disconnect()
+    }
+
+    // Set up observer for lazy loading
     observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -40,6 +59,23 @@ export function useLazyImage(imageUrl: Ref<string | null | undefined>) {
     )
 
     observer.observe(imageRef.value)
+  }
+
+  onMounted(() => {
+    setupObserver()
+  })
+
+  // Watch for URL changes - this handles async poster loading
+  // When poster URLs are fetched in the background and become available,
+  // we need to set up the observer or load the image immediately if in view
+  watch(imageUrl, (newUrl) => {
+    if (newUrl && !actualSrc.value) {
+      // URL just became available, set up observer on next tick
+      // (ensures DOM ref is ready)
+      nextTick(() => {
+        setupObserver()
+      })
+    }
   })
 
   onUnmounted(() => {
@@ -65,4 +101,3 @@ export function useLazyImage(imageUrl: Ref<string | null | undefined>) {
     handleError,
   }
 }
-

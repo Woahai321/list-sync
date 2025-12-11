@@ -135,7 +135,7 @@
     <!-- Search and Filters -->
     <Card variant="default" class="glass-card border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
       <div class="space-y-3">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
           <!-- Search -->
           <div class="md:col-span-2">
             <Input
@@ -160,6 +160,15 @@
               :options="statusOptions"
             />
           </div>
+
+          <!-- List Filter -->
+          <div>
+            <Select
+              v-model="filters.listSource"
+              :options="listSourceOptions"
+              placeholder="All Lists"
+            />
+          </div>
         </div>
 
         <!-- Active Filters -->
@@ -182,6 +191,15 @@
               @click="filters.status = 'all'"
             >
               {{ statusOptions.find(o => o.value === filters.status)?.label }}
+              <XIcon :size="10" class="ml-1" />
+            </Badge>
+            <Badge
+              v-if="filters.listSource !== 'all'"
+              variant="default"
+              class="cursor-pointer hover:scale-105 transition-transform text-[10px]"
+              @click="filters.listSource = 'all'"
+            >
+              {{ listSourceOptions.find(o => o.value === filters.listSource)?.label }}
               <XIcon :size="10" class="ml-1" />
             </Badge>
             <Button
@@ -270,6 +288,7 @@
               <th class="text-left p-4 text-sm font-semibold text-muted-foreground">Title</th>
               <th class="text-left p-4 text-sm font-semibold text-muted-foreground">Type</th>
               <th class="text-left p-4 text-sm font-semibold text-muted-foreground">Year</th>
+              <th class="text-left p-4 text-sm font-semibold text-muted-foreground">Lists</th>
               <th class="text-left p-4 text-sm font-semibold text-muted-foreground">Status</th>
               <th class="text-right p-4 text-sm font-semibold text-muted-foreground">Actions</th>
             </tr>
@@ -288,9 +307,6 @@
                   </div>
                   <div class="min-w-0">
                     <p class="font-semibold text-foreground truncate">{{ item.title }}</p>
-                    <p v-if="item.list_name" class="text-xs text-muted-foreground truncate">
-                      From: {{ item.list_name }}
-                    </p>
                   </div>
                 </div>
               </td>
@@ -301,6 +317,30 @@
               </td>
               <td class="p-4 text-sm text-muted-foreground">
                 {{ item.year || 'N/A' }}
+              </td>
+              <td class="p-4">
+                <div v-if="item.list_sources && item.list_sources.length > 0" class="flex flex-wrap gap-1 max-w-[200px]">
+                  <Badge
+                    v-for="(source, index) in item.list_sources.slice(0, 2)"
+                    :key="`${source.list_type}-${source.list_id}`"
+                    variant="default"
+                    size="sm"
+                    :title="source.display_name || `${source.list_type}: ${source.list_id}`"
+                    class="text-[10px]"
+                  >
+                    {{ source.display_name || formatListType(source.list_type) }}
+                  </Badge>
+                  <Badge
+                    v-if="item.list_sources.length > 2"
+                    variant="default"
+                    size="sm"
+                    :title="item.list_sources.slice(2).map((s: any) => s.display_name || s.list_id).join(', ')"
+                    class="text-[10px]"
+                  >
+                    +{{ item.list_sources.length - 2 }}
+                  </Badge>
+                </div>
+                <span v-else class="text-xs text-muted-foreground">—</span>
               </td>
               <td class="p-4">
                 <Badge :variant="getStatusVariant(item.status)" size="sm">
@@ -396,6 +436,9 @@
             <span v-if="totalItems > 0" class="block mt-2 text-purple-400">
               {{ formatNumber(totalItems) }} total items available
             </span>
+            <span v-if="filters.listSource !== 'all'" class="block mt-3 text-sm text-amber-400/80">
+              💡 Tip: If filtering by list shows no results, items may need to be re-synced to populate list relationships. Go to the Lists page and sync your lists.
+            </span>
           </template>
           <template v-else>
             Your library is waiting to be filled! Add your first list and trigger a sync to get started.
@@ -452,6 +495,7 @@ useHead({
 const api = useApiService()
 const { showSuccess, showError } = useToast()
 const itemsCache = useItemsCache()
+const listsStore = useListsStore()
 
 // State
 const isLoading = ref(true)
@@ -471,6 +515,7 @@ const infiniteScrollTrigger = ref<HTMLElement | null>(null) // Infinite scroll o
 const filters = ref({
   mediaType: 'all',
   status: 'all',
+  listSource: 'all',
 })
 
 // Data
@@ -503,6 +548,198 @@ const statusOptions = [
   { label: 'Skipped', value: 'skipped' },
 ]
 
+// Normalize list ID to match what's stored in item_lists table
+// This matches the backend normalize_list_id function
+const normalizeListId = (listType: string, listId: string): string => {
+  if (!listId) return listId
+  
+  // If it's already not a URL, return as-is
+  if (!listId.startsWith('http://') && !listId.startsWith('https://')) {
+    return listId
+  }
+  
+  const listTypeLower = listType.toLowerCase()
+  
+  // MDBList URLs: https://mdblist.com/lists/username/listname
+  // Extract: username/listname
+  if (listTypeLower === 'mdblist') {
+    const match = listId.match(/mdblist\.com\/lists\/([^/?]+)/)
+    if (match) {
+      return match[1]
+    }
+  }
+  
+  // Trakt URLs
+  else if (listTypeLower === 'trakt' || listTypeLower === 'trakt_special') {
+    // https://trakt.tv/users/username/lists/list-slug
+    // https://trakt.tv/lists/123
+    let match = listId.match(/trakt\.tv\/(?:users\/[^/]+\/)?lists\/([^/?]+)/)
+    if (match) {
+      return match[1]
+    }
+    // For special Trakt lists like trending:movies
+    match = listId.match(/trakt\.tv\/(?:movies|shows)\/([^/?]+)/)
+    if (match) {
+      return match[1]
+    }
+  }
+  
+  // IMDb URLs: https://www.imdb.com/list/ls123456789
+  else if (listTypeLower === 'imdb') {
+    const match = listId.match(/imdb\.com\/list\/([^/?]+)/)
+    if (match) {
+      return match[1]
+    }
+  }
+  
+  // Letterboxd URLs: https://letterboxd.com/username/list/listname/
+  // NOTE: Letterboxd stores the full URL in the database, so do NOT normalize
+  else if (listTypeLower === 'letterboxd') {
+    // Return as-is - Letterboxd list_ids are stored as full URLs in the database
+    return listId
+  }
+  
+  // TMDB URLs: https://www.themoviedb.org/list/123
+  else if (listTypeLower === 'tmdb') {
+    const match = listId.match(/themoviedb\.org\/list\/([^/?]+)/)
+    if (match) {
+      return match[1]
+    }
+  }
+  
+  // TVDB URLs: https://www.thetvdb.com/lists/123
+  else if (listTypeLower === 'tvdb') {
+    const match = listId.match(/thetvdb\.com\/lists\/([^/?]+)/)
+    if (match) {
+      return match[1]
+    }
+  }
+  
+  // If no match, return original (shouldn't happen but fallback)
+  return listId
+}
+
+// List source options - built from items and lists store
+const listSourceOptions = computed(() => {
+  const uniqueLists = new Map<string, string>()
+  uniqueLists.set('all', 'All Lists')
+  
+  // First, add lists from items (most accurate - shows which lists actually have items)
+  // Normalize the list_id to ensure consistency with what will be sent to backend
+  items.value.forEach(item => {
+    if (item.list_sources && Array.isArray(item.list_sources)) {
+      item.list_sources.forEach((source: any) => {
+        // Normalize the list_id to ensure dropdown values match what's sent to API
+        const normalizedId = normalizeListId(source.list_type, source.list_id)
+        const key = `${source.list_type}:${normalizedId}`
+        if (!uniqueLists.has(key)) {
+          // Use display_name if available, otherwise generate a readable label
+          const label = source.display_name || generateListLabel(source.list_type, normalizedId)
+          uniqueLists.set(key, label)
+        }
+      })
+    }
+  })
+  
+  // Also add lists from lists store as fallback (ensures all configured lists are available)
+  // These might have URLs, so we need to normalize them
+  if (listsStore.lists && listsStore.lists.length > 0) {
+    listsStore.lists.forEach((list: any) => {
+      // Normalize the list_id to match what's in item_lists table
+      const normalizedId = normalizeListId(list.list_type, list.list_id)
+      const key = `${list.list_type}:${normalizedId}`
+      if (!uniqueLists.has(key)) {
+        // Use display_name if available, otherwise generate a readable label
+        const label = list.display_name || generateListLabel(list.list_type, normalizedId)
+        uniqueLists.set(key, label)
+      }
+    })
+  }
+  
+  const options = Array.from(uniqueLists.entries()).map(([value, label]) => ({
+    label,
+    value
+  }))
+  
+  // Sort options: "All Lists" first, then alphabetically
+  return options.sort((a, b) => {
+    if (a.value === 'all') return -1
+    if (b.value === 'all') return 1
+    return a.label.localeCompare(b.label)
+  })
+})
+
+// Format list type for display
+const formatListType = (listType: string): string => {
+  const typeLabels: Record<string, string> = {
+    'imdb': 'IMDb',
+    'trakt': 'Trakt',
+    'trakt_special': 'Trakt',
+    'letterboxd': 'Letterboxd',
+    'mdblist': 'MDBList',
+    'stevenlu': 'Steven Lu',
+    'tmdb': 'TMDB',
+    'tvdb': 'TVDB',
+    'anilist': 'AniList',
+    'collections': 'Collection'
+  }
+  return typeLabels[listType] || listType
+}
+
+// Generate a readable label for a list source when display_name is not available
+const generateListLabel = (listType: string, listId: string): string => {
+  // For trakt_special, parse the list_id to extract meaningful name
+  if (listType === 'trakt_special') {
+    // Format: "trending:movies" -> "Trakt Trending Movies"
+    // Format: "popular:tv" -> "Trakt Popular TV"
+    const parts = listId.split(':')
+    if (parts.length >= 2) {
+      const category = parts[0].charAt(0).toUpperCase() + parts[0].slice(1) // Capitalize
+      const mediaType = parts[1] === 'movies' ? 'Movies' : parts[1] === 'tv' ? 'TV Shows' : parts[1]
+      return `Trakt ${category} ${mediaType}`
+    }
+    return `Trakt ${listId}`
+  }
+  
+  // For stevenlu, check if it's the original or a preset
+  if (listType === 'stevenlu') {
+    if (listId === 'stevenlu') {
+      return "Steven Lu's Original Collection"
+    }
+    // Parse preset names like "movies-metacritic-min70.json" -> "Steven Lu Metacritic Min 70"
+    const cleanId = listId.replace(/^movies-/, '').replace(/\.json$/, '')
+    const formatted = cleanId
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+    return `Steven Lu ${formatted}`
+  }
+  
+  // For collections, extract the collection name
+  if (listType === 'collections') {
+    // Remove "collection:" prefix if present
+    const collectionName = listId.replace(/^collection:/, '')
+    return `Collection: ${collectionName}`
+  }
+  
+  // For letterboxd, extract username from URL
+  if (listType === 'letterboxd') {
+    const usernameMatch = listId.match(/letterboxd\.com\/([^\/]+)/)
+    if (usernameMatch) {
+      return `Letterboxd - ${usernameMatch[1]}`
+    }
+  }
+  
+  // For other types, show provider + truncated ID
+  const providerName = formatListType(listType)
+  // Truncate long IDs (like URLs) to last part
+  const shortId = listId.includes('/') ? listId.split('/').pop() || listId : listId
+  const maxLength = 30
+  const displayId = shortId.length > maxLength ? shortId.substring(0, maxLength) + '...' : shortId
+  
+  return `${providerName}: ${displayId}`
+}
+
 // Computed
 const filteredItems = computed(() => {
   let filtered = items.value
@@ -526,6 +763,9 @@ const filteredItems = computed(() => {
     filtered = filtered.filter(item => item.status === filters.value.status)
   }
 
+  // List source filter is now handled server-side for both grid and table views
+  // No client-side filtering needed for list sources anymore
+
   return filtered
 })
 
@@ -535,7 +775,7 @@ const paginatedItems = computed(() => filteredItems.value)
 // Stats are now fetched separately from API
 
 const hasActiveFilters = computed(() =>
-  filters.value.mediaType !== 'all' || filters.value.status !== 'all'
+  filters.value.mediaType !== 'all' || filters.value.status !== 'all' || filters.value.listSource !== 'all'
 )
 
 // Get filtered count for display
@@ -643,8 +883,24 @@ const fetchItems = async (page: number = 1, reset: boolean = true, forceRefresh:
     
     // Use enriched API with smart caching for grid view, regular API for table view
     if (displayMode.value === 'grid') {
+      // Build query params including list filter if active
+      const queryParams: any = {}
+      if (filters.value.listSource !== 'all') {
+        // Normalize the filter value to ensure it matches what's in the database
+        // Split only on FIRST colon to preserve list IDs that contain colons (like "trending:movies")
+        const colonIndex = filters.value.listSource.indexOf(':')
+        const listType = filters.value.listSource.substring(0, colonIndex)
+        const listId = filters.value.listSource.substring(colonIndex + 1)
+        const normalizedId = normalizeListId(listType, listId)
+        queryParams.list_source = `${listType}:${normalizedId}`
+        console.log(`🔍 GRID Filter: Original="${filters.value.listSource}", Split=(${listType}, ${listId}), Normalized="${queryParams.list_source}"`)
+      } else {
+        console.log(`🔍 GRID: No list filter active (filters.value.listSource = "${filters.value.listSource}")`)
+      }
+      console.log(`📡 Calling itemsCache.fetchEnrichedItems with:`, { page, perPage, forceRefresh, queryParams })
       // Use smart cache - returns immediately if cached, fetches fresh in background if stale
-      response = await itemsCache.fetchEnrichedItems(page, perPage, forceRefresh)
+      // Note: Cache key includes filter to avoid cache collisions
+      response = await itemsCache.fetchEnrichedItems(page, perPage, forceRefresh, queryParams)
       
       // Check if we got cached data
       const cacheStats = itemsCache.getCacheStats()
@@ -653,22 +909,80 @@ const fetchItems = async (page: number = 1, reset: boolean = true, forceRefresh:
       }
     } else {
       // Table view - no caching (less critical, users don't switch as often)
-      response = await api.getProcessedItems(page, perPage)
+      // Build query params including list filter if active
+      const queryParams: any = {}
+      if (filters.value.listSource !== 'all') {
+        // Normalize the filter value to ensure it matches what's in the database
+        // Split only on FIRST colon to preserve list IDs that contain colons (like "trending:movies")
+        const colonIndex = filters.value.listSource.indexOf(':')
+        const listType = filters.value.listSource.substring(0, colonIndex)
+        const listId = filters.value.listSource.substring(colonIndex + 1)
+        const normalizedId = normalizeListId(listType, listId)
+        queryParams.list_source = `${listType}:${normalizedId}`
+        console.log(`🔍 Table Filter: Original="${filters.value.listSource}", Split=(${listType}, ${listId}), Normalized="${queryParams.list_source}"`)
+      }
+      response = await api.getProcessedItems(page, perPage, queryParams)
     }
     
     if (response && response.items) {
       if (reset) {
+        // Always reset items array when resetting (including filter changes)
         items.value = response.items
       } else {
         // For infinite scroll, append to existing items
         items.value = [...items.value, ...response.items]
       }
       
-      totalItems.value = response.total || 0
+      totalItems.value = response.total || response.total_count || 0
       totalPages.value = response.total_pages || 0
       hasMorePages.value = page < totalPages.value
       
-      console.log(`Loaded page ${page}: ${response.items.length} items (${response.total || 0} total)`)
+      // Debug: Check if items have list_sources
+      const itemsWithLists = response.items.filter((item: any) => item.list_sources && item.list_sources.length > 0)
+      const activeFilter = filters.value.listSource !== 'all' ? filters.value.listSource : 'none'
+      console.log(`📦 Loaded page ${page} (filter: ${activeFilter}): ${response.items.length} items (${response.total || response.total_count || 0} total), ${itemsWithLists.length} with list sources`)
+      
+      // Debug: Show breakdown by list type
+      const listTypeBreakdown = new Map<string, number>()
+      response.items.forEach((item: any) => {
+        if (item.list_sources && Array.isArray(item.list_sources)) {
+          item.list_sources.forEach((source: any) => {
+            const key = `${source.list_type}:${source.list_id}`
+            listTypeBreakdown.set(key, (listTypeBreakdown.get(key) || 0) + 1)
+          })
+        }
+      })
+      if (listTypeBreakdown.size > 0) {
+        console.log('📊 List sources breakdown on this page:')
+        listTypeBreakdown.forEach((count, key) => {
+          console.log(`  - ${key}: ${count} items`)
+        })
+      }
+      
+      // Debug: Verify filter is working correctly
+      if (filters.value.listSource !== 'all') {
+        const filterMatch = response.items.filter((item: any) => {
+          if (!item.list_sources || !Array.isArray(item.list_sources)) return false
+          return item.list_sources.some((source: any) => 
+            `${source.list_type}:${source.list_id}` === filters.value.listSource
+          )
+        })
+        console.log(`✅ Filter verification: ${filterMatch.length}/${response.items.length} items match filter "${filters.value.listSource}"`)
+        if (filterMatch.length < response.items.length) {
+          console.warn(`⚠️  Some items don't match the active filter! This might indicate a backend filtering issue.`)
+        }
+      }
+      
+      // Debug: Show sample item with list sources
+      if (itemsWithLists.length > 0) {
+        console.log('📦 Sample item with list_sources:', {
+          title: itemsWithLists[0].title,
+          list_sources: itemsWithLists[0].list_sources
+        })
+      } else if (response.items.length > 0) {
+        console.warn('⚠️ No items have list_sources! Sample item:', response.items[0])
+        console.warn('💡 To fix: Re-sync your lists from the Lists page to populate list relationships. This will enable list tags on items and allow filtering by list.')
+      }
     } else {
       // Fallback to getItems if processed items fails
       const fallbackResponse: any = await api.getItems(page, perPage)
@@ -798,14 +1112,38 @@ const clearFilters = () => {
   searchQuery.value = ''
   filters.value.mediaType = 'all'
   filters.value.status = 'all'
+  filters.value.listSource = 'all'
 }
 
 // Watch filters to reset pagination
+// Note: List source filter changes trigger a separate watch below for server-side filtering
 watch([searchQuery, filters], () => {
   currentPage.value = 1
-  // Note: For now, we'll keep client-side filtering
-  // In the future, we could implement server-side filtering
 }, { deep: true })
+
+// Watch list source filter separately to trigger server-side refetch
+watch(() => filters.value.listSource, async (newValue, oldValue) => {
+  console.log(`👀 List source filter watch triggered: "${oldValue}" → "${newValue}"`)
+  if (newValue !== oldValue && process.client) {
+    console.log(`🔄 List source filter ACTUALLY changed, refetching...`)
+    currentPage.value = 1
+    // Clear cache completely to avoid stale data
+    itemsCache.clearCache()
+    // Reset items array immediately to show loading state
+    items.value = []
+    // Fetch with new filter (force refresh to bypass any caching)
+    await fetchItems(1, true, true)
+  } else if (!process.client) {
+    console.log(`⚠️ Skipping refetch - not in client context`)
+  } else {
+    console.log(`⚠️ Skipping refetch - values are the same`)
+  }
+}, { immediate: false })
+
+// Debug: Watch listSourceOptions changes
+watch(listSourceOptions, (newOptions) => {
+  console.log('📊 listSourceOptions updated:', newOptions.length, 'options', newOptions)
+}, { immediate: true, deep: true })
 
 // Watch view mode changes
 watch(viewMode, (newMode) => {
@@ -871,6 +1209,16 @@ watch(() => syncStore.status, async (newStatus) => {
 
 // Load data on mount and prefetch next pages in background
 onMounted(async () => {
+  // Check for list filter in query parameters (from list detail page)
+  if (process.client) {
+    const route = useRoute()
+    const listParam = route.query.list as string
+    if (listParam) {
+      console.log('📋 Pre-filtering to list:', listParam)
+      filters.value.listSource = listParam
+    }
+  }
+  
   // Always fetch fresh data on mount (bypass cache for initial load)
   // This ensures users see latest items when navigating to the page
   itemsCache.clearCache()
@@ -878,7 +1226,8 @@ onMounted(async () => {
   await Promise.all([
     fetchItems(1, true, true), // Force refresh on mount
     fetchStats(),
-    syncStore.fetchLiveSyncStatus() // Get current sync status
+    syncStore.fetchLiveSyncStatus(), // Get current sync status
+    listsStore.fetchLists() // Fetch lists for filter dropdown
   ])
   
   // Prefetch next 2 pages in background for smooth pagination
@@ -887,7 +1236,18 @@ onMounted(async () => {
       const pagesToPrefetch = [2, 3].filter(p => p <= totalPages.value)
       if (pagesToPrefetch.length > 0) {
         console.log('🚀 Prefetching next pages for smoother navigation...')
-        itemsCache.prefetchPages(pagesToPrefetch, perPage)
+        // Include current filter in prefetch to avoid cache pollution
+        const queryParams: any = {}
+        if (filters.value.listSource !== 'all') {
+          // Normalize the filter value to ensure it matches what's in the database
+          // Split only on FIRST colon to preserve list IDs that contain colons (like "trending:movies")
+          const colonIndex = filters.value.listSource.indexOf(':')
+          const listType = filters.value.listSource.substring(0, colonIndex)
+          const listId = filters.value.listSource.substring(colonIndex + 1)
+          const normalizedId = normalizeListId(listType, listId)
+          queryParams.list_source = `${listType}:${normalizedId}`
+        }
+        itemsCache.prefetchPages(pagesToPrefetch, perPage, queryParams)
       }
     }, 1000) // Wait 1 second after initial load
   }

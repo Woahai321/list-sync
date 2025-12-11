@@ -191,7 +191,18 @@ const sidebarClasses = computed(() => {
 })
 
 const navItemClasses = (path: string) => {
-  const isActive = route.path === path || (path !== '/' && route.path.startsWith(path))
+  // Exact match for most pages, but handle special cases
+  let isActive = route.path === path
+  
+  // For root path, only match exactly
+  if (path === '/') {
+    isActive = route.path === '/'
+  }
+  // For other paths, check if route starts with path but not if it's a longer path
+  // e.g., /sync should not match /sync-history
+  else {
+    isActive = route.path === path
+  }
   
   const baseClasses = [
     'flex items-center gap-3 px-3 py-2.5 rounded-lg',

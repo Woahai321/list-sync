@@ -311,7 +311,7 @@
 </template>
 
 <script setup lang="ts">
-import { onActivated } from 'vue'
+import { onActivated, watch } from 'vue'
 import {
   RefreshCw as RefreshIcon,
   Search as SearchIcon,
@@ -352,7 +352,7 @@ const router = useRouter()
 // State
 const searchQuery = ref('')
 const sortBy = ref('total_votes') // Default to total votes for quality content first
-const viewMode = ref<'grid' | 'list'>('list') // Default to list view for better scanning
+const viewMode = ref<'grid' | 'list'>('grid') // Default to grid view
 const syncingCollections = ref<Set<string>>(new Set())
 const selectionMode = ref(false)
 const selectedCollections = ref<Set<string>>(new Set())
@@ -368,133 +368,187 @@ const selectedCollection = ref<Collection | null>(null)
 const randomPicks = ref<Collection[]>([])
 const isLoadingRandomPicks = ref(false)
 const isInitialLoading = ref(true)
+// Cache for preloaded random collections (ready for instant display)
+const preloadedRandomPicks = ref<Collection[]>([])
+const isPreloadingRandomPicks = ref(false)
 
-// Reshuffle random picks - fetch from full database via API
+// Helper function to load posters for collections
+const loadPostersForCollections = async (collections: Collection[]) => {
+  const api = useApiService()
+  
+  // Load posters for the collections (use cache if available, but don't wait)
+  const collectionsWithPosters = collections.map((collection) => {
+    // Check cache first - use immediately if available
+    const cachedPoster = collectionsStore.posterCache.get(collection.franchise)
+    return {
+      ...collection,
+      poster_url: cachedPoster !== undefined ? cachedPoster : null
+    }
+  })
+  
+  // Load missing posters in background using batch endpoint (much faster)
+  const uncachedCollections = collections.filter(
+    collection => !collectionsStore.posterCache.has(collection.franchise)
+  )
+  
+  if (uncachedCollections.length > 0) {
+    // Use batch endpoint for faster loading
+    api.getCollectionPostersBatch(uncachedCollections.map(c => c.franchise))
+      .then((batchResponse) => {
+        if (batchResponse && batchResponse.posters) {
+          // Update cache for each poster
+          batchResponse.posters.forEach((posterData) => {
+            const posterUrl = posterData.poster_url || null
+            const franchise = posterData.franchise
+            collectionsStore.posterCache.set(franchise, posterUrl)
+            
+            // Update the collection in the provided array if it exists
+            const index = collectionsWithPosters.findIndex(c => c.franchise === franchise)
+            if (index !== -1) {
+              collectionsWithPosters[index] = {
+                ...collectionsWithPosters[index],
+                poster_url: posterUrl
+              }
+            }
+          })
+        }
+      })
+      .catch(err => {
+        console.warn('Error loading batch collection posters:', err)
+        // Silently fail - posters will load on demand
+      })
+  }
+  
+  return collectionsWithPosters
+}
+
+// Hardcoded 5 medium/voted collections for instant display (no API call needed)
+const DEFAULT_RANDOM_PICKS: Collection[] = [
+  {
+    franchise: "John Wick Collection",
+    popularityScore: 6.6128,
+    averageRating: 7.5,
+    totalMovies: 4,
+    totalVotes: 52762,
+    poster_url: null // Will be loaded in background
+  },
+  {
+    franchise: "Mission: Impossible Collection",
+    popularityScore: 6.6074,
+    averageRating: 7.05,
+    totalMovies: 8,
+    totalVotes: 59731,
+    poster_url: null
+  },
+  {
+    franchise: "The Matrix Collection",
+    popularityScore: 6.3894,
+    averageRating: 7.11,
+    totalMovies: 4,
+    totalVotes: 55138,
+    poster_url: null
+  },
+  {
+    franchise: "Indiana Jones Collection",
+    popularityScore: 6.4864,
+    averageRating: 7.12,
+    totalMovies: 5,
+    totalVotes: 46256,
+    poster_url: null
+  },
+  {
+    franchise: "The Bourne Collection",
+    popularityScore: 6.3941,
+    averageRating: 6.97,
+    totalMovies: 5,
+    totalVotes: 37579,
+    poster_url: null
+  }
+]
+
+// Silently preload random collections in background (called on page mount and after "Respin")
+const preloadRandomPicks = async () => {
+  if (isPreloadingRandomPicks.value) return // Already preloading
+  
+  isPreloadingRandomPicks.value = true
+  
+  try {
+    // Fetch from API for variety (for next "Respin")
+    const api = useApiService()
+    const response = await api.getRandomCollections(5)
+    
+    if (response && response.collections && Array.isArray(response.collections)) {
+      const validCollections = response.collections.filter(c => c && c.franchise)
+      
+      if (validCollections.length > 0) {
+        // Load posters in background (non-blocking)
+        const collectionsWithPosters = await loadPostersForCollections(validCollections)
+        preloadedRandomPicks.value = collectionsWithPosters
+        console.log('✅ Preloaded 5 random collections for next "Respin"')
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to preload random collections (non-critical):', error)
+    // Silently fail - will use hardcoded on next reshuffle if needed
+  } finally {
+    isPreloadingRandomPicks.value = false
+  }
+}
+
+// Reshuffle random picks - use cached data first for instant display, then fetch new ones
 const reshuffleRandomPicks = async () => {
   isLoadingRandomPicks.value = true
+  
+  // If we have preloaded picks, use them instantly (no loading state)
+  if (preloadedRandomPicks.value.length > 0) {
+    randomPicks.value = [...preloadedRandomPicks.value]
+    isLoadingRandomPicks.value = false
+    
+    // Clear the cache so next time we fetch fresh
+    const usedPicks = preloadedRandomPicks.value
+    preloadedRandomPicks.value = []
+    
+    // Immediately start preloading new ones in background for next time
+    preloadRandomPicks()
+    
+    // Also refresh posters in background if needed
+    loadPostersForCollections(randomPicks.value)
+    
+    return
+  }
+  
+  // No cache available - fetch now (this should rarely happen)
   randomPicks.value = [] // Clear previous picks
   
   try {
     const api = useApiService()
-    console.log('🎲 Fetching random collections from API...')
     const response = await api.getRandomCollections(5)
-    console.log('✅ Random collections API response:', response)
     
     if (response && response.collections && Array.isArray(response.collections)) {
-      console.log(`📦 Got ${response.collections.length} random collections`)
-      
       // Ensure each collection has required fields
       const validCollections = response.collections.filter(c => c && c.franchise)
-      console.log(`✅ Valid collections: ${validCollections.length}`)
       
       if (validCollections.length === 0) {
-        console.warn('⚠️ No valid collections in response')
         randomPicks.value = []
+        isLoadingRandomPicks.value = false
         return
       }
       
-      // Load posters for the random collections (use cache if available, but don't wait)
-      const collectionsWithPosters = validCollections.map((collection) => {
-        // Check cache first - use immediately if available
-        const cachedPoster = collectionsStore.posterCache.get(collection.franchise)
-        return {
-          ...collection,
-          poster_url: cachedPoster !== undefined ? cachedPoster : null
-        }
-      })
-      
-      // Set immediately with cached posters (or null)
+      // Load posters and set immediately
+      const collectionsWithPosters = await loadPostersForCollections(validCollections)
       randomPicks.value = collectionsWithPosters
-      console.log('✅ Set randomPicks:', randomPicks.value.length, 'collections')
       
-      // Load missing posters in background using batch endpoint (much faster)
-      const uncachedCollections = validCollections.filter(
-        collection => !collectionsStore.posterCache.has(collection.franchise)
-      )
-      
-      if (uncachedCollections.length > 0) {
-        // Use batch endpoint for faster loading
-        api.getCollectionPostersBatch(uncachedCollections.map(c => c.franchise))
-          .then((batchResponse) => {
-            if (batchResponse && batchResponse.posters) {
-              console.log(`📸 Batch loaded ${batchResponse.posters.length} posters`)
-              
-              // Update cache and UI for each poster
-              const updated = [...randomPicks.value]
-              let hasUpdates = false
-              
-              batchResponse.posters.forEach((posterData) => {
-                const posterUrl = posterData.poster_url || null
-                const franchise = posterData.franchise
-                
-                // Cache it
-                collectionsStore.posterCache.set(franchise, posterUrl)
-                
-                // Update the collection in randomPicks
-                const index = updated.findIndex(c => c.franchise === franchise)
-                if (index !== -1) {
-                  updated[index] = {
-                    ...updated[index],
-                    poster_url: posterUrl
-                  }
-                  hasUpdates = true
-                }
-              })
-              
-              if (hasUpdates) {
-                randomPicks.value = updated
-              }
-            }
-          })
-          .catch(err => {
-            console.warn('Error loading batch collection posters:', err)
-            // Fallback to individual requests if batch fails
-            console.log('🔄 Falling back to individual poster requests...')
-            Promise.all(
-              uncachedCollections.map(async (collection) => {
-                try {
-                  const posterResponse = await api.getCollectionPoster(collection.franchise)
-                  const posterUrl = posterResponse?.poster_url || null
-                  collectionsStore.posterCache.set(collection.franchise, posterUrl)
-                  
-                  const index = randomPicks.value.findIndex(c => c.franchise === collection.franchise)
-                  if (index !== -1) {
-                    const updated = [...randomPicks.value]
-                    updated[index] = {
-                      ...updated[index],
-                      poster_url: posterUrl
-                    }
-                    randomPicks.value = updated
-                  }
-                } catch (error) {
-                  console.warn(`Failed to fetch poster for ${collection.franchise}:`, error)
-                  collectionsStore.posterCache.set(collection.franchise, null)
-                }
-              })
-            ).catch(fallbackErr => {
-              console.warn('Error in fallback poster loading:', fallbackErr)
-            })
-          })
-      }
+      // Preload next batch in background
+      preloadRandomPicks()
     } else {
       console.error('❌ Invalid response from getRandomCollections:', response)
-      console.error('Response type:', typeof response)
-      console.error('Has collections?', response?.collections)
-      console.error('Is array?', Array.isArray(response?.collections))
       randomPicks.value = []
     }
   } catch (error: any) {
     console.error('❌ Error fetching random collections:', error)
-    console.error('Error details:', {
-      message: error?.message,
-      stack: error?.stack,
-      response: error?.response
-    })
-    // Fallback to empty array on error
     randomPicks.value = []
   } finally {
     isLoadingRandomPicks.value = false
-    console.log('🏁 Finished loading random picks. Count:', randomPicks.value.length)
   }
 }
 
@@ -833,8 +887,19 @@ onMounted(async () => {
     fetchSyncedInfo() // Load synced info
   ])
   
-  // Initialize random picks after data is loaded - fetch from full database
-  await reshuffleRandomPicks()
+  // Mark initial loading as complete - page is now interactive
+  isInitialLoading.value = false
+  
+  // Show hardcoded collections immediately (instant display, no API call)
+  randomPicks.value = [...DEFAULT_RANDOM_PICKS]
+  
+  // Load posters in background (non-blocking)
+  loadPostersForCollections(randomPicks.value).then((collectionsWithPosters) => {
+    randomPicks.value = collectionsWithPosters
+  })
+  
+  // Preload next batch for "Respin" (will use API for variety)
+  preloadRandomPicks()
   
   if (process.client) {
     window.addEventListener('scroll', handleScroll)

@@ -138,21 +138,6 @@
           </p>
         </div>
       </div>
-
-      <!-- Info Box -->
-      <div class="bg-info/10 border border-info/20 rounded-lg p-4">
-        <div class="flex items-start gap-2">
-          <InfoIcon class="w-5 h-5 text-info flex-shrink-0" />
-          <div class="text-sm">
-            <p class="font-medium text-info mb-1">Sync Behavior</p>
-            <ul class="text-muted-foreground space-y-1 list-disc list-inside">
-              <li>Syncs run in the background without blocking the UI</li>
-              <li>Manual syncs can be triggered at any time</li>
-              <li>Failed items can be retried individually</li>
-            </ul>
-          </div>
-        </div>
-      </div>
     </div>
   </Card>
 </template>

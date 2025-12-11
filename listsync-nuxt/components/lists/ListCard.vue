@@ -4,8 +4,10 @@
     class="relative overflow-hidden group/card border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300" 
     :class="{ 
       'ring-2 ring-purple-500 shadow-xl shadow-purple-500/30': isSelected,
-      'hover:shadow-lg hover:shadow-purple-500/20': !isSelected 
+      'hover:shadow-lg hover:shadow-purple-500/20': !isSelected,
+      'cursor-pointer': !selectable
     }"
+    @click="handleCardClick"
   >
     <!-- Subtle gradient background -->
     <div class="absolute inset-0 bg-gradient-to-br from-purple-600/10 to-purple-500/5 opacity-60 group-hover/card:opacity-80 transition-opacity duration-300" />
@@ -42,6 +44,25 @@
         </p>
       </div>
 
+      <!-- Sync Status Badge & User Badge -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <div :class="[
+          'flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-medium border',
+          getSyncStatusClass()
+        ]">
+          <component :is="getSyncStatusIcon()" :size="12" :class="{ 'animate-spin': isSyncingList }" />
+          <span>{{ getSyncStatusText() }}</span>
+        </div>
+        
+        <!-- User Badge -->
+        <Tooltip v-if="getUserInfo()" :content="`Requests as: ${getUserInfo()?.display_name || 'User ' + list.user_id}`">
+          <div class="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-medium bg-blue-500/10 border border-blue-500/30 text-blue-300">
+            <component :is="UserIcon" :size="12" />
+            <span>{{ getUserInfo()?.display_name || `User ${list.user_id || '1'}` }}</span>
+          </div>
+        </Tooltip>
+      </div>
+
       <!-- Stats -->
       <div class="grid grid-cols-2 gap-2">
         <div class="flex items-center gap-2 group/stat">
@@ -75,7 +96,7 @@
       </div>
 
       <!-- Quick Actions Bar -->
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2" @click.stop>
         <button
           v-if="list.url || list.list_url"
           type="button"
@@ -98,7 +119,7 @@
       </div>
 
       <!-- Actions -->
-      <div class="flex items-center gap-2 pt-2 border-t border-purple-500/10">
+      <div class="flex items-center gap-2 pt-2 border-t border-purple-500/10" @click.stop>
         <Button
           variant="primary"
           size="sm"
@@ -145,9 +166,15 @@ import {
   Calendar as CalendarIcon,
   Monitor as MonitorIcon,
   Sparkles as SparklesIcon,
+  CheckCircle as CheckCircleIcon,
+  XCircle as XCircleIcon,
+  AlertCircle as AlertCircleIcon,
+  User as UserIcon,
 } from 'lucide-vue-next'
 import type { List } from '~/types'
 import { extractUrlSegment } from '~/utils/urlHelpers'
+import { formatNumber, formatDate } from '~/utils/formatters'
+import { useUsersStore } from '~/stores/users'
 
 interface Props {
   list: List
@@ -164,13 +191,72 @@ const emit = defineEmits<{
   sync: []
   delete: []
   'toggle-select': []
+  'open-details': []
 }>()
 
 const { showSuccess, showError } = useToast()
 const syncStore = useSyncStore()
+const systemStore = useSystemStore()
+const usersStore = useUsersStore()
 
 // State
 const isSyncing = ref(false)
+
+// Get user info for this list
+const getUserInfo = () => {
+  const userId = props.list.user_id || '1'
+  return usersStore.getUserById(userId)
+}
+
+// Check if this specific list is syncing
+const isSyncingList = computed(() => {
+  if (!syncStore.isSyncing || !syncStore.liveSyncStatus) return false
+  // Check if this list matches the current sync
+  return syncStore.liveSyncStatus.list_type === props.list.list_type &&
+         syncStore.liveSyncStatus.list_id === props.list.list_id
+})
+
+// Get sync status
+const getSyncStatus = () => {
+  if (isSyncingList.value) return 'syncing'
+  if (props.list.last_synced) return 'synced'
+  return 'never_synced'
+}
+
+const getSyncStatusIcon = () => {
+  const status = getSyncStatus()
+  if (status === 'syncing') return RefreshCwIcon
+  if (status === 'synced') return CheckCircleIcon
+  return AlertCircleIcon
+}
+
+const getSyncStatusClass = () => {
+  const status = getSyncStatus()
+  if (status === 'syncing') {
+    return 'bg-purple-500/20 text-purple-300 border-purple-500/40'
+  }
+  if (status === 'synced') {
+    return 'bg-green-500/20 text-green-300 border-green-500/40'
+  }
+  return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40'
+}
+
+const getSyncStatusText = () => {
+  const status = getSyncStatus()
+  if (status === 'syncing') return 'Syncing...'
+  if (status === 'synced') return 'Synced'
+  return 'Never Synced'
+}
+
+// Handle card click (open details)
+const handleCardClick = (e: MouseEvent) => {
+  // Don't open if clicking on interactive elements
+  const target = e.target as HTMLElement
+  if (target.closest('button') || target.closest('input') || target.closest('a')) {
+    return
+  }
+  emit('open-details')
+}
 
 // Source definitions with colors and icons (matching AddListModal)
 const sources = [
@@ -444,4 +530,19 @@ const getFullListName = () => {
   return `${getDisplayTitle()} (${extractUrlSegment(props.list.list_id)})`
 }
 </script>
+
+<style scoped>
+/* List view styling - horizontal layout */
+.list-view-card :deep(.card-content) {
+  @apply flex flex-row items-center gap-4;
+}
+
+.list-view-card :deep(.card-content > div) {
+  @apply flex-1;
+}
+
+.list-view-card :deep(.card-content > div:first-child) {
+  @apply flex-shrink-0 w-48;
+}
+</style>
 

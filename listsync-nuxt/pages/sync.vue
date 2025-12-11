@@ -1,21 +1,22 @@
 <template>
-  <div class="space-y-8">
+  <div class="space-y-6 sm:space-y-8 px-2 sm:px-0">
     <!-- Page Header -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
       <div>
-        <h1 class="text-4xl font-bold text-foreground titillium-web-bold bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text text-transparent">
+        <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground titillium-web-bold bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text text-transparent">
           Sync Management
         </h1>
-        <p class="text-muted-foreground mt-2 text-base">
+        <p class="text-muted-foreground mt-1.5 sm:mt-2 text-sm sm:text-base">
           Trigger and monitor synchronization operations
         </p>
       </div>
 
       <Button
-        variant="secondary"
+        variant="primary"
         :icon="RefreshIcon"
         :loading="isRefreshing"
         @click="handleRefresh"
+        class="w-full sm:w-auto touch-manipulation"
       >
         Refresh
       </Button>
@@ -28,58 +29,44 @@
 
     <!-- Content -->
     <template v-else>
-      <!-- Sync In Progress Banner -->
-      <Transition name="slide-down">
-        <Card 
-          v-if="syncStore.isSyncing" 
-          variant="default" 
-          class="glass-card border-2 border-purple-500/50 bg-gradient-to-r from-purple-600/20 to-purple-500/10"
-        >
-          <div class="flex items-center gap-4 py-4">
-            <div class="flex-shrink-0">
-              <RefreshIcon class="w-6 h-6 text-purple-400 animate-spin" />
-            </div>
-            <div class="flex-1">
-              <h3 class="text-lg font-bold text-foreground">
-                Sync in Progress
-              </h3>
-              <p class="text-sm text-muted-foreground">
-                {{ syncStore.liveSyncStatus?.sync_type === 'full' ? 'Full sync' : 'Single list sync' }} is currently running. Please wait...
-              </p>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              @click="navigateTo('/logs')"
-            >
-              View Logs
-            </Button>
-          </div>
-        </Card>
-      </Transition>
+      <!-- Sync Control Section -->
+      <div class="space-y-3 sm:space-y-4">
+        <h2 class="text-lg sm:text-xl font-bold text-foreground titillium-web-bold">
+          Sync Control
+        </h2>
+        <SyncTrigger
+          :is-syncing="syncStore.isSyncing"
+          :last-sync="systemStore.health?.last_sync || null"
+          :next-sync="systemStore.health?.next_sync || null"
+          @trigger-sync="handleTriggerSync"
+          @stop-sync="handleStopSync"
+        />
+      </div>
 
-      <!-- Sync Trigger -->
-      <SyncTrigger
-        :is-syncing="syncStore.isSyncing"
-        :last-sync="systemStore.health?.last_sync || null"
-        :next-sync="systemStore.health?.next_sync || null"
-        @trigger-sync="handleTriggerSync"
-      />
+      <!-- Sync Status Section -->
+      <div class="space-y-3 sm:space-y-4">
+        <h2 class="text-lg sm:text-xl font-bold text-foreground titillium-web-bold">
+          Sync Status
+        </h2>
+        <SyncStatusCards
+          :current-status="syncStore.status"
+          :last-sync="systemStore.health?.last_sync || null"
+          :next-sync="systemStore.health?.next_sync || null"
+          :is-syncing="syncStore.isSyncing"
+        />
+      </div>
 
-      <!-- Sync Status Cards -->
-      <SyncStatusCards
-        :current-status="syncStore.status"
-        :last-sync="systemStore.health?.last_sync || null"
-        :next-sync="systemStore.health?.next_sync || null"
-        :is-syncing="syncStore.isSyncing"
-      />
-
-      <!-- Interval Configuration -->
-      <IntervalConfig
-        :current-interval="syncStore.syncInterval?.interval_hours || 24"
-        :interval-source="syncStore.syncInterval?.source === 'env' ? 'env' : 'database'"
-        @update-interval="handleUpdateInterval"
-      />
+      <!-- Sync Configuration Section -->
+      <div class="space-y-3 sm:space-y-4">
+        <h2 class="text-lg sm:text-xl font-bold text-foreground titillium-web-bold">
+          Sync Configuration
+        </h2>
+        <IntervalConfig
+          :current-interval="syncStore.syncInterval?.interval_hours || 24"
+          :interval-source="syncStore.syncInterval?.source === 'env' ? 'env' : 'database'"
+          @update-interval="handleUpdateInterval"
+        />
+      </div>
     </template>
   </div>
 </template>
@@ -144,6 +131,16 @@ const handleTriggerSync = async () => {
     navigateTo('/logs')
   } catch (error: any) {
     showError('Sync Failed', error.message)
+  }
+}
+
+// Stop/cancel running sync
+const handleStopSync = async () => {
+  try {
+    await syncStore.stopSync()
+    showSuccess('Sync Stopped', 'Synchronization has been terminated immediately')
+  } catch (error: any) {
+    showError('Stop Failed', error.message)
   }
 }
 

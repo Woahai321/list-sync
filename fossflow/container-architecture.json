@@ -1,0 +1,23 @@
+{
+  "t": "ListSync Docker Container",
+  "i": [
+    ["Supervisor", "monitor", "Process manager daemon"],
+    ["Xvfb Display", "web", "Virtual framebuffer :99"],
+    ["Core Sync Service", "server", "Python sync engine"],
+    ["FastAPI Backend", "api", "REST API on port 4222"],
+    ["Nuxt 3 Frontend", "web", "Vue dashboard on port 3222"],
+    ["Chrome WebDriver", "monitor", "Headless browser automation"],
+    ["SQLite Database", "storage", "Data persistence in /data"],
+    ["Data Volume", "storage", "./data:/usr/src/app/data"],
+    ["Env Config", "cache", "./.env:/usr/src/app/.env"],
+    ["Logs Volume", "storage", "./logs:/var/log/supervisor"]
+  ],
+  "v": [
+    [
+      [[0, 0, -8], [1, 8, -8], [2, -6, 0], [3, 0, 0], [4, 6, 0], [5, -6, 6], [6, 6, 6], [7, -6, 12], [8, 0, 12], [9, 6, 12]],
+      [[0, 2], [0, 3], [0, 4], [0, 1], [2, 6], [2, 5], [3, 6], [5, 1], [6, 7], [8, 2], [8, 3]]
+    ]
+  ],
+  "_": { "f": "compact", "v": "1.0" }
+}
+

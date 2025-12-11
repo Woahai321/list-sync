@@ -19,17 +19,22 @@ export function useItemsCache() {
   const api = useApiService()
 
   /**
-   * Get cache key for a specific page
+   * Get cache key for a specific page and filters
    */
-  const getCacheKey = (page: number, limit: number) => {
-    return `items_enriched_p${page}_l${limit}`
+  const getCacheKey = (page: number, limit: number, queryParams?: any) => {
+    let key = `items_enriched_p${page}_l${limit}`
+    // Include list_source in cache key if present
+    if (queryParams?.list_source) {
+      key += `_ls${queryParams.list_source.replace(/[^a-zA-Z0-9]/g, '_')}`
+    }
+    return key
   }
 
   /**
    * Check if cached data exists and is usable (fresh or stale)
    */
-  const getCached = (page: number, limit: number): CacheEntry | null => {
-    const key = getCacheKey(page, limit)
+  const getCached = (page: number, limit: number, queryParams?: any): CacheEntry | null => {
+    const key = getCacheKey(page, limit, queryParams)
     const entry = cache.get(key)
     
     if (!entry) return null
@@ -52,8 +57,8 @@ export function useItemsCache() {
   /**
    * Store data in cache
    */
-  const setCache = (page: number, limit: number, data: any) => {
-    const key = getCacheKey(page, limit)
+  const setCache = (page: number, limit: number, data: any, queryParams?: any) => {
+    const key = getCacheKey(page, limit, queryParams)
     cache.set(key, {
       data,
       timestamp: Date.now(),
@@ -65,8 +70,8 @@ export function useItemsCache() {
    * Fetch enriched items with smart caching
    * Returns cached data immediately if available, fetches fresh data in background if stale
    */
-  const fetchEnrichedItems = async (page: number, limit: number, forceRefresh = false) => {
-    const cached = getCached(page, limit)
+  const fetchEnrichedItems = async (page: number, limit: number, forceRefresh = false, queryParams?: any) => {
+    const cached = getCached(page, limit, queryParams)
     
     // If we have fresh cache and not forcing refresh, return it immediately
     if (cached && !cached.isStale && !forceRefresh) {
@@ -82,10 +87,10 @@ export function useItemsCache() {
       const staleData = cached.data
       
       // Fetch fresh data in background (don't await)
-      api.getEnrichedItems(page, limit)
+      api.getEnrichedItems(page, limit, queryParams)
         .then(freshData => {
           console.log(`✅ Background refresh completed for page ${page}`)
-          setCache(page, limit, freshData)
+          setCache(page, limit, freshData, queryParams)
         })
         .catch(err => {
           console.warn(`⚠️  Background refresh failed for page ${page}:`, err)
@@ -96,8 +101,9 @@ export function useItemsCache() {
     
     // No cache or force refresh - fetch fresh data
     console.log(`🔄 Fetching fresh data for page ${page}`)
-    const freshData = await api.getEnrichedItems(page, limit)
-    setCache(page, limit, freshData)
+    console.log(`🔄 Query params being passed to API:`, JSON.stringify(queryParams))
+    const freshData = await api.getEnrichedItems(page, limit, queryParams)
+    setCache(page, limit, freshData, queryParams)
     return freshData
   }
 
@@ -105,20 +111,20 @@ export function useItemsCache() {
    * Prefetch multiple pages in the background
    * Call this from dashboard or other pages to warm up the cache
    */
-  const prefetchPages = async (pages: number[] = [1], limit = 50) => {
+  const prefetchPages = async (pages: number[] = [1], limit = 50, queryParams?: any) => {
     console.log(`🚀 Prefetching pages: ${pages.join(', ')}`)
     
     const prefetchPromises = pages.map(async (page) => {
       // Only prefetch if not already cached
-      const cached = getCached(page, limit)
+      const cached = getCached(page, limit, queryParams)
       if (cached && !cached.isStale) {
         console.log(`⏭️  Skipping page ${page} - already cached`)
         return
       }
       
       try {
-        const data = await api.getEnrichedItems(page, limit)
-        setCache(page, limit, data)
+        const data = await api.getEnrichedItems(page, limit, queryParams)
+        setCache(page, limit, data, queryParams)
         console.log(`✅ Prefetched page ${page}`)
       } catch (err) {
         console.warn(`⚠️  Failed to prefetch page ${page}:`, err)

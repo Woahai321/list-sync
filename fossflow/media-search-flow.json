@@ -1,0 +1,23 @@
+{
+  "t": "Media Search and Resolution",
+  "i": [
+    ["Process Media", "function", "Media item processor"],
+    ["Overseerr API", "api", "Search endpoint"],
+    ["Match Engine", "function", "Similarity calculator"],
+    ["Search Results", "storage", "Paginated response"],
+    ["Levenshtein Distance", "function", "Title comparison algorithm"],
+    ["Year Multiplier", "function", "Release year weighting"],
+    ["Similarity Score", "cache", "Match confidence value"],
+    ["Best Match", "security", "Selection decision"],
+    ["Return Match", "queue", "Found media ID"],
+    ["No Match Found", "security", "Search failed"]
+  ],
+  "v": [
+    [
+      [[0, -14, -4], [1, -6, -4], [2, 2, -4], [3, -6, 2], [4, 2, 2], [5, 10, 2], [6, 10, -4], [7, 2, 8], [8, -6, 12], [9, 10, 12]],
+      [[0, 1], [1, 3], [3, 0], [1, 2], [2, 4], [2, 5], [4, 6], [5, 6], [6, 7], [7, 8], [7, 9]]
+    ]
+  ],
+  "_": { "f": "compact", "v": "1.0" }
+}
+

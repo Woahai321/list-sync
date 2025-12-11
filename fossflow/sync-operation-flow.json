@@ -1,0 +1,27 @@
+{
+  "t": "ListSync Sync Operation Flow",
+  "i": [
+    ["Sync Scheduler", "function", "Triggers sync at intervals"],
+    ["Load Config", "cache", "Read configuration settings"],
+    ["Init Providers", "api", "Prepare list fetchers"],
+    ["Fetch Lists", "cloud", "Get media from sources"],
+    ["Parse Media", "function", "Extract media items"],
+    ["Check Overseerr", "queue", "Query media status"],
+    ["Item Exists?", "security", "Decision gate"],
+    ["Request via API", "api", "Submit new request"],
+    ["Update Status", "storage", "Mark as existing"],
+    ["Record Result", "storage", "Save sync outcome"],
+    ["More Items?", "security", "Loop check"],
+    ["Send Notifications", "email", "Discord webhook alert"],
+    ["Update Database", "storage", "Persist changes"],
+    ["Sync Complete", "monitor", "Operation finished"]
+  ],
+  "v": [
+    [
+      [[0, -18, -8], [1, -12, -8], [2, -6, -8], [3, 0, -8], [4, 6, -8], [5, 12, -8], [6, 12, -2], [7, 6, 2], [8, 18, 2], [9, 12, 6], [10, 6, 6], [11, 0, 10], [12, 6, 10], [13, 12, 10]],
+      [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [6, 8], [7, 9], [8, 9], [9, 10], [10, 5], [10, 11], [11, 12], [12, 13]]
+    ]
+  ],
+  "_": { "f": "compact", "v": "1.0" }
+}
+

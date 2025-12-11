@@ -1,0 +1,37 @@
+80's Movies	https://trakt.tv/users/garycrawfordgc/lists/80-s-movies
+Action	https://trakt.tv/users/garycrawfordgc/lists/action
+Amazon Prime Movies	https://trakt.tv/users/garycrawfordgc/lists/amazon-prime-movies
+Amazon Prime Shows	https://trakt.tv/users/garycrawfordgc/lists/amazon-prime-shows
+BBC Shows	https://trakt.tv/users/garycrawfordgc/lists/bbc-shows
+Collaborations	https://trakt.tv/users/garycrawfordgc/lists/collaborations
+Comedy	https://trakt.tv/users/garycrawfordgc/lists/comedy
+Comedy Shows	https://trakt.tv/users/garycrawfordgc/lists/comedy-shows
+Crime	https://trakt.tv/users/garycrawfordgc/lists/crime
+Crime Shows	https://trakt.tv/users/garycrawfordgc/lists/crime-shows
+Disney+ Movies	https://trakt.tv/users/garycrawfordgc/lists/disney-movies
+Disney+ Shows	https://trakt.tv/users/garycrawfordgc/lists/disney-shows
+Drama	https://trakt.tv/users/garycrawfordgc/lists/drama
+Drama Shows	https://trakt.tv/users/garycrawfordgc/lists/drama-shows
+Gary recommends	https://trakt.tv/users/garycrawfordgc/lists/gary-recommends
+HBO Shows	https://trakt.tv/users/garycrawfordgc/lists/hbo-shows
+History	https://trakt.tv/users/garycrawfordgc/lists/history
+Horror	https://trakt.tv/users/garycrawfordgc/lists/horror
+Horror Shows	https://trakt.tv/users/garycrawfordgc/lists/horror-shows
+Hulu Movies	https://trakt.tv/users/garycrawfordgc/lists/hulu-movies
+Hulu Shows	https://trakt.tv/users/garycrawfordgc/lists/hulu-shows
+Latest Blu-ray Releases	https://trakt.tv/users/garycrawfordgc/lists/latest-blu-ray-releases
+Latest releases	https://trakt.tv/users/garycrawfordgc/lists/latest-releases
+Latest TV Shows	https://trakt.tv/users/garycrawfordgc/lists/latest-tv-shows
+Movies from the last decade [couchmoney.tv]	https://trakt.tv/users/garycrawfordgc/lists/movies-from-the-last-decade-couchmoney-tv
+Netflix Movies	https://trakt.tv/users/garycrawfordgc/lists/netflix-movies
+Netflix Shows	https://trakt.tv/users/garycrawfordgc/lists/netflix-shows
+Recommended Movies	https://trakt.tv/users/garycrawfordgc/lists/recommended-movies
+Sci-Fi	https://trakt.tv/users/garycrawfordgc/lists/sci-fi
+Sci-Fi Shows	https://trakt.tv/users/garycrawfordgc/lists/sci-fi-shows
+Thriller	https://trakt.tv/users/garycrawfordgc/lists/thriller
+Top Movies	https://trakt.tv/users/garycrawfordgc/lists/top-movies
+Top Movies of the week	https://trakt.tv/users/garycrawfordgc/lists/top-movies-of-the-week
+TV Recommendations [couchmoney.tv]	https://trakt.tv/users/garycrawfordgc/lists/tv-recommendations-couchmoney-tv
+UK Shows	https://trakt.tv/users/garycrawfordgc/lists/uk-shows
+Video Nasties	https://trakt.tv/users/garycrawfordgc/lists/video-nasties
+War	https://trakt.tv/users/garycrawfordgc/lists/war

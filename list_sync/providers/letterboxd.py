@@ -8,7 +8,7 @@ from typing import List, Dict, Any
 
 from seleniumbase import SB
 
-from . import register_provider
+from . import register_provider, check_and_raise_if_cancelled, SyncCancelledException
 
 
 def _determine_media_type(title: str) -> str:
@@ -87,6 +87,9 @@ def fetch_letterboxd_list(list_id: str) -> List[Dict[str, Any]]:
             page = 1
             next_page_url = None  # Track the next page URL
             while True:
+                # Check for cancellation at the start of each page
+                check_and_raise_if_cancelled()
+                
                 # Construct page URL - handle both first page and subsequent pages
                 if page == 1:
                     current_url = base_url
@@ -147,7 +150,11 @@ def fetch_letterboxd_list(list_id: str) -> List[Dict[str, Any]]:
                     logging.info(f"No items found on page {page}, ending pagination")
                     break
                 
-                for figure in figures:
+                for idx, figure in enumerate(figures):
+                    # Check for cancellation every 10 items
+                    if idx > 0 and idx % 10 == 0:
+                        check_and_raise_if_cancelled()
+                    
                     try:
                         # Extract data - different attributes for watchlist vs custom list
                         if is_watchlist:
@@ -249,6 +256,10 @@ def fetch_letterboxd_list(list_id: str) -> List[Dict[str, Any]]:
             
             logging.info(f"Letterboxd list fetched successfully. Found {len(media_items)} items across {page} pages.")
             return media_items
+    
+    except SyncCancelledException:
+        logging.warning(f"⚠️ Letterboxd list fetch cancelled by user - returning {len(media_items)} items fetched so far")
+        raise
         
     except Exception as e:
         logging.error(f"Error fetching Letterboxd list: {str(e)}")

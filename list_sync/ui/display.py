@@ -28,6 +28,7 @@ class SyncResults:
         }  # For #8
         self.total_items = 0
         self.synced_lists = []  # Track which lists were synced
+        self.cancelled = False  # Track if sync was cancelled
         self.results = {
             "requested": 0,
             "already_requested": 0,
@@ -111,7 +112,7 @@ def display_banner():
     """Display the application banner."""
     banner = """
 ==============================================================
-Soluify - {servarr-tools_list-sync_v0.6.5}
+Soluify - {servarr-tools_list-sync_v0.6.6}
 ==============================================================
 """
     print(color_gradient(banner, "#00aaff", "#00ffaa"))

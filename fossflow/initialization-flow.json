@@ -1,0 +1,18 @@
+{
+  "t": "ListSync Initialization Flow",
+  "i": [
+    ["Startup", "function", "Application launch"],
+    ["Ensure Data Dir", "storage", "Create data directory"],
+    ["Initialize Database", "storage", "Setup SQLite tables"],
+    ["Init Selenium Driver", "monitor", "Prepare Chrome WebDriver"],
+    ["Ready", "server", "System operational"]
+  ],
+  "v": [
+    [
+      [[0, -12, 0], [1, -6, 0], [2, 0, 0], [3, 6, 0], [4, 12, 0]],
+      [[0, 1], [1, 2], [2, 3], [3, 4]]
+    ]
+  ],
+  "_": { "f": "compact", "v": "1.0" }
+}
+
