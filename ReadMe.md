@@ -1,14 +1,16 @@
-# 🍿 ListSync - Bridge Your Watchlist & Media Server
+<div align="center">
 
 ![ListSync Logo](https://s.2ya.me/api/shares/Ou6EHcqD/files/6db8707a-037e-46ed-bbfe-bcf35ba2b31c)
-![GitHub last commit](https://img.shields.io/github/last-commit/woahai321/list-sync?style=for-the-badge&logo=github)
-![GitHub issues](https://img.shields.io/github/issues/woahai321/list-sync?style=for-the-badge&logo=github)
-![GitHub stars](https://img.shields.io/github/stars/woahai321/list-sync?style=for-the-badge&logo=github)
-![GitHub release](https://img.shields.io/github/v/release/woahai321/list-sync?style=for-the-badge&logo=github)
-![Docker](https://img.shields.io/badge/Docker-ready-blue?style=for-the-badge&logo=docker)
-![Python](https://img.shields.io/badge/Python-3.7%2B-blue?style=for-the-badge&logo=python)
-[![Website](https://img.shields.io/badge/Website-soluify.com-blue?style=for-the-badge&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABKElEQVQ4jZXTMUoDQRQG4C+7YmFhYSHYWFgIHkAQPICFhYcQBEEQxGNYWHgIC0H0BsELWFhYWAQLC2GzxSzsLrOz2f0hMDDvzXvfzLz3ZkopKKMxxrjHJc7wjjd0UgpfZRYVgbM4P2AevZzEHlZwiU5KYa8QmMUNtnCMh5TCqCR0jgF6eEQfq1jHFfbRxHFKYVQQWMQIZxjGehObeEUH7ZTCJCcYx2Ub99jGEEtYwDnWsIk2LlIK/ZzALK7RwlKsPWMppfAc/m+0UwrTnKCBHt7iZnlp5/GCVkrhKyd4wg5WYv6NTkrhNSdoRd0b2Cg0z0dOcIj9uHnePG/+t/k3wR/kyUNUdQE+UAAAAABJRU5ErkJgg==)](https://soluify.com/)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-blue?style=for-the-badge&logo=linkedin)](https://www.linkedin.com/company/soluify)
+![GitHub last commit](https://img.shields.io/github/last-commit/woahai321/list-sync?style=for-the-badge&color=8b5cf6&labelColor=6b21a8&logo=github&logoColor=white)
+![GitHub issues](https://img.shields.io/github/issues/woahai321/list-sync?style=for-the-badge&color=8b5cf6&labelColor=6b21a8&logo=github&logoColor=white)
+![GitHub stars](https://img.shields.io/github/stars/woahai321/list-sync?style=for-the-badge&color=8b5cf6&labelColor=6b21a8&logo=github&logoColor=white)
+![GitHub release](https://img.shields.io/github/v/release/woahai321/list-sync?style=for-the-badge&color=8b5cf6&labelColor=6b21a8&logo=github&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Ready-8b5cf6?style=for-the-badge&labelColor=6b21a8&logo=docker&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.7%2B-8b5cf6?style=for-the-badge&labelColor=6b21a8&logo=python&logoColor=white)
+[![Website](https://img.shields.io/badge/Website-soluify.com-8b5cf6?style=for-the-badge&labelColor=6b21a8&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABKElEQVQ4jZXTMUoDQRQG4C+7YmFhYSHYWFgIHkAQPICFhYcQBEEQxGNYWHgIC0H0BsELWFhYWAQLC2GzxSzsLrOz2f0hMDDvzXvfzLz3ZkopKKMxxrjHJc7wjjd0UgpfZRYVgbM4P2AevZzEHlZwiU5KYa8QmMUNtnCMh5TCqCR0jgF6eEQfq1jHFfbRxHFKYVQQWMQIZxjGehObeEUH7ZTCJCcYx2Ub99jGEEtYwDnWsIk2LlIK/ZzALK7RwlKsPWMppfAc/m+0UwrTnKCBHt7iZnlp5/GCVkrhKyd4wg5WYv6NTkrhNSdoRd0b2Cg0z0dOcIj9uHnePG/+t/k3wR/kyUNUdQE+UAAAAABJRU5ErkJgg==)](https://soluify.com/)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Follow-8b5cf6?style=for-the-badge&labelColor=6b21a8&logo=linkedin)](https://www.linkedin.com/company/soluify)
+
+</div>
 
 ---
 
@@ -26,38 +28,46 @@ ListSync automatically syncs your watchlists from IMDb, Trakt and many more with
 
 ---
 
-## 🍿 Currently in Development for v0.7.0
+## 🍿 Modern Web Dashboard
 
-For the most stable experience, use the source code from the latest release [here](https://github.com/Woahai321/list-sync/releases).
+ListSync includes a **web dashboard** built with Nuxt 3 and Vue 3, providing an interface to manage all your sync operations without touching config files.
+
+<div align="center">
+  <img src="https://s.2ya.me/api/shares/7efcbyD3/files/312d01e4-ff3d-4a96-839d-dfd4f5d40797" alt="ListSync Web Dashboard" width="100%" style="border-radius: 10px; border: 1px solid #8b5cf6;">
+</div>
+
+<details>
+<summary><strong>📸 View More Screenshots</strong></summary>
+
+### Setup Wizard
+Access the dashboard at `http://localhost:3222` and complete the setup wizard to connect your media server and watchlists.
+
+<div align="center">
+  <img src="https://s.2ya.me/api/shares/7efcbyD3/files/2e49f9cb-0d3c-4c3d-90d5-0af1107a7a77" alt="Dashboard Setup Wizard" width="100%" style="border-radius: 10px; border: 1px solid #8b5cf6;">
+  <p><em>Easy-to-use setup wizard for first-time configuration.</em></p>
+</div>
+
+### Collections
+ListSync now supports browsing and syncing entire movie franchises.
+
+<div align="center">
+  <img src="https://s.2ya.me/api/shares/7efcbyD3/files/86e4a372-ddc2-4a13-8d22-b55f587f803c" alt="Collections Sync Feature" width="100%" style="border-radius: 10px; border: 1px solid #8b5cf6;">
+  <p><em>Sync full collections with a single click.</em></p>
+</div>
+
+</details>
 
 ---
 
 ## 🍿 Quick Start
 
-**No configuration needed!** Just run this command to start the container and use the setup wizard:
+**No configuration files needed!** Just run the container and open your browser.
 
 ```bash
-docker run -d --name listsync-full -p 3222:3222 -p 4222:4222 -v listsync-data:/usr/src/app/data ghcr.io/woahai321/list-sync:main
+docker run -d --name listsync -p 3222:3222 -p 4222:4222 -v listsync-data:/usr/src/app/data ghcr.io/woahai321/list-sync:main
 ```
 
-Access the dashboard at `http://localhost:3222` and complete the setup wizard to connect your media server and watchlists.
-
-![Dashboard Setup Wizard](https://s.2ya.me/api/shares/7efcbyD3/files/2e49f9cb-0d3c-4c3d-90d5-0af1107a7a77)
----
-
-## 🍿 Modern Web Dashboard
-
-ListSync includes a **web dashboard** built with Nuxt 3 and Vue 3, providing an interface to manage all your sync operations.
-
-![ListSync Web Dashboard](https://s.2ya.me/api/shares/7efcbyD3/files/312d01e4-ff3d-4a96-839d-dfd4f5d40797)
-
----
-
-## 🍿 Collections
-
-ListSync now supports browsing and syncing entire movie franchises.
-
-![Collections Sync Feature](https://s.2ya.me/api/shares/7efcbyD3/files/86e4a372-ddc2-4a13-8d22-b55f587f803c)
+> **That's it!** Now go to [http://localhost:3222](http://localhost:3222) to finish setup.
 
 ---
 
@@ -85,7 +95,7 @@ docker-compose -f docker-compose.local.yml up -d --build
 - API Docs: `http://localhost:4222/docs`
 - Health: `http://localhost:4222/api/system/health`
 
-All 3 services (Core Sync, FastAPI Backend, Nuxt Frontend) run in a single container managed by supervisor.
+> All 3 services (Core Sync, FastAPI Backend, Nuxt Frontend) run in a single container managed by supervisor.
 
 </details>
 
@@ -117,6 +127,56 @@ docker-compose -f docker-compose.core.yml up -d
 docker-compose -f docker-compose.core.yml logs -f
 
 ```
+
+</details>
+
+<details>
+<summary>🍿 <strong>Option 3: Running ListSync Locally (Without Docker)</strong></summary>
+
+### **Prerequisites**
+- Python 3.9+, Node.js 18+, Chrome/Chromium, Git
+
+### **Setup**
+
+```bash
+# Clone and install dependencies
+git clone https://github.com/Woahai321/list-sync.git && cd list-sync
+pip install -r requirements.txt -r api_requirements.txt
+cd listsync-nuxt && npm install && cd ..
+```
+
+### **Configuration**
+
+Create `.env` file with:
+```bash
+OVERSEERR_URL=http://your-overseerr:5055
+OVERSEERR_API_KEY=your-api-key-here
+IMDB_LISTS=top
+```
+
+### **Start All Services**
+
+Run these commands in **3 separate terminals**:
+
+**Terminal 1 - Core Sync Service:**
+```bash
+python -m list_sync
+```
+
+**Terminal 2 - FastAPI Backend:**
+```bash
+python start_api.py
+```
+
+**Terminal 3 - Nuxt Frontend:**
+```bash
+cd listsync-nuxt && npm run dev
+```
+
+**Access:**
+- Dashboard: `http://localhost:3222`
+- API Docs: `http://localhost:4222/docs`
+- Health: `http://localhost:4222/api/system/health`
 
 </details>
 
@@ -418,15 +478,56 @@ STEVENLU_LISTS=stevenlu   # Steven Lu popular movies
 
 ### **One-Click Presets**
 
-The **Add List** wizard in the dashboard comes with dozens of built-in presets. Just select and sync!
+The **Add List** wizard includes over 50+ curated presets. Just select and sync.
 
-| Provider | Category | Popular Examples (Click to Preview) |
-|----------|----------|-------------------------------------|
-| **IMDb** | Charts | [Top 250](https://www.imdb.com/chart/top), [Box Office](https://www.imdb.com/chart/boxoffice) |
-| **Trakt** | Trending | [Trending Movies](https://trakt.tv/movies/trending), [Anticipated Shows](https://trakt.tv/shows/anticipated) |
-| **Letterboxd** | Top Rated | [Top 250 Narrative](https://letterboxd.com/dave/list/official-top-250-narrative-feature-films/) |
-| **MDBList** | Streaming | [Netflix Movies](https://mdblist.com/lists/garycrawfordgc/netflix-movies), [Disney+](https://mdblist.com/lists/garycrawfordgc/disney-movies) |
-| **Steven Lu** | Popular | [Popular Movies](https://movies.stevenlu.com/) |
+#### **1. 📊 IMDb**
+| Category | Presets (Click to Preview) |
+| :--- | :--- |
+| **Charts** | [Top 250](https://www.imdb.com/chart/top/), [Box Office](https://www.imdb.com/chart/boxoffice/), [MovieMeter](https://www.imdb.com/chart/moviemeter/), [TVMeter](https://www.imdb.com/chart/tvmeter/) |
+| **Festivals** | [London Film Festival 2025](https://www.imdb.com/list/ls4155557236/), [Sundance 2025](https://www.imdb.com/list/ls595865777/) |
+
+#### **2. 📈 Trakt**
+| Category | Presets (Click to Preview) |
+| :--- | :--- |
+| **Streaming (Movies)** | [Netflix](https://trakt.tv/users/garycrawfordgc/lists/netflix-movies), [Amazon Prime](https://trakt.tv/users/garycrawfordgc/lists/amazon-prime-movies), [Disney+](https://trakt.tv/users/garycrawfordgc/lists/disney-movies), [Hulu](https://trakt.tv/users/garycrawfordgc/lists/hulu-movies) |
+| **Streaming (Shows)** | [Netflix](https://trakt.tv/users/garycrawfordgc/lists/netflix-shows), [Amazon Prime](https://trakt.tv/users/garycrawfordgc/lists/amazon-prime-shows), [Disney+](https://trakt.tv/users/garycrawfordgc/lists/disney-shows), [Hulu](https://trakt.tv/users/garycrawfordgc/lists/hulu-shows), [HBO](https://trakt.tv/users/garycrawfordgc/lists/hbo-shows), [BBC](https://trakt.tv/users/garycrawfordgc/lists/bbc-shows) |
+| **Genres (Movies)** | [Action](https://trakt.tv/users/garycrawfordgc/lists/action), [Comedy](https://trakt.tv/users/garycrawfordgc/lists/comedy), [Crime](https://trakt.tv/users/garycrawfordgc/lists/crime), [Drama](https://trakt.tv/users/garycrawfordgc/lists/drama), [Horror](https://trakt.tv/users/garycrawfordgc/lists/horror), [Sci-Fi](https://trakt.tv/users/garycrawfordgc/lists/sci-fi), [Thriller](https://trakt.tv/users/garycrawfordgc/lists/thriller), [History](https://trakt.tv/users/garycrawfordgc/lists/history), [War](https://trakt.tv/users/garycrawfordgc/lists/war), [80's Movies](https://trakt.tv/users/garycrawfordgc/lists/80-s-movies) |
+| **Genres (Shows)** | [Comedy](https://trakt.tv/users/garycrawfordgc/lists/comedy-shows), [Crime](https://trakt.tv/users/garycrawfordgc/lists/crime-shows), [Drama](https://trakt.tv/users/garycrawfordgc/lists/drama-shows), [Horror](https://trakt.tv/users/garycrawfordgc/lists/horror-shows), [Sci-Fi](https://trakt.tv/users/garycrawfordgc/lists/sci-fi-shows) |
+| **Popular & Latest** | [Top Movies](https://trakt.tv/users/garycrawfordgc/lists/top-movies), [Top Movies of the Week](https://trakt.tv/users/garycrawfordgc/lists/top-movies-of-the-week), [Latest Releases](https://trakt.tv/users/garycrawfordgc/lists/latest-releases), [Latest Blu-ray Releases](https://trakt.tv/users/garycrawfordgc/lists/latest-blu-ray-releases), [Latest TV Shows](https://trakt.tv/users/garycrawfordgc/lists/latest-tv-shows) |
+| **Recommendations** | [Gary Recommends](https://trakt.tv/users/garycrawfordgc/lists/gary-recommends), [Recommended Movies](https://trakt.tv/users/garycrawfordgc/lists/recommended-movies), [Movies from the Last Decade](https://trakt.tv/users/garycrawfordgc/lists/movies-from-the-last-decade-couchmoney-tv), [TV Recommendations](https://trakt.tv/users/garycrawfordgc/lists/tv-recommendations-couchmoney-tv) |
+| **Regional/Other** | [UK Shows](https://trakt.tv/users/garycrawfordgc/lists/uk-shows), [Video Nasties](https://trakt.tv/users/garycrawfordgc/lists/video-nasties), [Collaborations](https://trakt.tv/users/garycrawfordgc/lists/collaborations) |
+
+#### **3. ⚡ Trakt Special**
+| Category | Presets (Click to Preview) |
+| :--- | :--- |
+| **Movies** | [Trending](https://trakt.tv/movies/trending), [Popular](https://trakt.tv/movies/popular), [Anticipated](https://trakt.tv/movies/anticipated), [Most Watched](https://trakt.tv/movies/watched), [Box Office](https://trakt.tv/movies/boxoffice) |
+| **TV Shows** | [Trending](https://trakt.tv/shows/trending), [Popular](https://trakt.tv/shows/popular), [Anticipated](https://trakt.tv/shows/anticipated), [Most Watched](https://trakt.tv/shows/watched) |
+
+#### **4. 🎬 Letterboxd**
+| Category | Presets (Click to Preview) |
+| :--- | :--- |
+| **Top Rated** | [Top 250 Narrative](https://letterboxd.com/dave/list/official-top-250-narrative-feature-films/), [Top 250 Most Fans](https://letterboxd.com/jack/list/official-top-250-films-with-the-most-fans/), [1001 Must See Movies](https://letterboxd.com/peterstanley/list/1001-movies-you-must-see-before-you-die/) |
+| **Curated** | [Movies to Watch Once](https://letterboxd.com/fcbarcelona/list/movies-everyone-should-watch-at-least-once/), [Feel Something](https://letterboxd.com/ellefnning/list/for-when-you-want-to-feel-something/) |
+
+#### **5. 🌐 MDBList**
+| Category | Presets (Click to Preview) |
+| :--- | :--- |
+| **Streaming** | [Netflix Movies](https://mdblist.com/lists/garycrawfordgc/netflix-movies), [Amazon Prime Movies](https://mdblist.com/lists/garycrawfordgc/amazon-prime-movies), [Disney+ Movies](https://mdblist.com/lists/garycrawfordgc/disney-movies), [Netflix Shows](https://mdblist.com/lists/garycrawfordgc/netflix-shows), [HBO Shows](https://mdblist.com/lists/garycrawfordgc/hbo-shows) |
+| **Popular** | [Top Watched This Week](https://mdblist.com/lists/linaspurinis/top-watched-movies-of-the-week) |
+
+#### **6. 🍅 Steven Lu**
+| Category | Presets (Click to Preview) |
+| :--- | :--- |
+| **Collections** | [All Movies (Unfiltered)](https://movies.stevenlu.com/all-movies.json), [Original Collection](https://movies.stevenlu.com/) |
+| **Metacritic** | [Min 50](https://movies.stevenlu.com/movies-metacritic-min50.json), [Min 60](https://movies.stevenlu.com/movies-metacritic-min60.json), [Min 70](https://movies.stevenlu.com/movies-metacritic-min70.json), [Min 80](https://movies.stevenlu.com/movies-metacritic-min80.json) |
+| **IMDb** | [Min 5.0](https://movies.stevenlu.com/movies-imdb-min5.json), [Min 6.0](https://movies.stevenlu.com/movies-imdb-min6.json), [Min 7.0](https://movies.stevenlu.com/movies-imdb-min7.json), [Min 8.0](https://movies.stevenlu.com/movies-imdb-min8.json) |
+| **Rotten Tomatoes** | [Min 50](https://movies.stevenlu.com/movies-rottentomatoes-min50.json), [Min 60](https://movies.stevenlu.com/movies-rottentomatoes-min60.json), [Min 70](https://movies.stevenlu.com/movies-rottentomatoes-min70.json), [Min 80](https://movies.stevenlu.com/movies-rottentomatoes-min80.json) |
+
+#### **7. 🎭 TMDB**
+| Category | Presets (Click to Preview) |
+| :--- | :--- |
+| **Charts** | [Top 250 IMDB](https://www.themoviedb.org/list/634), [IMDB 50 Most Popular](https://www.themoviedb.org/list/6709), [Top 10 Movies](https://www.themoviedb.org/list/8285446) |
+| **Box Office** | [All Time Box Office](https://www.themoviedb.org/list/9024) |
 
 </details>
 
@@ -499,58 +600,6 @@ environment:
 > **Tip**: Use **IANA timezone names** for production deployments as they automatically handle Daylight Saving Time (DST) transitions!
 
 </details>
-</details>
-
-## 🍿 Local Development Setup
-
-<details>
-<summary>🍿 <strong>Running ListSync Locally (Without Docker)</strong></summary>
-
-### **Prerequisites**
-- Python 3.9+, Node.js 18+, Chrome/Chromium, Git
-
-### **Setup**
-
-```bash
-# Clone and install dependencies
-git clone https://github.com/Woahai321/list-sync.git && cd list-sync
-pip install -r requirements.txt -r api_requirements.txt
-cd listsync-nuxt && npm install && cd ..
-```
-
-### **Configuration**
-
-Create `.env` file with:
-```bash
-OVERSEERR_URL=http://your-overseerr:5055
-OVERSEERR_API_KEY=your-api-key-here
-IMDB_LISTS=top
-```
-
-### **Start All Services**
-
-Run these commands in **3 separate terminals**:
-
-**Terminal 1 - Core Sync Service:**
-```bash
-python -m list_sync
-```
-
-**Terminal 2 - FastAPI Backend:**
-```bash
-python start_api.py
-```
-
-**Terminal 3 - Nuxt Frontend:**
-```bash
-cd listsync-nuxt && npm run dev
-```
-
-**Access:**
-- Dashboard: `http://localhost:3222`
-- API Docs: `http://localhost:4222/docs`
-- Health: `http://localhost:4222/api/system/health`
-
 </details>
 
 ---
