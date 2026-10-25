@@ -2210,7 +2210,7 @@ async def test_trakt_client_id(data: dict):
         
         # Check if it contains only valid hex characters (0-9, a-f)
         # Trakt Client IDs are typically lowercase hex strings
-        if not re.match(r'^[a-f0-9]+$', trakt_client_id.lower()):
+        if not re.match(r'^[A-Za-f0-9_-]+$', trakt_client_id.lower()):
             return {
                 "valid": False,
                 "error": "Invalid Trakt Client ID format. Client ID should contain only hexadecimal characters (0-9, a-f)."
@@ -2451,7 +2451,7 @@ async def save_step2_configuration(data: dict):
             if len(trakt_client_id) < 16:
                 errors['trakt_client_id'] = 'Invalid Trakt Client ID format. Client ID is too short (minimum 16 characters).'
                 logging.error("Trakt Client ID validation failed: Too short")
-            elif not re.match(r'^[a-f0-9]+$', trakt_client_id.lower()):
+            elif not re.match(r'^[A-Za-f0-9_-]+$', trakt_client_id.lower()):
                 errors['trakt_client_id'] = 'Invalid Trakt Client ID format. Client ID should contain only hexadecimal characters (0-9, a-f).'
                 logging.error("Trakt Client ID validation failed: Invalid format")
             else:
